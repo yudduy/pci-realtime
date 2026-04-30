@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Local secrets and env
+.env
+.env.*
+!.env.example
+
+# Data outputs
+data/raw/**/*.parquet
+data/processed/**/*.parquet
+data/cache/**/*.json
+data/cache/**/*.csv
+
+# OS / editor
+.DS_Store
+.idea/

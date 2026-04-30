@@ -1,0 +1,12 @@
+document_number,expected_provision,query_term,start_date,end_date,title_contains
+2023-27498,45X,section 45X,2023-12-01,2023-12-31,Section 45X Advanced Manufacturing Production Credit
+2024-24840,45X,advanced manufacturing production credit,2024-10-01,2024-10-31,Advanced Manufacturing Production Credit
+2023-28359,45V,clean hydrogen production credit,2023-12-01,2023-12-31,Section 45V Credit for Production of Clean Hydrogen
+2024-04304,45V,clean hydrogen production credit,2024-03-01,2024-03-31,Section 45V Credit for Production of Clean Hydrogen
+2024-07644,45V,clean hydrogen production credit,2024-04-01,2024-04-30,Section 45V Credit for Production of Clean Hydrogen
+2023-06822,30D,clean vehicle credit,2023-04-01,2023-04-30,Section 30D New Clean Vehicle Credit
+2023-22353,30D,clean vehicle credit,2023-10-01,2023-10-31,Transfer of Clean Vehicle Credits
+2024-09094,30D,clean vehicle credit,2024-05-01,2024-05-31,Clean Vehicle Credits Under Sections 25E and 30D
+2023-12798,45Q,section 6417 elective payment of applicable credits,2023-06-01,2023-06-30,Section 6417 Elective Payment of Applicable Credits
+2023-12799,45Q,section 6418 transfer of certain credits,2023-06-01,2023-06-30,Section 6418 Transfer of Certain Credits
+2023-11104,50144,energy infrastructure reinvestment,2023-05-01,2023-05-31,Loan Guarantees for Clean Energy Projects
