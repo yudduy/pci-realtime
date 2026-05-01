@@ -20,8 +20,18 @@ BASELINE_PCI = {
     "45V": {"specificity": 5.0, "durability": 4.0, "enforceability": 4.0, "pci": 4.33},
     "45Q": {"specificity": 5.0, "durability": 4.0, "enforceability": 4.0, "pci": 4.33},
     "30D": {"specificity": 4.0, "durability": 4.0, "enforceability": 4.0, "pci": 4.00},
-    "50144": {"specificity": 4.0, "durability": 3.0, "enforceability": 3.0, "pci": 3.33},
-    "50141": {"specificity": 3.0, "durability": 3.0, "enforceability": 3.0, "pci": 3.00},
+    "50144": {
+        "specificity": 4.0,
+        "durability": 3.0,
+        "enforceability": 3.0,
+        "pci": 3.33,
+    },
+    "50141": {
+        "specificity": 3.0,
+        "durability": 3.0,
+        "enforceability": 3.0,
+        "pci": 3.00,
+    },
 }
 
 

@@ -37,7 +37,13 @@ def parse_date(value: str) -> date:
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
-def build_query_params(term: str, start_date: date, end_date: date, page: int = 1, per_page: Optional[int] = None) -> dict:
+def build_query_params(
+    term: str,
+    start_date: date,
+    end_date: date,
+    page: int = 1,
+    per_page: Optional[int] = None,
+) -> dict:
     per_page = per_page or FEDERAL_REGISTER_CONFIG.default_per_page
     return {
         "conditions[term]": term,
@@ -65,7 +71,9 @@ def query_documents_for_term(
     all_results: list[dict] = []
 
     for page in range(1, FEDERAL_REGISTER_CONFIG.max_pages + 1):
-        params = build_query_params(term=term, start_date=start_date, end_date=end_date, page=page)
+        params = build_query_params(
+            term=term, start_date=start_date, end_date=end_date, page=page
+        )
         try:
             response = session.get(
                 FEDERAL_REGISTER_CONFIG.base_url,
@@ -129,7 +137,9 @@ def clean_text_from_html(html: str) -> str:
     return " ".join(text.split())
 
 
-def fetch_document_body(html_url: str, session: Optional[requests.Session] = None) -> str:
+def fetch_document_body(
+    html_url: str, session: Optional[requests.Session] = None
+) -> str:
     if not html_url:
         return ""
 
@@ -148,7 +158,9 @@ def infer_provisions_from_text(text: str) -> list[str]:
     return sorted(set(matched))
 
 
-def normalize_document(raw_doc: dict, fetch_bodies: bool = True, session: Optional[requests.Session] = None) -> dict:
+def normalize_document(
+    raw_doc: dict, fetch_bodies: bool = True, session: Optional[requests.Session] = None
+) -> dict:
     title = raw_doc.get("title") or ""
     abstract = raw_doc.get("abstract") or ""
     excerpts = raw_doc.get("excerpts") or ""
@@ -191,7 +203,11 @@ def collect_documents(
 
     raw_docs: list[dict] = []
     for term in terms:
-        raw_docs.extend(query_documents_for_term(term=term, start_date=start_date, end_date=end_date, session=session))
+        raw_docs.extend(
+            query_documents_for_term(
+                term=term, start_date=start_date, end_date=end_date, session=session
+            )
+        )
 
     # Dedupe on document number while preserving all query terms that found the document.
     by_doc_id: dict[str, dict] = {}
@@ -211,7 +227,9 @@ def collect_documents(
     for raw_doc in by_doc_id.values():
         if not is_allowed_agency(raw_doc):
             continue
-        normalized = normalize_document(raw_doc, fetch_bodies=fetch_bodies, session=session)
+        normalized = normalize_document(
+            raw_doc, fetch_bodies=fetch_bodies, session=session
+        )
         query_terms = sorted(raw_doc.get("_query_terms", set()))
         normalized["query_term"] = " | ".join(query_terms)
         if normalized["provisions_mentioned"]:
@@ -235,7 +253,11 @@ def collect_documents(
             ]
         )
 
-    df = pd.DataFrame(normalized_rows).sort_values(["date", "doc_id"]).reset_index(drop=True)
+    df = (
+        pd.DataFrame(normalized_rows)
+        .sort_values(["date", "doc_id"])
+        .reset_index(drop=True)
+    )
     return df
 
 
@@ -250,17 +272,31 @@ def save_week_parquet(df: pd.DataFrame, output_dir: Path, window: IngestWindow) 
     return path
 
 
-def run_window(start_date: date, end_date: date, output_dir: Path, fetch_bodies: bool = True) -> Path:
+def run_window(
+    start_date: date, end_date: date, output_dir: Path, fetch_bodies: bool = True
+) -> Path:
     window = IngestWindow(start_date=start_date, end_date=end_date)
-    df = collect_documents(start_date=start_date, end_date=end_date, fetch_bodies=fetch_bodies)
+    df = collect_documents(
+        start_date=start_date, end_date=end_date, fetch_bodies=fetch_bodies
+    )
     return save_week_parquet(df=df, output_dir=output_dir, window=window)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Fetch Federal Register documents for the PCI monitor.")
-    parser.add_argument("--start-date", required=True, help="Inclusive start date in YYYY-MM-DD format.")
-    parser.add_argument("--end-date", required=True, help="Inclusive end date in YYYY-MM-DD format.")
-    parser.add_argument("--output-dir", required=True, help="Directory where the weekly parquet will be written.")
+    parser = argparse.ArgumentParser(
+        description="Fetch Federal Register documents for the PCI monitor."
+    )
+    parser.add_argument(
+        "--start-date", required=True, help="Inclusive start date in YYYY-MM-DD format."
+    )
+    parser.add_argument(
+        "--end-date", required=True, help="Inclusive end date in YYYY-MM-DD format."
+    )
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Directory where the weekly parquet will be written.",
+    )
     parser.add_argument(
         "--skip-bodies",
         action="store_true",
