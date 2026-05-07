@@ -40,7 +40,12 @@ def test_is_allowed_agency_rejects_unrelated_agencies() -> None:
 
 
 def test_known_documents_are_captured_from_federal_register() -> None:
-    fixture_path = Path(__file__).resolve().parents[1] / "data" / "fixtures" / "federal_register_known_documents.csv"
+    fixture_path = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "fixtures"
+        / "federal_register_known_documents.csv"
+    )
     fixture = pd.read_csv(fixture_path)
 
     for row in fixture.itertuples(index=False):
@@ -50,7 +55,9 @@ def test_known_documents_are_captured_from_federal_register() -> None:
             end_date=parse_date(row.end_date),
         )
         captured = {doc.get("document_number"): doc for doc in results}
-        assert row.document_number in captured, f"Did not capture {row.document_number} for query term {row.query_term!r}"
+        assert row.document_number in captured, (
+            f"Did not capture {row.document_number} for query term {row.query_term!r}"
+        )
 
         title = captured[row.document_number].get("title", "")
         assert row.title_contains.lower() in title.lower()
