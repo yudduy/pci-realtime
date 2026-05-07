@@ -101,7 +101,7 @@ Either Austin or Duy can change a column ONLY via PR with both as reviewers and 
 |---|---|---|---|
 | 0 — Scoring spec | ✅ done | Duy | `docs/phase0_scoring_spec.md` |
 | 1 — Federal Register ingestion | ✅ done (POC week) | Duy | `src/pci_realtime/ingest/federal_register.py` |
-| 1 ext — Treasury / Congress / OMB ingestors | 🚧 starting | Austin | `src/pci_realtime/ingest/{base,treasury,congress,omb}.py` |
+| 1 ext — Treasury / Congress / OMB ingestors | ✅ done (scaffold) | Austin | `src/pci_realtime/ingest/{base,treasury,congress,omb}.py` |
 | 2 — LLM scoring + calibration | 🚧 starting | Duy | `src/pci_realtime/scoring/`, `docs/calibration_report.md` |
 | 3 — Time series builder | ⏳ Week 4 | Austin | `src/pci_realtime/pci/builder.py` |
 | 4 — Validation analysis | ⏳ Week 6 | Duy | `src/pci_realtime/pci/validation.py`, `docs/validation_memo.md` |

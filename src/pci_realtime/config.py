@@ -121,3 +121,26 @@ class FederalRegisterConfig:
 
 
 FEDERAL_REGISTER_CONFIG = FederalRegisterConfig()
+
+
+REQUEST_TIMEOUT_SECONDS = 30
+
+
+TREASURY_GUIDANCE_PAGES = {
+    "treasury": [
+        "https://home.treasury.gov/policy-issues/inflation-reduction-act",
+        "https://home.treasury.gov/news/press-releases",
+    ],
+    "irs": [
+        "https://www.irs.gov/credits-deductions/inflation-reduction-act-of-2022",
+        "https://www.irs.gov/newsroom/tax-provisions-in-the-inflation-reduction-act",
+    ],
+}
+
+
+PROPUBLICA_CONGRESS_API_URL = "https://api.propublica.org/congress/v1"
+
+
+OMB_MEMO_PAGES = [
+    "https://www.whitehouse.gov/omb/information-for-agencies/memoranda/",
+]
