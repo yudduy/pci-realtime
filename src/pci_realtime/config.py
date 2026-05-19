@@ -15,6 +15,14 @@ CACHE_ROOT = DATA_ROOT / "cache"
 TRACKED_PROVISIONS = ("45X", "45V", "45Q", "30D", "50144", "50141")
 
 
+OPENAI_SCREENING_MODEL = "gpt-4.1-mini"
+OPENAI_SCORING_MODEL = "gpt-4.1"
+SCORING_TEMPERATURE = 0.3
+SCORING_SCHEMA_VERSION = "schema-b-v1.0.0"
+SCORING_ESTIMATED_COST_PER_CALL_USD = 0.10
+SCORING_RUN_COST_CEILING_USD = 50.0
+
+
 BASELINE_PCI = {
     "45X": {"specificity": 5.0, "durability": 4.0, "enforceability": 5.0, "pci": 4.67},
     "45V": {"specificity": 5.0, "durability": 4.0, "enforceability": 4.0, "pci": 4.33},

@@ -51,3 +51,9 @@ calibration error to fix before Duy uses this for RMSE.
 | `notes` | `string` | Free-text rationale and any TODOs |
 | `scored_by` | `string` | `starter` (this file's seed), `austin`, or `yikai` |
 | `verified` | `bool` | `TRUE` once the row has been cross-checked against upstream |
+
+## `scored_2024-W44_fixture.csv` (Duy synthetic Schema B handoff)
+
+Small synthetic scored-delta fixture for Austin's `pci/builder.py` work.
+The rows follow Schema B from `docs/interfaces.md` but are not live LLM
+outputs and should not be used for calibration or paper results.

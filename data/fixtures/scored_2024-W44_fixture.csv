@@ -1,0 +1,5 @@
+doc_id,provision,specificity_delta,durability_delta,enforceability_delta,rationale,confidence,model,prompt_version,temperature,scored_at,cached,cost_usd
+federal_register:2024-24840,45X,0.5,0.0,0.4,Synthetic fixture: final 45X guidance clarifies eligible components and procedures.,0.92,gpt-4.1,scoring-v1.0.0,0.3,2026-05-19T12:00:00Z,false,0.10
+federal_register:2024-09094,30D,0.4,0.0,0.3,Synthetic fixture: clean vehicle final rules increase specificity and implementation clarity.,0.88,gpt-4.1,scoring-v1.0.0,0.3,2026-05-19T12:00:00Z,false,0.10
+treasury:guidance-45v-final,45V,0.2,0.0,0.3,Synthetic fixture: hydrogen guidance preserves durability while clarifying enforcement steps.,0.84,gpt-4.1,scoring-v1.0.0,0.3,2026-05-19T12:00:00Z,true,0.00
+omb:memos-ira-lpo,50144,-0.2,-0.4,-0.6,Synthetic fixture: implementation memo adds administrative uncertainty for LPO deployment.,0.80,gpt-4.1,scoring-v1.0.0,0.3,2026-05-19T12:00:00Z,false,0.10
