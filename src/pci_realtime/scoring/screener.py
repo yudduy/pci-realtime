@@ -55,6 +55,7 @@ class ScreeningResult:
     temperature: float
     cached: bool
     cost_usd: float
+    raw_response: str = ""
 
     @property
     def relevant(self) -> bool:
@@ -156,6 +157,7 @@ def parse_screening_payload(
     temperature: float,
     cached: bool,
     cost_usd: float,
+    raw_response: str = "",
 ) -> ScreeningResult:
     status = str(payload.get("status", ""))
     if status not in SCREENING_STATUSES:
@@ -188,6 +190,7 @@ def parse_screening_payload(
         temperature=temperature,
         cached=cached,
         cost_usd=cost_usd,
+        raw_response=raw_response,
     )
 
 
@@ -237,6 +240,7 @@ class DocumentScreener:
                 temperature=self.temperature,
                 cached=True,
                 cost_usd=0.0,
+                raw_response=cached.raw_response,
             )
 
         response = self.client.create_json(
@@ -255,4 +259,5 @@ class DocumentScreener:
             temperature=self.temperature,
             cached=False,
             cost_usd=response.cost_usd,
+            raw_response=response.raw_response,
         )

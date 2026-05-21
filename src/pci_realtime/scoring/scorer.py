@@ -28,7 +28,9 @@ from pci_realtime.scoring.prompts import (
     SCORING_JSON_SCHEMA,
     SCORING_PROMPT_VERSION,
     SCORING_SYSTEM_PROMPT,
+    SCREENING_SYSTEM_PROMPT,
     build_scoring_user_prompt,
+    build_screening_user_prompt,
 )
 from pci_realtime.scoring.screener import (
     DocumentScreener,
@@ -71,6 +73,7 @@ class ScoringResult:
     scored_at: pd.Timestamp
     cached: bool
     cost_usd: float
+    raw_response: str = ""
 
     def to_row(self) -> dict[str, Any]:
         return {
@@ -109,6 +112,7 @@ def parse_scoring_payload(
     cached: bool,
     cost_usd: float,
     scored_at: pd.Timestamp | None = None,
+    raw_response: str = "",
 ) -> ScoringResult:
     provision = str(payload.get("provision", ""))
     if provision != expected_provision:
@@ -143,6 +147,7 @@ def parse_scoring_payload(
         scored_at=scored_at or pd.Timestamp.now(tz="UTC"),
         cached=cached,
         cost_usd=cost_usd,
+        raw_response=raw_response,
     )
 
 
@@ -254,6 +259,7 @@ class DocumentScorer:
                 temperature=self.temperature,
                 cached=True,
                 cost_usd=0.0,
+                raw_response=cached.raw_response,
             )
 
         response = self.client.create_json(
@@ -274,6 +280,7 @@ class DocumentScorer:
             temperature=self.temperature,
             cached=False,
             cost_usd=response.cost_usd,
+            raw_response=response.raw_response,
         )
 
 
@@ -367,8 +374,13 @@ def run_week(
                 "doc_id": document["doc_id"],
                 "model": screening.model,
                 "prompt_version": screening.prompt_version,
+                "temperature": screening.temperature,
+                "system_prompt": SCREENING_SYSTEM_PROMPT,
+                "user_prompt": build_screening_user_prompt(document),
+                "raw_response": screening.raw_response,
                 "cached": screening.cached,
                 "cost_usd": screening.cost_usd,
+                "logged_at": pd.Timestamp.now(tz="UTC"),
             }
         )
         if not screening.relevant:
@@ -383,8 +395,13 @@ def run_week(
                     "provision": result.provision,
                     "model": result.model,
                     "prompt_version": result.prompt_version,
+                    "temperature": result.temperature,
+                    "system_prompt": SCORING_SYSTEM_PROMPT,
+                    "user_prompt": build_scoring_user_prompt(document, result.provision),
+                    "raw_response": result.raw_response,
                     "cached": result.cached,
                     "cost_usd": result.cost_usd,
+                    "logged_at": pd.Timestamp.now(tz="UTC"),
                 }
             )
 
