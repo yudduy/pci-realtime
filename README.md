@@ -2,7 +2,7 @@
 
 Real-time **Policy Credibility Index** (PCI) monitor for key Inflation Reduction Act (IRA) climate provisions. Ingests federal policy documents weekly, scores their effect on policy credibility with LLMs, and publishes a weekly time series of provision-level PCI scores via a Streamlit dashboard.
 
-> **Status:** Active build, Phase 0 + 1 complete (Apr 23, 2026). See `CLAUDE.md` for the full status board and two-RA track ownership.
+> **Status:** Active build, Phases 0-3 complete through the PCI time-series builder. See `CLAUDE.md` for the full status board and two-RA track ownership.
 
 ## Why this exists
 
@@ -83,6 +83,9 @@ python -m pci_realtime.ingest.federal_register \
   --start-date 2024-04-08 \
   --end-date 2024-04-14 \
   --output-dir data/raw/federal_register
+
+# 6. Rebuild the weekly PCI series from scored deltas
+python -m pci_realtime.pci.builder --rebuild
 ```
 
 ## Hand-off contracts
@@ -102,8 +105,8 @@ Either Austin or Duy can change a column ONLY via PR with both as reviewers and 
 | 0 — Scoring spec | ✅ done | Duy | `docs/phase0_scoring_spec.md` |
 | 1 — Federal Register ingestion | ✅ done (POC week) | Duy | `src/pci_realtime/ingest/federal_register.py` |
 | 1 ext — Treasury / Congress / OMB ingestors | ✅ done (scaffold) | Austin | `src/pci_realtime/ingest/{base,treasury,congress,omb}.py` |
-| 2 — LLM scoring + calibration | 🚧 starting | Duy | `src/pci_realtime/scoring/`, `docs/calibration_report.md` |
-| 3 — Time series builder | ⏳ Week 4 | Austin | `src/pci_realtime/pci/builder.py` |
+| 2 — LLM scoring + calibration | ✅ MVP done | Duy | `src/pci_realtime/scoring/`, `docs/calibration_report.md` |
+| 3 — Time series builder | ✅ done | Austin | `src/pci_realtime/pci/builder.py` |
 | 4 — Validation analysis | ⏳ Week 6 | Duy | `src/pci_realtime/pci/validation.py`, `docs/validation_memo.md` |
 | 5 — Dashboard + cron | ⏳ Week 7 | Austin | Streamlit Community Cloud + `.github/workflows/weekly_update.yml` |
 | 6 — Methods paper draft | ⏳ Week 8 | Duy + Yikai | external draft |
