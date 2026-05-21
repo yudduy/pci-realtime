@@ -202,14 +202,11 @@ def aggregate_weekly_deltas(scored: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["week", "provision", *DELTA_COLUMNS, "n_docs"])
 
-    grouped = (
-        df.groupby(["week", "provision"], as_index=False)
-        .agg(
-            specificity_delta=("specificity_delta", "sum"),
-            durability_delta=("durability_delta", "sum"),
-            enforceability_delta=("enforceability_delta", "sum"),
-            n_docs=("doc_id", "nunique"),
-        )
+    grouped = df.groupby(["week", "provision"], as_index=False).agg(
+        specificity_delta=("specificity_delta", "sum"),
+        durability_delta=("durability_delta", "sum"),
+        enforceability_delta=("enforceability_delta", "sum"),
+        n_docs=("doc_id", "nunique"),
     )
     grouped["_week_start"] = grouped["week"].map(_week_sort_key)
     grouped["_provision_order"] = grouped["provision"].map(
@@ -257,9 +254,9 @@ def enforce_schema_c(rows: pd.DataFrame) -> pd.DataFrame:
             raise ValueError(msg)
 
     df["n_docs"] = pd.to_numeric(df["n_docs"], errors="raise").astype("int64")
-    df["delta_this_week"] = pd.to_numeric(
-        df["delta_this_week"], errors="raise"
-    ).astype(float)
+    df["delta_this_week"] = pd.to_numeric(df["delta_this_week"], errors="raise").astype(
+        float
+    )
     df["updated_at"] = pd.to_datetime(df["updated_at"], utc=True)
     df["_week_start"] = df["week"].map(_week_sort_key)
     df["_provision_order"] = df["provision"].map(
@@ -407,7 +404,9 @@ def rebuild_pci_weekly(
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build the weekly PCI time series.")
-    parser.add_argument("--rebuild", action="store_true", help="Rebuild from scored files.")
+    parser.add_argument(
+        "--rebuild", action="store_true", help="Rebuild from scored files."
+    )
     parser.add_argument("--scored-dir", default=str(PROCESSED_DATA_ROOT / "scored"))
     parser.add_argument(
         "--baseline-path",

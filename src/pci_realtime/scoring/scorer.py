@@ -397,7 +397,9 @@ def run_week(
                     "prompt_version": result.prompt_version,
                     "temperature": result.temperature,
                     "system_prompt": SCORING_SYSTEM_PROMPT,
-                    "user_prompt": build_scoring_user_prompt(document, result.provision),
+                    "user_prompt": build_scoring_user_prompt(
+                        document, result.provision
+                    ),
                     "raw_response": result.raw_response,
                     "cached": result.cached,
                     "cost_usd": result.cost_usd,
