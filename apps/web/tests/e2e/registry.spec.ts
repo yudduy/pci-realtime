@@ -3,13 +3,13 @@ import { expect, test } from "@playwright/test"
 test("renders the PCI market registry without clone clutter", async ({ page }) => {
   await page.goto("/")
 
-  await expect(page.getByRole("heading", { name: "Policy Markets", exact: true })).toBeVisible()
+  await expect(page.getByText("Policy Markets", { exact: true })).toBeVisible()
   await expect(page.getByPlaceholder("Search provisions, markets, tickers")).toBeVisible()
   await expect(
-    page.getByText("IRA credibility board · official sources only · no synthetic markets"),
+    page.getByText("PCI-backed IRA odds · official sources only · no synthetic markets"),
   ).toBeVisible()
   await expect(
-    page.getByRole("heading", { name: "Provision markets", exact: true }),
+    page.getByRole("heading", { name: "All markets", exact: true }),
   ).toBeVisible()
   await expect(
     page.getByRole("heading", { name: "Forecast markets", exact: true }),
@@ -17,7 +17,7 @@ test("renders the PCI market registry without clone clutter", async ({ page }) =
   await expect(page.getByText("Current PCI")).toHaveCount(6)
   await expect(page.getByText("OBBBA stress")).toHaveCount(6)
 
-  await expect(page.getByRole("heading", { name: "No live forecast commitments yet" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "No published forecasts yet" })).toBeVisible()
   await expect(
     page.getByText("Waiting for a scored policy event"),
   ).toBeVisible()

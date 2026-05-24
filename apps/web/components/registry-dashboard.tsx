@@ -181,7 +181,7 @@ function MarketHeader({
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-3 px-4 lg:px-6">
         <div className="flex shrink-0 items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-sm font-black text-white">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue text-sm font-black text-white">
             PCI
           </div>
           <div className="leading-tight">
@@ -192,7 +192,7 @@ function MarketHeader({
           </div>
         </div>
 
-        <div className="mx-auto flex h-10 w-full max-w-xl items-center rounded-md border border-border bg-muted px-3">
+        <div className="mx-auto flex h-10 w-full max-w-xl items-center rounded-full border border-border bg-muted px-3">
           <Search className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             value={query}
@@ -239,7 +239,7 @@ function StatusPill({
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-soft px-3 py-1.5 text-xs font-semibold text-green">
+    <span className="inline-flex items-center gap-1 rounded-full bg-blue-soft px-3 py-1.5 text-xs font-semibold text-blue">
       <CheckCircle2 className="h-3.5 w-3.5" />
       <span className="hidden sm:inline">
         {latestRun ? "Live backend" : "Connected"}
@@ -285,9 +285,9 @@ function LeftRail({
 }) {
   return (
     <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-      <section className="rounded-lg border border-border bg-card p-3">
+      <section className="rounded-xl border border-border bg-card p-3">
         <div className="mb-2 px-1 text-xs font-semibold uppercase text-muted-foreground">
-          IRA sections
+          Markets
         </div>
         <div className="space-y-1">
           {provisions.map((provision) => (
@@ -296,7 +296,7 @@ function LeftRail({
               onClick={() => setActiveProvision(provision)}
               className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition ${
                 activeProvision === provision
-                  ? "bg-foreground text-white"
+                  ? "bg-blue text-white"
                   : "text-foreground hover:bg-muted"
               }`}
             >
@@ -307,7 +307,7 @@ function LeftRail({
         </div>
       </section>
 
-      <section className="rounded-lg border border-border bg-card p-3">
+      <section className="rounded-xl border border-border bg-card p-3">
         <div className="mb-2 px-1 text-xs font-semibold uppercase text-muted-foreground">
           Live counts
         </div>
@@ -324,7 +324,7 @@ function LeftRail({
 
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-md bg-muted p-2">
+    <div className="rounded-lg bg-muted p-2">
       <div className="text-[10px] font-semibold uppercase text-muted-foreground">
         {label}
       </div>
@@ -341,16 +341,16 @@ function MarketBoardTop({
   counts: RunCounts
 }) {
   return (
-    <section className="mb-4 rounded-lg border border-border bg-card p-4">
+    <section className="mb-4 rounded-xl border border-border bg-card px-4 py-3">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-normal">Policy Markets</h1>
+          <h1 className="text-2xl font-black tracking-normal">Featured markets</h1>
           <div className="mt-1 text-sm text-muted-foreground">
-            IRA credibility board · official sources only · no synthetic markets
+            PCI-backed IRA odds · official sources only · no synthetic markets
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-md bg-muted px-3 py-2">
+          <div className="rounded-lg bg-muted px-3 py-2">
             <div className="text-[10px] font-bold uppercase text-muted-foreground">
               Last run
             </div>
@@ -358,13 +358,13 @@ function MarketBoardTop({
               {latestRun ? shortDate(latestRun.started_at) : "pending"}
             </div>
           </div>
-          <div className="rounded-md bg-muted px-3 py-2">
+          <div className="rounded-lg bg-muted px-3 py-2">
             <div className="text-[10px] font-bold uppercase text-muted-foreground">
               Forecasts
             </div>
             <div className="mt-1 text-sm font-bold">{counts.forecasts}</div>
           </div>
-          <div className="rounded-md bg-muted px-3 py-2">
+          <div className="rounded-lg bg-muted px-3 py-2">
             <div className="text-[10px] font-bold uppercase text-muted-foreground">
               Markets
             </div>
@@ -405,7 +405,7 @@ function Tabs({
           onClick={() => setActiveTab(value)}
           className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
             activeTab === value
-              ? "bg-foreground text-white"
+              ? "bg-blue text-white"
               : "bg-card text-muted-foreground ring-1 ring-border hover:text-foreground"
           }`}
         >
@@ -440,8 +440,8 @@ function ForecastGrid({ forecasts }: { forecasts: Forecast[] }) {
 function ProvisionMarketGrid({ provisions }: { provisions: CurrentPci[] }) {
   return (
     <MarketSection
-      title="Provision markets"
-      subtitle="Six tracked IRA contracts"
+      title="All markets"
+      subtitle="Six tracked IRA provision contracts"
     >
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {provisions.map((provision) => (
@@ -521,13 +521,13 @@ function MarketSection({
 
 function EmptyMarketCard() {
   return (
-    <div className="rounded-lg border border-dashed border-border bg-card p-6">
+    <div className="rounded-xl border border-dashed border-border bg-card p-6">
       <div className="flex items-start gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted">
           <Search className="h-5 w-5 text-muted-foreground" />
         </div>
         <div>
-          <h3 className="font-bold">No live forecast commitments yet</h3>
+          <h3 className="font-bold">No published forecasts yet</h3>
           <p className="mt-1 text-sm text-muted-foreground">
             Waiting for a scored policy event and a clean eligible market.
           </p>
@@ -544,30 +544,32 @@ function ForecastCard({ forecast }: { forecast: Forecast }) {
 
   return (
     <article className="market-card">
-      <CardTopline
-        left={`${forecast.provision} · ${forecast.venue.toUpperCase()}`}
-        right={forecast.market_ticker}
-      />
-      <h3 className="market-title">{title}</h3>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <OddsButton label="Market" value={percent(forecast.market_probability)} />
-        <OddsButton label="PCI model" value={percent(forecast.model_probability)} strong />
+      <div className="p-4">
+        <CardTopline
+          left={`${forecast.provision} · ${forecast.venue.toUpperCase()}`}
+          right={forecast.market_ticker}
+        />
+        <h3 className="market-title">{title}</h3>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <OddsButton label="Market" value={percent(forecast.market_probability)} />
+          <OddsButton label="PCI model" value={percent(forecast.model_probability)} strong />
+        </div>
+        <div
+          className={`mt-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+            positive ? "bg-green-soft text-green" : "bg-red-soft text-red"
+          }`}
+        >
+          {positive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+          {edgeLabel(forecast.edge)}
+        </div>
+        <details className="mt-3 rounded-md bg-muted p-3 text-sm">
+          <summary className="cursor-pointer font-semibold">Reasoning trace</summary>
+          <p className="mt-2 text-muted-foreground">{sourceTitle(forecast.source_doc)}</p>
+          {forecast.market_rules && (
+            <p className="mt-2 text-muted-foreground">{forecast.market_rules}</p>
+          )}
+        </details>
       </div>
-      <div
-        className={`mt-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
-          positive ? "bg-green-soft text-green" : "bg-red-soft text-red"
-        }`}
-      >
-        {positive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-        {edgeLabel(forecast.edge)}
-      </div>
-      <details className="mt-3 rounded-md bg-muted p-3 text-sm">
-        <summary className="cursor-pointer font-semibold">Reasoning trace</summary>
-        <p className="mt-2 text-muted-foreground">{sourceTitle(forecast.source_doc)}</p>
-        {forecast.market_rules && (
-          <p className="mt-2 text-muted-foreground">{forecast.market_rules}</p>
-        )}
-      </details>
     </article>
   )
 }
@@ -578,25 +580,32 @@ function ProvisionCard({ provision }: { provision: CurrentPci }) {
 
   return (
     <article className="market-card">
-      <CardTopline left={provision.code} right={compactOrigin(provision.data_origin)} />
-      <h3 className="market-title">
-        Will {provision.code} credibility improve after the next official update?
-      </h3>
-      <div className="mt-1 truncate text-xs font-medium text-muted-foreground">
-        {provision.name}
+      <div className="flex items-center gap-3 border-b border-border bg-muted/50 p-3">
+        <div className="flex h-11 w-12 shrink-0 items-center justify-center rounded-lg bg-blue text-xs font-black text-white">
+          {provision.code}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-xs font-bold uppercase text-muted-foreground">
+            {compactOrigin(provision.data_origin)}
+          </div>
+          <div className="truncate text-sm font-semibold">{provision.name}</div>
+        </div>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <OddsButton label="Current PCI" value={score(current)} strong />
-        <OddsButton label="OBBBA stress" value={score(provision.obbba_post_pci)} />
-      </div>
-      <div className="mt-3">
-        <DimensionBars provision={provision} />
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <DeltaBadge value={stressDelta} />
-        <span className="text-xs font-semibold text-muted-foreground">
-          awaiting market match
-        </span>
+      <div className="p-4">
+        <h3 className="market-title">
+          Will {provision.code} credibility improve after the next official update?
+        </h3>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <OddsButton label="Current PCI" value={score(current)} strong />
+          <OddsButton label="OBBBA stress" value={score(provision.obbba_post_pci)} />
+        </div>
+        <div className="mt-3">
+          <DimensionBars provision={provision} />
+        </div>
+        <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+          <span className="text-xs font-semibold text-muted-foreground">Awaiting market match</span>
+          <DeltaBadge value={stressDelta} />
+        </div>
       </div>
     </article>
   )
@@ -605,21 +614,23 @@ function ProvisionCard({ provision }: { provision: CurrentPci }) {
 function SnapshotCard({ market }: { market: MarketSnapshot }) {
   return (
     <article className="market-card">
-      <CardTopline
-        left={`${market.venue.toUpperCase()} · ${market.status ?? "open"}`}
-        right={market.ticker}
-      />
-      <h3 className="market-title">
-        {market.title ?? market.subtitle ?? market.event_ticker ?? "Policy market"}
-      </h3>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <OddsButton label="Yes" value={percent(market.yes_ask ?? market.market_probability)} strong />
-        <OddsButton label="No" value={percent(market.yes_bid ? 1 - market.yes_bid : null)} />
-      </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-        <Metric label="Spread" value={percent(market.bid_ask_spread)} />
-        <Metric label="Liquidity" value={money(market.liquidity_dollars)} />
-        <Metric label="Close" value={compactDate(market.close_time)} />
+      <div className="p-4">
+        <CardTopline
+          left={`${market.venue.toUpperCase()} · ${market.status ?? "open"}`}
+          right={market.ticker}
+        />
+        <h3 className="market-title">
+          {market.title ?? market.subtitle ?? market.event_ticker ?? "Policy market"}
+        </h3>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <OddsButton label="Yes" value={percent(market.yes_ask ?? market.market_probability)} strong />
+          <OddsButton label="No" value={percent(market.yes_bid ? 1 - market.yes_bid : null)} />
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3 text-xs">
+          <Metric label="Spread" value={percent(market.bid_ask_spread)} />
+          <Metric label="Liquidity" value={money(market.liquidity_dollars)} />
+          <Metric label="Close" value={compactDate(market.close_time)} />
+        </div>
       </div>
     </article>
   )
@@ -628,14 +639,16 @@ function SnapshotCard({ market }: { market: MarketSnapshot }) {
 function ResolvedCard({ row }: { row: ResolvedForecast }) {
   return (
     <article className="market-card">
-      <CardTopline left={`${row.provision} · ${row.result}`} right={row.market_ticker} />
-      <h3 className="market-title">{row.market_title ?? row.market_ticker}</h3>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <OddsButton label="PCI forecast" value={percent(row.model_probability)} strong />
-        <OddsButton label="Market" value={percent(row.market_probability)} />
-      </div>
-      <div className="mt-3 text-sm text-muted-foreground">
-        Brier score <span className="font-bold text-foreground">{row.brier_score.toFixed(3)}</span>
+      <div className="p-4">
+        <CardTopline left={`${row.provision} · ${row.result}`} right={row.market_ticker} />
+        <h3 className="market-title">{row.market_title ?? row.market_ticker}</h3>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <OddsButton label="PCI forecast" value={percent(row.model_probability)} strong />
+          <OddsButton label="Market" value={percent(row.market_probability)} />
+        </div>
+        <div className="mt-3 border-t border-border pt-3 text-sm text-muted-foreground">
+          Brier score <span className="font-bold text-foreground">{row.brier_score.toFixed(3)}</span>
+        </div>
       </div>
     </article>
   )
@@ -661,8 +674,8 @@ function OddsButton({
 }) {
   return (
     <div className={`odds-button ${strong ? "odds-button-strong" : ""}`}>
-      <div className="text-xs font-semibold text-muted-foreground">{label}</div>
-      <div className="mt-1 text-lg font-black">{value}</div>
+      <div className="text-[11px] font-bold uppercase">{label}</div>
+      <div className="mt-1 text-base font-black">{value}</div>
     </div>
   )
 }
@@ -780,7 +793,7 @@ function RailCard({
   children: ReactNode
 }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="rounded-xl border border-border bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="font-bold">{title}</h2>
         <span className="text-muted-foreground">{icon}</span>
