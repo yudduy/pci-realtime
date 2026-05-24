@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f8fb;
+  --background: #f5f7fa;
   --foreground: #111827;
   --card: #ffffff;
-  --muted: #f0f3f7;
+  --muted: #f1f3f6;
   --muted-foreground: #64748b;
-  --border: #e5e7eb;
-  --green: #00a85a;
-  --green-soft: #e8f8ef;
-  --red: #e23a3a;
+  --border: #e1e6ee;
+  --green: #00a86b;
+  --green-soft: #e4f8ef;
+  --red: #e04444;
   --red-soft: #fdecec;
-  --blue: #2563eb;
+  --blue: #2862f5;
 }
 
 @theme inline {
@@ -59,4 +59,42 @@ input {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+.market-card {
+  min-height: 224px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 14px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.market-card:hover {
+  border-color: #c9d3df;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.08);
+  transform: translateY(-1px);
+}
+
+.market-title {
+  min-height: 40px;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.odds-button {
+  min-height: 58px;
+  border-radius: 8px;
+  background: var(--muted);
+  padding: 10px 12px;
+}
+
+.odds-button-strong {
+  background: var(--green-soft);
+  color: var(--green);
 }
