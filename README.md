@@ -190,9 +190,11 @@ are present, and the proposal id is explicitly approved in an approval file.
 
 ## Web App
 
-The lab-demo frontend lives in `apps/web`. It is a read-only Next.js workbench
-that reads Supabase public views; it does not own paper anchors, forecasts, or
-trade rows.
+The lab-demo frontend lives in `apps/web`. It is the Polymarket-style registry
+surface: provision tiles, forecast cards, market-scan cards, gated proposal
+status, event feed, and resolved-forecast track record. "Read-only" means the
+app does not mutate registry state or own data; it renders live rows from
+Supabase public views.
 
 One command starts local Supabase if needed, seeds the paper anchors, runs a
 policy-filtered Kalshi scan, and launches the app:
@@ -229,6 +231,15 @@ The UI is data-driven:
 
 No synthetic forecasts, fake trades, private order payloads, or firm-level
 financing rows are rendered in the public app.
+
+## Current TODO
+
+1. Re-authenticate GitHub CLI, push `main`, and connect the Vercel project to the repo.
+2. Provision Supabase cloud, apply migrations, and seed paper anchors with `seed_supabase.py`.
+3. Add production Supabase env vars to Vercel and confirm the deployed UI reads public views.
+4. Wire Supabase Edge Function triggers to the Python weekly/daily backend runner.
+5. Run one cost-reviewed official-source weekly pipeline; do not backfill until scoring calibration is reviewed.
+6. Expand Kalshi query coverage only with objective policy markets that map to the six IRA provisions.
 
 ## Cloud Provisioning
 

@@ -238,6 +238,15 @@ The three hand-off points (parquet schemas) are locked in `docs/interfaces.md`. 
 - **PRs need:** passing `pytest`, updated `README.md` if user-facing changes, cost log updated if new LLM spend.
 - **All PRs reviewed by Yikai before merge to main.**
 
+## Current TODO
+
+1. Re-authenticate GitHub CLI, push `main`, and connect Vercel to the repository.
+2. Provision Supabase cloud, apply `supabase/migrations/001_core_registry.sql`, and seed paper anchors.
+3. Add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to Vercel; the web app should render the Polymarket-style registry UI from Supabase public views.
+4. Wire Supabase Edge Function triggers to a secured Python weekly/daily backend runner.
+5. Run one cost-reviewed official-source weekly pipeline before any full backfill.
+6. Expand Kalshi query coverage only for objective policy markets mapped to `45X`, `45V`, `45Q`, `30D`, `50141`, or `50144`.
+
 ## Registry Gates
 
 Before a forecast or trade proposal becomes public, the backend must satisfy the product gates in `forecast_registry/engine.py`:
