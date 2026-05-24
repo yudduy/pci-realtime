@@ -188,6 +188,13 @@ Trading proposals are created only after forecast risk gates pass. Live Kalshi
 execution is disabled unless `PCI_ENABLE_LIVE_TRADING=true`, Kalshi credentials
 are present, and the proposal id is explicitly approved in an approval file.
 
+The repo does not currently scrape general news or use news sentiment to update
+PCI. The PCI score is official-source only. Today the one-command weekly loop
+calls the Federal Register ingestor; Treasury/IRS, Congress, and OMB ingestors
+exist in `src/pci_realtime/ingest/` but still need to be wired into
+`weekly_live.py` before they are part of the default weekly run. Kalshi market
+snapshots are fetched live only when `--fetch-markets` is set.
+
 ## Web App
 
 The lab-demo frontend lives in `apps/web`. It is the Polymarket-style registry
@@ -237,9 +244,11 @@ financing rows are rendered in the public app.
 1. Re-authenticate GitHub CLI, push `main`, and connect the Vercel project to the repo.
 2. Provision Supabase cloud, apply migrations, and seed paper anchors with `seed_supabase.py`.
 3. Add production Supabase env vars to Vercel and confirm the deployed UI reads public views.
-4. Wire Supabase Edge Function triggers to the Python weekly/daily backend runner.
-5. Run one cost-reviewed official-source weekly pipeline; do not backfill until scoring calibration is reviewed.
-6. Expand Kalshi query coverage only with objective policy markets that map to the six IRA provisions.
+4. Add a real scheduler: GitHub Actions cron or Supabase cron should call the weekly and daily triggers.
+5. Wire Supabase Edge Function triggers to the secured Python weekly/daily backend runner.
+6. Add Treasury/IRS, Congress, and OMB ingestors to the default weekly loop after one Federal Register smoke run.
+7. Run one cost-reviewed official-source weekly pipeline; do not backfill until scoring calibration is reviewed.
+8. Expand Kalshi query coverage only with objective policy markets that map to the six IRA provisions.
 
 ## Cloud Provisioning
 

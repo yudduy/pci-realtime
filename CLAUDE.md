@@ -243,9 +243,11 @@ The three hand-off points (parquet schemas) are locked in `docs/interfaces.md`. 
 1. Re-authenticate GitHub CLI, push `main`, and connect Vercel to the repository.
 2. Provision Supabase cloud, apply `supabase/migrations/001_core_registry.sql`, and seed paper anchors.
 3. Add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` to Vercel; the web app should render the Polymarket-style registry UI from Supabase public views.
-4. Wire Supabase Edge Function triggers to a secured Python weekly/daily backend runner.
-5. Run one cost-reviewed official-source weekly pipeline before any full backfill.
-6. Expand Kalshi query coverage only for objective policy markets mapped to `45X`, `45V`, `45Q`, `30D`, `50141`, or `50144`.
+4. Add a real scheduler: GitHub Actions cron or Supabase cron should call the weekly and daily triggers.
+5. Wire Supabase Edge Function triggers to a secured Python weekly/daily backend runner.
+6. Add Treasury/IRS, Congress, and OMB ingestors to the default weekly loop after one Federal Register smoke run.
+7. Run one cost-reviewed official-source weekly pipeline before any full backfill.
+8. Expand Kalshi query coverage only for objective policy markets mapped to `45X`, `45V`, `45Q`, `30D`, `50141`, or `50144`.
 
 ## Registry Gates
 
@@ -257,6 +259,12 @@ Before a forecast or trade proposal becomes public, the backend must satisfy the
 4. **Trading gate.** A proposal requires edge, spread, liquidity, confidence, exposure, public-info, and human-approval gates. Live orders require `PCI_ENABLE_LIVE_TRADING=true`, credentials, and an approval file.
 
 Do not add synthetic forecasts to make demos look full. Empty forecast ledgers are acceptable until real official-source events match clean markets.
+
+The registry does not scrape general news for PCI updates. PCI updates come from
+official policy sources. As of this commit, `weekly_live.py` runs Federal Register
+ingest by default; Treasury/IRS, Congress, and OMB ingestors exist but are not yet
+part of the default weekly run. Kalshi market data is fetched separately with
+`--fetch-markets`.
 
 ## Parent Project Dependencies
 
