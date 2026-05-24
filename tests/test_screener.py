@@ -5,6 +5,7 @@ import pytest
 from pci_realtime.scoring.cache import StructuredLLMResponse
 from pci_realtime.scoring.screener import (
     DocumentScreener,
+    create_structured_output_client,
     parse_screening_payload,
 )
 
@@ -50,6 +51,11 @@ def test_parse_screening_payload_rejects_bad_confidence() -> None:
             cached=False,
             cost_usd=0.1,
         )
+
+
+def test_create_structured_output_client_rejects_unknown_provider() -> None:
+    with pytest.raises(ValueError, match="Unsupported LLM provider"):
+        create_structured_output_client("not-a-provider")
 
 
 def test_screener_returns_ambiguous_skip_state(tmp_path) -> None:

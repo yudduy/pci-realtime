@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,11 +16,21 @@ CACHE_ROOT = DATA_ROOT / "cache"
 TRACKED_PROVISIONS = ("45X", "45V", "45Q", "30D", "50144", "50141")
 
 
-OPENAI_SCREENING_MODEL = "gpt-4.1-mini"
-OPENAI_SCORING_MODEL = "gpt-4.1"
+LLM_DEFAULT_PROVIDER = os.getenv("PCI_LLM_PROVIDER", "openai")
+LLM_SCREENING_PROVIDER = os.getenv("PCI_SCREENING_PROVIDER", LLM_DEFAULT_PROVIDER)
+LLM_SCORING_PROVIDER = os.getenv("PCI_SCORING_PROVIDER", LLM_DEFAULT_PROVIDER)
+LLM_AUDIT_PROVIDER = os.getenv("PCI_AUDIT_PROVIDER", "anthropic")
+
+LLM_SCREENING_MODEL = os.getenv("PCI_SCREENING_MODEL", "gpt-5-mini")
+LLM_SCORING_MODEL = os.getenv("PCI_SCORING_MODEL", "gpt-5-mini")
+LLM_AUDIT_MODEL = os.getenv("PCI_AUDIT_MODEL", "claude-sonnet-4-6")
+
+# Backward-compatible names for older callers and tests.
+OPENAI_SCREENING_MODEL = LLM_SCREENING_MODEL
+OPENAI_SCORING_MODEL = LLM_SCORING_MODEL
 SCORING_TEMPERATURE = 0.3
 SCORING_SCHEMA_VERSION = "schema-b-v1.0.0"
-SCORING_ESTIMATED_COST_PER_CALL_USD = 0.10
+SCORING_ESTIMATED_COST_PER_CALL_USD = 0.03
 SCORING_RUN_COST_CEILING_USD = 50.0
 
 

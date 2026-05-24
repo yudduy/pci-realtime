@@ -7,7 +7,8 @@ from typing import Any, Mapping, Protocol
 
 from pci_realtime.config import (
     CACHE_ROOT,
-    OPENAI_SCREENING_MODEL,
+    LLM_SCREENING_MODEL,
+    LLM_SCREENING_PROVIDER,
     SCORING_ESTIMATED_COST_PER_CALL_USD,
     SCORING_SCHEMA_VERSION,
     SCORING_TEMPERATURE,
@@ -95,6 +96,35 @@ def _usage_to_dict(response: Any) -> dict[str, Any]:
     return dict(vars(usage))
 
 
+def _anthropic_usage_to_dict(response: Any) -> dict[str, Any]:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return {}
+    if hasattr(usage, "model_dump"):
+        return dict(usage.model_dump())
+    return dict(vars(usage))
+
+
+def _extract_anthropic_tool_input(response: Any, schema_name: str) -> dict[str, Any]:
+    for block in getattr(response, "content", []) or []:
+        block_type = getattr(block, "type", "")
+        block_name = getattr(block, "name", "")
+        if block_type == "tool_use" and block_name == schema_name:
+            payload = getattr(block, "input", None)
+            if isinstance(payload, dict):
+                return payload
+    msg = f"Anthropic response did not include tool input for {schema_name}"
+    raise ValueError(msg)
+
+
+def _response_to_text(response: Any) -> str:
+    if hasattr(response, "model_dump_json"):
+        return str(response.model_dump_json())
+    if hasattr(response, "model_dump"):
+        return json.dumps(response.model_dump(), default=str, sort_keys=True)
+    return str(response)
+
+
 class OpenAIStructuredOutputClient:
     provider = "openai"
 
@@ -149,6 +179,70 @@ class OpenAIStructuredOutputClient:
         )
 
 
+class AnthropicStructuredOutputClient:
+    provider = "anthropic"
+
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        estimated_cost_per_call_usd: float = SCORING_ESTIMATED_COST_PER_CALL_USD,
+    ) -> None:
+        api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            msg = "ANTHROPIC_API_KEY is required for Anthropic scoring runs"
+            raise RuntimeError(msg)
+
+        from anthropic import Anthropic
+
+        self.client = Anthropic(api_key=api_key)
+        self.estimated_cost_per_call_usd = estimated_cost_per_call_usd
+
+    def create_json(
+        self,
+        *,
+        model: str,
+        system_prompt: str,
+        user_prompt: str,
+        json_schema: dict[str, Any],
+        schema_name: str,
+        temperature: float,
+    ) -> StructuredLLMResponse:
+        response = self.client.messages.create(
+            model=model,
+            max_tokens=2048,
+            temperature=temperature,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+            tools=[
+                {
+                    "name": schema_name,
+                    "description": "Return the requested PCI scoring payload.",
+                    "input_schema": json_schema,
+                }
+            ],
+            tool_choice={"type": "tool", "name": schema_name},
+        )
+        return StructuredLLMResponse(
+            payload=_extract_anthropic_tool_input(response, schema_name),
+            raw_response=_response_to_text(response),
+            usage=_anthropic_usage_to_dict(response),
+            cost_usd=self.estimated_cost_per_call_usd,
+        )
+
+
+def create_structured_output_client(
+    provider: str | None = None,
+) -> StructuredOutputClient:
+    selected = (provider or LLM_SCREENING_PROVIDER).strip().lower()
+    if selected == "openai":
+        return OpenAIStructuredOutputClient()
+    if selected == "anthropic":
+        return AnthropicStructuredOutputClient()
+    msg = f"Unsupported LLM provider: {provider!r}. Expected one of: openai, anthropic"
+    raise ValueError(msg)
+
+
 def parse_screening_payload(
     payload: Mapping[str, Any],
     *,
@@ -200,12 +294,13 @@ class DocumentScreener:
         *,
         client: StructuredOutputClient | None = None,
         cache: JsonCache | None = None,
-        model: str = OPENAI_SCREENING_MODEL,
+        provider: str = LLM_SCREENING_PROVIDER,
+        model: str = LLM_SCREENING_MODEL,
         prompt_version: str = SCREENING_PROMPT_VERSION,
         temperature: float = SCORING_TEMPERATURE,
         schema_version: str = SCORING_SCHEMA_VERSION,
     ) -> None:
-        self.client = client or OpenAIStructuredOutputClient()
+        self.client = client or create_structured_output_client(provider)
         self.cache = cache or JsonCache(CACHE_ROOT / "screening")
         self.model = model
         self.prompt_version = prompt_version

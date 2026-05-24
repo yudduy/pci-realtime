@@ -12,8 +12,10 @@ import pandas as pd
 
 from pci_realtime.config import (
     CACHE_ROOT,
-    OPENAI_SCORING_MODEL,
-    OPENAI_SCREENING_MODEL,
+    LLM_SCORING_MODEL,
+    LLM_SCORING_PROVIDER,
+    LLM_SCREENING_MODEL,
+    LLM_SCREENING_PROVIDER,
     PROCESSED_DATA_ROOT,
     PROJECT_ROOT,
     RAW_DATA_ROOT,
@@ -34,8 +36,8 @@ from pci_realtime.scoring.prompts import (
 )
 from pci_realtime.scoring.screener import (
     DocumentScreener,
-    OpenAIStructuredOutputClient,
     StructuredOutputClient,
+    create_structured_output_client,
 )
 
 
@@ -209,12 +211,13 @@ class DocumentScorer:
         *,
         client: StructuredOutputClient | None = None,
         cache: JsonCache | None = None,
-        model: str = OPENAI_SCORING_MODEL,
+        provider: str = LLM_SCORING_PROVIDER,
+        model: str = LLM_SCORING_MODEL,
         prompt_version: str = SCORING_PROMPT_VERSION,
         temperature: float = SCORING_TEMPERATURE,
         schema_version: str = SCORING_SCHEMA_VERSION,
     ) -> None:
-        self.client = client or OpenAIStructuredOutputClient()
+        self.client = client or create_structured_output_client(provider)
         self.cache = cache or JsonCache(CACHE_ROOT / "scoring")
         self.model = model
         self.prompt_version = prompt_version
@@ -333,8 +336,10 @@ def run_week(
     raw_root: Path = RAW_DATA_ROOT,
     output_dir: Path = PROCESSED_DATA_ROOT / "scored",
     cache_root: Path = CACHE_ROOT,
-    screening_model: str = OPENAI_SCREENING_MODEL,
-    scoring_model: str = OPENAI_SCORING_MODEL,
+    screening_provider: str = LLM_SCREENING_PROVIDER,
+    screening_model: str = LLM_SCREENING_MODEL,
+    scoring_provider: str = LLM_SCORING_PROVIDER,
+    scoring_model: str = LLM_SCORING_MODEL,
     temperature: float = SCORING_TEMPERATURE,
     confirm_cost: bool = False,
     client: StructuredOutputClient | None = None,
@@ -350,16 +355,19 @@ def run_week(
         )
         raise RuntimeError(msg)
 
-    structured_client = client or OpenAIStructuredOutputClient()
+    screening_client = client or create_structured_output_client(screening_provider)
+    scoring_client = client or create_structured_output_client(scoring_provider)
     screener = DocumentScreener(
-        client=structured_client,
+        client=screening_client,
         cache=JsonCache(cache_root / "screening"),
+        provider=screening_provider,
         model=screening_model,
         temperature=temperature,
     )
     scorer = DocumentScorer(
-        client=structured_client,
+        client=scoring_client,
         cache=JsonCache(cache_root / "scoring"),
+        provider=scoring_provider,
         model=scoring_model,
         temperature=temperature,
     )
@@ -422,8 +430,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--raw-root", default=str(RAW_DATA_ROOT))
     parser.add_argument("--output-dir", default=str(PROCESSED_DATA_ROOT / "scored"))
     parser.add_argument("--cache-dir", default=str(CACHE_ROOT))
-    parser.add_argument("--screening-model", default=OPENAI_SCREENING_MODEL)
-    parser.add_argument("--scoring-model", default=OPENAI_SCORING_MODEL)
+    parser.add_argument("--screening-provider", default=LLM_SCREENING_PROVIDER)
+    parser.add_argument("--screening-model", default=LLM_SCREENING_MODEL)
+    parser.add_argument("--scoring-provider", default=LLM_SCORING_PROVIDER)
+    parser.add_argument("--scoring-model", default=LLM_SCORING_MODEL)
     parser.add_argument("--temperature", type=float, default=SCORING_TEMPERATURE)
     parser.add_argument("--confirm-cost", action="store_true")
     return parser
@@ -437,7 +447,9 @@ def main() -> None:
         raw_root=Path(args.raw_root),
         output_dir=Path(args.output_dir),
         cache_root=Path(args.cache_dir),
+        screening_provider=args.screening_provider,
         screening_model=args.screening_model,
+        scoring_provider=args.scoring_provider,
         scoring_model=args.scoring_model,
         temperature=args.temperature,
         confirm_cost=args.confirm_cost,

@@ -43,7 +43,9 @@ def test_build_weekly_index_applies_sticky_weekly_updates() -> None:
         updated_at=pd.Timestamp("2026-05-21T12:00:00Z"),
     )
 
-    baseline_row = weekly.query("week == @BASELINE_WEEK and provision == '45X'").iloc[0]
+    baseline_row = weekly[
+        (weekly["week"] == BASELINE_WEEK) & (weekly["provision"] == "45X")
+    ].iloc[0]
     update_row = weekly.query("week == '2024-W44' and provision == '30D'").iloc[0]
     sticky_row = weekly.query("week == '2024-W45' and provision == '30D'").iloc[0]
 

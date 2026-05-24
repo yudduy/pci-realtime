@@ -139,6 +139,10 @@ def test_run_week_writes_schema_b_for_relevant_docs_only(tmp_path) -> None:
         raw_root=raw_root,
         output_dir=tmp_path / "processed" / "scored",
         cache_root=tmp_path / "cache",
+        screening_provider="fake",
+        screening_model="cheap-screen",
+        scoring_provider="fake",
+        scoring_model="cheap-score",
         client=client,
         confirm_cost=True,
         audit_log_path=tmp_path / "llm_call_log.jsonl",
@@ -149,4 +153,5 @@ def test_run_week_writes_schema_b_for_relevant_docs_only(tmp_path) -> None:
     assert len(scored) == 1
     assert scored.loc[0, "doc_id"] == "federal_register:relevant"
     assert scored.loc[0, "provision"] == "45X"
+    assert scored.loc[0, "model"] == "cheap-score"
     assert Path(output_path).name == "scored_2024-W44.parquet"

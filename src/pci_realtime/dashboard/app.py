@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import streamlit as st
+
+def main() -> None:
+    print("Dashboard is deferred; use the Supabase-backed backend pipeline.")
 
 
-st.set_page_config(page_title="PCI Realtime Monitor", layout="wide")
-
-st.title("PCI Realtime Monitor")
-st.caption("Phase 1 placeholder dashboard")
-
-st.write(
-    "The dashboard layer is intentionally deferred. "
-    "Phase 1 focuses on ingestion, scoring specification, and audit-ready data plumbing."
-)
+if __name__ == "__main__":
+    main()

@@ -1,7 +1,8 @@
 # Baseline (Immutable)
 
-Anchors copied verbatim from the PNAS paper's Table 1 in
-`Draft/PNAS.../Mechanism/Credibility.tex` (Aug 2022 PCI scores at IRA enactment).
+Anchors copied from Main paper Table 3, "Policy Credibility Index: Baseline
+Scores at IRA Enactment (August 2022)," with scoring protocol in SI Appendix
+S7.
 
 `pci_baseline.csv` is the starting state for the weekly time series. The
 `pci/builder.py` reads it and writes the first row of `pci_weekly.parquet`
@@ -11,9 +12,8 @@ for each provision at week `2022-W33` (week of August 16, 2022).
 the paper, then update this file with a citation note in the commit
 message.
 
-The post-OBBBA target values (used by `pci/validation.py::test_obbba_match`)
-are not stored here — they're computed from the cumulative deltas the
-scorer produces and validated against `Mechanism/Credibility.tex` directly.
+The post-OBBBA target values are not stored here. They are computed from the
+paper-defined deltas in SI Appendix S7.5 and used as stress-test anchors.
 Expected post-OBBBA shocks per provision (from the paper):
 
 | Provision | ΔPCI |

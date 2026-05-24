@@ -72,10 +72,10 @@ Once these schemas are stable, Austin and Duy can work independently. Either RA 
 
 ---
 
-## Schema C — Index → Dashboard
+## Schema C — Index → Registry
 
 **Producer:** `pci_realtime.pci.builder` (Austin)
-**Consumer:** `pci_realtime.dashboard.app` (Austin), validation scripts (Duy), the public CSV export
+**Consumer:** `pci_realtime.pipeline.weekly_live`, Supabase registry views, optional public CSV export
 **Path:** `data/processed/pci_weekly.parquet` (single file, append-only by week)
 
 | Column | Type | Notes |
@@ -98,7 +98,7 @@ where `Σ scored_deltas[p, t]` sums (specificity_delta + durability_delta + enfo
 
 **Anchors:** `data/baseline/pci_baseline.csv` provides the immutable Aug 2022 starting values (45X=4.67, 45V=4.33, 45Q=4.33, 30D=4.00, 50144=3.33, 50141=3.00). The first row of `pci_weekly.parquet` for each provision is `(provision, 2022-W33, baseline_value, 5, 4, 5, 0, 0.0, ...)`.
 
-**Validation gate:** the builder's output for week `2025-W23` (peak OBBBA) must match the paper's post-OBBBA values within ±0.3 per provision. See `pci/validation.py::test_obbba_match`.
+**Anchor gate:** OBBBA implied values are encoded in `pci_realtime.config.OBBBA_PCI_DELTAS` and emitted through the registry seed rows. The live weekly series must not overwrite the immutable Aug 2022 baseline anchors.
 
 ---
 

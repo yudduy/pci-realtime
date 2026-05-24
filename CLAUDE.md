@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Real-Time Policy Credibility Index (PCI) Monitor** — A pipeline that continuously updates the Policy Credibility Index for major IRA climate provisions by ingesting federal policy documents, scoring them with LLMs, and publishing a weekly time series.
+**Real-Time Policy Credibility Index (PCI) Monitor** — A pipeline that continuously updates the Policy Credibility Index for major IRA climate provisions by ingesting federal policy documents, scoring them with LLMs, and writing a Supabase-backed forecast/trading registry.
 
 - **Parent project:** PNAS submission "Industrial Policy Reshapes Venture Capital Allocation and Growth Trajectories in Climate Technologies" (Cao, Eesley, Jain, Moorjani)
 - **This repo:** A standalone extension that converts the paper's two-snapshot PCI into a continuously updated time series
 - **Authorship of the methods paper:** Duy (first), Austin (second), Yikai Cao (third / PI), Chuck Eesley (fourth)
-- **Status:** Phase 0 + Phase 1 scaffold delivered by Duy (Apr 23, 2026); two-RA build phase begins now
-- **Target output:** A second paper (methods article, *Nature Energy* or *Research Policy*) + a public Streamlit dashboard
+- **Status:** Phases 0-3 are complete through the weekly PCI builder; the active product path is the Supabase forecast registry.
+- **Target output:** A second paper (methods article, *Nature Energy* or *Research Policy*) + a Supabase-backed PCI forecast/trading registry.
 - **GitHub remote:** `github.com/yikaicao/pci-realtime` (private until methods paper is on arXiv)
 
 **Read this before working in the repo:**
@@ -35,15 +35,15 @@ pci-realtime/
 │       │   └── base.py              # TODO Austin — BaseIngestor shared interface
 │       ├── filter/                  # relevance filter — Duy
 │       ├── scoring/                 # ─── Duy owns ──────────────────────
-│       │   ├── screener.py          # TODO Duy — Stage 1 (gpt-4.1-mini)
-│       │   ├── scorer.py            # TODO Duy — Stage 2 (gpt-4.1 / claude-sonnet-4.5)
-│       │   ├── prompts.py           # TODO Duy — versioned prompt templates
-│       │   └── cache.py             # TODO Duy — hash-based LLM call cache
+│       │   ├── screener.py          # Stage 1 provider-configured model
+│       │   ├── scorer.py            # Stage 2 provider-configured scoring model
+│       │   ├── prompts.py           # versioned prompt templates
+│       │   └── cache.py             # hash-based LLM call cache
 │       ├── pci/                     # ─── Austin owns ────────────────────
-│       │   ├── builder.py           # TODO Austin — weekly update rule
-│       │   └── validation.py        # TODO Duy — three validation checks
-│       └── dashboard/               # ─── Austin owns ────────────────────
-│           └── app.py               # TODO Austin — Streamlit (stub exists)
+│       │   └── builder.py           # weekly update rule
+│       ├── forecast_registry/       # forecasts, Kalshi, trading gates, Supabase store
+│       ├── pipeline/                # seed, weekly live run, daily refresh
+│       └── dashboard/               # deferred placeholder
 ├── data/
 │   ├── raw/                         # ingested docs, parquet by source/week (gitignored)
 │   ├── processed/                   # scored docs + pci_weekly.parquet (gitignored)
@@ -57,9 +57,7 @@ pci-realtime/
 ├── docs/
 │   ├── phase0_scoring_spec.md       # ✅ Duy's locked scoring rubric (read first)
 │   ├── interfaces.md                # ✅ three schemas — Austin↔Duy hand-off contracts
-│   ├── cost_log.md                  # running LLM spend tally
-│   ├── calibration_report.md        # Phase 2 calibration results — Duy
-│   └── validation_memo.md           # Phase 4 validation writeup — Duy
+│   └── cost_log.md                  # running LLM spend tally
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml                   # ✅ pytest on push and PR
@@ -106,12 +104,14 @@ python -m pci_realtime.scoring.scorer --week 2024-W50
 # Build / rebuild the PCI time series from scored docs
 python -m pci_realtime.pci.builder --rebuild
 
-# Run validation checks (Phase 4 deliverable)
-python -m pci_realtime.pci.validation
-
-# Launch the dashboard locally
-streamlit run src/pci_realtime/dashboard/app.py
-# → http://localhost:8501
+# Run the backend product loop locally in dry-run mode
+python -m pci_realtime.pipeline.weekly_live \
+  --start-date 2025-06-02 \
+  --end-date 2025-06-08 \
+  --skip-ingest \
+  --skip-score \
+  --dry-run \
+  --output-path data/debug/weekly_live_payload.json
 
 # Tests
 pytest tests/                        # full suite
@@ -123,26 +123,25 @@ pytest tests/ --cov=pci_realtime     # with coverage
 
 This project runs as two parallel tracks with locked hand-off interfaces (see `docs/interfaces.md`).
 
-### Track A — Duy (methodology / scoring / validation)
+### Track A — Duy (methodology / scoring / evidence)
 
 | Phase | Module | Deliverable |
 |---|---|---|
 | 0 ✅ | `docs/phase0_scoring_spec.md` | Locked scoring rubric (already done) |
 | 1 ✅ | `ingest/federal_register.py` | Federal Register ingestor (already done) |
-| 2 | `scoring/` | Stage-1 screener + Stage-2 scorer + prompt versioning + hash cache |
-| 2 | `docs/calibration_report.md` | RMSE per dimension on the 20-doc calibration set |
-| 4 | `pci/validation.py` + `docs/validation_memo.md` | (a) corr(ΔPCI, ΔCPU); (b) PCI × VC deal-flow regression on the firm-quarter panel; (c) event studies around 45X / 45V / OBBBA |
+| 2 ✅ | `scoring/` | Stage-1 screener + Stage-2 scorer + prompt versioning + hash cache |
+| 4 | paper evidence layer | OBBBA anchor logic, aggregate CPU/VC evidence, and forecast-registry interpretation |
 | 6 | external draft | Methods paper Sections 2–4 + application empirics |
 
-### Track B — Austin (infrastructure / time-series / dashboard)
+### Track B — Austin (infrastructure / registry)
 
 | Phase | Module | Deliverable |
 |---|---|---|
 | 0 (now) | `data/fixtures/calibration_set_v1.csv` | Extend Duy's 11-doc fixture to ~20 federal-policy events; Yikai fills ΔPCI scores |
-| 1+ | `ingest/{base,treasury,congress,omb}.py` | Add Treasury, IRS, Congressional Record, OMB sources; refactor a `BaseIngestor` shared interface |
-| 3 | `pci/builder.py` | Weekly update rule, sticky vs decay, OBBBA-snapshot validation |
-| 5 | `dashboard/app.py` | Per-provision panels, CPU overlay, event annotations, CSV download |
-| 5 | `.github/workflows/weekly_update.yml` | GHA cron: ingest → score → update → commit |
+| 1+ ✅ | `ingest/{base,treasury,congress,omb}.py` | Treasury, Congress, OMB scaffolds and shared `BaseIngestor` interface |
+| 3 ✅ | `pci/builder.py` | Weekly update rule and sticky PCI stock |
+| 5 | `forecast_registry/` + `pipeline/` | Supabase registry, Kalshi market scan, forecast ledger, gated trade proposals |
+| 5 | Supabase Edge Functions / cron | trigger weekly pipeline and daily refresh |
 
 ### Track Y — Yikai (PI)
 
@@ -186,12 +185,12 @@ Congress API ─────────┼─► pci_realtime/ingest/*.py ─�
 Treasury scraper ─────┘                              (Austin owns ingestion)
                                               │
                                               ▼
-                       pci_realtime/scoring/screener.py (gpt-4.1-mini)
+                       pci_realtime/scoring/screener.py (default: openai / gpt-5-mini)
                                               │
                               relevant? ──No──► dropped       (Duy owns scoring)
                                  │ Yes
                                  ▼
-                       pci_realtime/scoring/scorer.py (gpt-4.1 or claude-sonnet-4.5)
+                       pci_realtime/scoring/scorer.py (default: openai / gpt-5-mini)
                                               │
                                               ▼
                           data/processed/scored/scored_YYYY-WW.parquet
@@ -203,7 +202,11 @@ Treasury scraper ─────┘                              (Austin owns in
                      data/processed/pci_weekly.parquet
                                               │
                                               ▼
-                          pci_realtime/dashboard/app.py (Streamlit)  (Austin)
+                          pci_realtime/pipeline/weekly_live.py
+                                              │
+                                              ▼
+        Supabase tables/views: provisions, pci_weekly, policy_events, markets,
+        forecasts, trade_proposals, outcomes, pipeline_runs
 ```
 
 The three hand-off points (parquet schemas) are locked in `docs/interfaces.md`. Either RA changing them needs a PR + the other RA's review + Yikai signoff.
@@ -213,11 +216,12 @@ The three hand-off points (parquet schemas) are locked in `docs/interfaces.md`. 
 **Always cache.** Every LLM call must go through `pci_realtime/scoring/cache.py`, which hashes `(model, prompt_version, input_text)` and stores responses. Re-runs are free; experiments don't burn money.
 
 **Two-stage cost control:**
-- Stage 1 (screening) uses `gpt-4.1-mini` — should be ~$0.001/doc
-- Stage 2 (scoring) uses `gpt-4.1` or `claude-sonnet-4.5` — ~$0.05–0.10/doc, only on screened-relevant docs
+- Stage 1 (screening) defaults to `openai` / `gpt-5-mini`.
+- Stage 2 (scoring) defaults to `openai` / `gpt-5-mini`, with provider/model overrides via `PCI_SCORING_PROVIDER` and `PCI_SCORING_MODEL`.
+- Anthropic is available as an alternate or audit provider through `PCI_AUDIT_PROVIDER=anthropic` and `PCI_AUDIT_MODEL=claude-sonnet-4-6`.
 - Budget: ~$20/month steady-state. If a planned run will exceed $50, flag it in `docs/cost_log.md` and ping Yikai before running.
 
-**Log every call.** Prompt + response + cost + timestamp → append to `docs/llm_call_log.jsonl`. Never throw away this data; it's the audit trail for the paper.
+**Log every call.** Prompt version, model, source document ids, cost estimate, and timestamp should be retained through the scoring cache and cost log. Never commit API keys or raw private data.
 
 **Prompt versioning.** Prompts live in `pci_realtime/scoring/prompts.py` as named constants with a `VERSION` field. Never mutate a prompt in place — bump the version and keep the old one. All cached responses are keyed to prompt version.
 
@@ -228,25 +232,22 @@ The three hand-off points (parquet schemas) are locked in `docs/interfaces.md`. 
 ## Git & Collaboration
 
 - **Branch naming:** `<owner>/<phase>-<short>` (e.g., `austin/phase-3-index`, `duy/phase-2-scoring`, `yikai/calibration-set`). Squash-merge to keep history linear.
-- **Small commits, clear messages.** Prefix with scope: `ingest:`, `scoring:`, `pci:`, `dashboard:`, `docs:`.
-- **Never commit:** `.env`, raw LLM responses larger than 10 MB, `data/raw/` contents (gitignored anyway), API keys, `__pycache__/`, PitchBook firm-level data.
-- **Always commit:** `data/processed/pci_weekly.parquet` (the deliverable), `docs/cost_log.md`, `docs/calibration_report.md`, `data/baseline/` (immutable anchors), `data/fixtures/` (calibration set).
+- **Small commits, clear messages.** Prefix with scope: `ingest:`, `scoring:`, `pci:`, `registry:`, `docs:`.
+- **Never commit:** `.env`, `data/raw/`, `data/processed/`, `data/cache/`, `data/debug/`, API keys, signed trade requests, `__pycache__/`, PitchBook firm-level data.
+- **Always commit:** source code, tests, Supabase migrations/functions, `docs/cost_log.md`, `data/baseline/` immutable anchors, and `data/fixtures/` calibration fixtures.
 - **PRs need:** passing `pytest`, updated `README.md` if user-facing changes, cost log updated if new LLM spend.
 - **All PRs reviewed by Yikai before merge to main.**
 
-## Validation Gates (Phase 4 — critical)
+## Registry Gates
 
-Before the dashboard goes live, the real-time PCI must pass three checks. These live in `pci_realtime/pci/validation.py` and run as a single command:
+Before a forecast or trade proposal becomes public, the backend must satisfy the product gates in `forecast_registry/engine.py`:
 
-```bash
-python -m pci_realtime.pci.validation
-```
+1. **Paper-grounded signal.** A signal must come from a scored official policy event affecting one of the six tracked IRA provisions.
+2. **Clean market match.** A Kalshi market must be policy relevant, directly mapped to the provision/channel, and have clear resolution text.
+3. **Conservative forecast.** The market prior remains dominant; the PCI rule adjustment is bounded; LLM output is optional and low-weight.
+4. **Trading gate.** A proposal requires edge, spread, liquidity, confidence, exposure, public-info, and human-approval gates. Live orders require `PCI_ENABLE_LIVE_TRADING=true`, credentials, and an approval file.
 
-1. **OBBBA snapshot match.** Real-time PCI in Q2 2025 must match the paper's post-OBBBA values (±0.3) for each provision. `tests/test_validation.py::test_obbba_match`.
-2. **CPU correlation.** Weekly aggregate PCI ↔ Climate Policy Uncertainty index: expected `corr(ΔPCI, ΔCPU) < -0.2` at monthly frequency.
-3. **VC deal flow signal.** Using the firm-quarter panel from the main paper, a firm's exposure-weighted PCI should positively predict VC receipt. Expected coefficient on `PCI × Post_IRA`: positive, `p < 0.10`.
-
-**Do not skip these.** If a check fails, debug the scoring module — don't paper over it in the index builder.
+Do not add synthetic forecasts to make demos look full. Empty forecast ledgers are acceptable until real official-source events match clean markets.
 
 ## Parent Project Dependencies
 
@@ -256,8 +257,8 @@ This repo reads from but never writes to:
 |---|---|
 | `../../Draft/PNAS.../Mechanism/Credibility.tex` | Reference PCI definition + baseline + OBBBA scores |
 | `../../Draft/PNAS.../SI_Appendix.tex` §G | Scoring protocol |
-| `../../Data/PanelData/climatetech_panel_2020_2025q2_final.parquet` | For Validation Check 2 (PCI × VC deal flow) |
-| `../../Code/outputs/cpu_revision_duy/` | For Validation Check 1 (corr ΔPCI, ΔCPU) — Duy's deal-level CPU index |
+| `../../Data/PanelData/climatetech_panel_2020_2025q2_final.parquet` | Private paper evidence; never committed here |
+| `../../Code/outputs/cpu_revision_duy/` | Aggregate CPU evidence; public outputs only |
 
 If any of those paths move, update this file and `pci_realtime/config.py`.
 
@@ -267,7 +268,7 @@ If any of those paths move, update this file and `pci_realtime/config.py`.
 - **Pandas vs. Polars:** use Polars for >1M-row operations, Pandas otherwise. Both are installed.
 - **Dates:** ISO-week format (`YYYY-WW`) for all weekly partitions; `YYYY-MM-DD` otherwise. Never use locale-dependent date strings.
 - **Logging:** stdlib `logging` with a module-level logger. No `print` in production code.
-- **Config:** YAML in `config/` for anything a user might want to change (provision list, thresholds, model names). No magic numbers in source.
+- **Config:** YAML in `config/` for query lists and user-tunable settings. Paper anchors live in committed baseline data and `forecast_registry/policy.py`.
 - **Never invent data.** If a document's provision classification is ambiguous, the screener returns `ambiguous` and the scorer skips it. Don't guess.
 
 ## Testing
@@ -286,8 +287,8 @@ pytest tests/ -v
 - **Scope questions** (should this provision be in? should we score this doc?) → ask Yikai via Telegram, don't guess.
 - **LLM cost concerns** → stop and update `docs/cost_log.md` with an estimate before running anything over $10.
 - **Prompt engineering** → read Phase 2 of `RA_PCI_RealTime_Monitor_Guide.md` first; then `claude-api` skill.
-- **Dashboard design** → match the visual style of the main paper (Okabe-Ito palette; see `../../Draft/PNAS.../Graphs/colorblind_safe/README.md`).
-- **Validation failing** → don't patch the index to pass the test. Debug the scorer.
+- **Registry design** → keep the Supabase views as the frontend contract; do not create a second static-data source of truth.
+- **Forecast/trade gate failing** → don't loosen the risk checks to force output. Debug the signal, market mapping, or market eligibility.
 
 ## Non-Goals (Do Not Do These)
 
@@ -295,8 +296,9 @@ pytest tests/ -v
 - Build a "live" sub-daily updater. Weekly is fine.
 - Replace the baseline PCI with a re-estimation. Those anchors come from the paper and are immutable.
 - Train a custom model. We use frontier LLMs as annotators; that's the methodology.
-- Ship the dashboard publicly before Phase 4 validation passes.
+- Publish private order payloads, private firm data, or synthetic forecasts.
+- Create autonomous live trading. Human approval is mandatory.
 
 ---
 
-*Last updated: April 2026. If this file drifts from reality, update it — future-you and future-Claude will thank you.*
+*Last updated: May 2026. If this file drifts from reality, update it.*

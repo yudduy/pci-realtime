@@ -55,3 +55,26 @@ jobs:
         run: ruff check src/pci_realtime
       - name: Format check
         run: ruff format --check src/pci_realtime
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install web dependencies
+        run: npm --prefix apps/web ci
+      - name: Install Playwright browser
+        run: npx --prefix apps/web playwright install --with-deps chromium
+      - name: Typecheck
+        run: npm --prefix apps/web run typecheck
+      - name: Lint
+        run: npm --prefix apps/web run lint
+      - name: Build
+        run: npm --prefix apps/web run build
+      - name: E2E
+        run: npm --prefix apps/web run test:e2e
