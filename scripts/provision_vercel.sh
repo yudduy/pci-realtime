@@ -12,13 +12,19 @@ if ! vercel whoami >/dev/null 2>&1; then
   exit 1
 fi
 
-vercel link --cwd apps/web --yes --project "$PROJECT_NAME" "${SCOPE_ARGS[@]}"
+vercel link --yes --project "$PROJECT_NAME" "${SCOPE_ARGS[@]}"
+printf '{"rootDirectory":"apps/web","nodeVersion":"22.x"}' \
+  | vercel api "/v9/projects/$PROJECT_NAME" \
+    --method PATCH \
+    --input - \
+    --silent \
+    "${SCOPE_ARGS[@]}"
 
 cat >&2 <<'EOF'
-Set these Vercel env vars with `vercel env add --cwd apps/web`:
+Set these Vercel env vars from the repo root:
   SUPABASE_URL
   SUPABASE_PUBLISHABLE_KEY
 
 Then deploy:
-  vercel deploy --cwd apps/web --prod
+  vercel deploy --prod
 EOF

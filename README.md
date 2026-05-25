@@ -216,9 +216,10 @@ Provision Vercel after `vercel login`:
 ```bash
 export VERCEL_PROJECT_NAME=pci-forecast-registry
 ./scripts/provision_vercel.sh
-vercel env add --cwd apps/web SUPABASE_URL production
-vercel env add --cwd apps/web SUPABASE_PUBLISHABLE_KEY production
-vercel deploy --cwd apps/web --prod
+vercel env add SUPABASE_URL production
+vercel env add SUPABASE_PUBLISHABLE_KEY production
+vercel git connect git@github.com:yudduy/pci-realtime.git
+vercel deploy --prod
 ```
 
 Set these GitHub repository secrets for the production workflows:

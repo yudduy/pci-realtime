@@ -46,3 +46,4 @@ SI_Appendix.pdf
 .DS_Store
 .idea/
 .vercel
+.env*.local
