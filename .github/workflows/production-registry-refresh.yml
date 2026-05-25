@@ -1,0 +1,55 @@
+name: Production Registry Refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Refresh Kalshi markets and build outcomes without writing Supabase."
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "45 14 * * *"
+
+concurrency:
+  group: production-registry-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh markets, outcomes, and performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package and runtime
+        run: |
+          python -m pip install --upgrade pip uv
+          uv sync --extra dev
+
+      - name: Verify production secrets
+        run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+
+      - name: Run daily registry refresh
+        run: |
+          args=(--supabase)
+          if [[ "$DRY_RUN" == "true" ]]; then
+            args+=(--dry-run --output-path data/debug/daily_refresh_payload.json)
+          fi
+          uv run --extra dev python -m pci_realtime.pipeline.daily_refresh "${args[@]}"
+

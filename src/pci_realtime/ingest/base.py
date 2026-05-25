@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -47,8 +48,9 @@ def parse_date(value: str) -> date:
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
-def get_session(user_agent: str = USER_AGENT) -> requests.Session:
+def get_session(user_agent: str | None = None) -> requests.Session:
     session = requests.Session()
+    user_agent = user_agent or os.getenv("FEDERAL_REGISTER_USER_AGENT") or USER_AGENT
     session.headers.update({"User-Agent": user_agent})
     return session
 

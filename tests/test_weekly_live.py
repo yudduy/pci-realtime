@@ -220,17 +220,27 @@ def test_write_supabase_rows_uses_upserts_for_current_state_tables(
 
 def test_weekly_live_dry_run_writes_payload_without_supabase(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     raw_root, scored_dir, market_path = _write_fixture_inputs(tmp_path)
     output_path = tmp_path / "weekly_live_payload.json"
+
+    def record_ingest(**_: Any) -> None:
+        return None
+
+    def record_score(**_: Any) -> Path:
+        return scored_dir / "scored_2025-W23.parquet"
+
+    monkeypatch.setattr(
+        "pci_realtime.pipeline.weekly_live.run_official_ingest", record_ingest
+    )
+    monkeypatch.setattr("pci_realtime.pipeline.weekly_live.score_week", record_score)
 
     result = run_weekly_live(
         start_date=pd.Timestamp("2025-06-02").date(),
         end_date=pd.Timestamp("2025-06-08").date(),
         raw_root=raw_root,
         scored_dir=scored_dir,
-        skip_ingest=True,
-        skip_score=True,
         market_fixture_path=market_path,
         dry_run=True,
         output_path=output_path,

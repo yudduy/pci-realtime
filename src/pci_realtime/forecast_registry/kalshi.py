@@ -123,6 +123,16 @@ class KalshiClient:
         response.raise_for_status()
         return response.json()
 
+    def get_market(self, ticker: str) -> dict[str, Any]:
+        response = self.client.get(f"{self.base_url}/markets/{ticker}")
+        response.raise_for_status()
+        payload = response.json()
+        market = payload.get("market", payload)
+        if not isinstance(market, dict):
+            msg = f"Expected market payload for ticker {ticker}"
+            raise TypeError(msg)
+        return market
+
 
 def _market_text(market: dict[str, Any]) -> str:
     return " ".join(

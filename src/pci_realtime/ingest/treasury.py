@@ -42,6 +42,13 @@ DATE_PATTERNS = [
 ]
 
 
+def _safe_parse_date(value: str) -> date | None:
+    try:
+        return date_parser.parse(value).date()
+    except (TypeError, ValueError, date_parser.ParserError):
+        return None
+
+
 def _text_matches_scope(text: str) -> bool:
     lowered = (text or "").lower()
     terms = ["inflation reduction act", *FEDERAL_REGISTER_TERMS]
@@ -75,13 +82,18 @@ def extract_page_date(html: str) -> date | None:
             continue
         value = tag.get("datetime") or tag.get("content")
         if value:
-            return date_parser.parse(value).date()
+            parsed = _safe_parse_date(str(value))
+            if parsed:
+                return parsed
 
     text = soup.get_text(" ", strip=True)
     for pattern in DATE_PATTERNS:
         match = pattern.search(text)
-        if match:
-            return date_parser.parse(match.group(0)).date()
+        if not match:
+            continue
+        parsed = _safe_parse_date(match.group(0))
+        if parsed:
+            return parsed
     return None
 
 

@@ -17,7 +17,7 @@ official policy documents
   -> outcome tracking
 ```
 
-`weekly_live` owns the full weekly path: ingest, score, PCI build, market fetch, forecast creation, risk-gated proposal creation, and Supabase writes. `daily_refresh` owns market result refresh, settlement, metrics, and exposure refresh.
+`weekly_live` owns the full weekly path: ingest official sources, score PCI deltas, build PCI, fetch Kalshi markets, create forecasts, gate trade proposals, and write Supabase. `daily_refresh` reads Supabase forecasts, refreshes Kalshi market results, records settlements, and stores performance metadata.
 
 Trading stays backend-only. Live execution is disabled unless `PCI_ENABLE_LIVE_TRADING=true`, Kalshi credentials are present, and a proposal id appears in an approval file.
 
@@ -93,7 +93,7 @@ npm --prefix apps/web ci
 cp .env.example .env
 ```
 
-Fill in the API keys and Supabase values needed for the command you plan to run. The Federal Register API path does not require a key.
+Fill in the API keys and Supabase values needed for the command you plan to run. Federal Register, Treasury, IRS, and OMB reads do not require keys; Congress ingest uses `PROPUBLICA_CONGRESS_API_KEY`.
 
 Run the backend tests and linters:
 
@@ -120,28 +120,20 @@ python -m pci_realtime.pipeline.seed_supabase --dry-run
 python -m pci_realtime.pipeline.seed_supabase
 ```
 
-Run the weekly registry loop with an existing scored input set and a Kalshi market fixture:
+Run the weekly registry loop with official source ingest, LLM scoring, Kalshi discovery, gated proposals, and Supabase writes:
 
 ```bash
 python -m pci_realtime.pipeline.weekly_live \
-  --start-date 2025-06-02 \
-  --end-date 2025-06-08 \
-  --skip-ingest \
-  --skip-score \
-  --market-fixture-path path/to/kalshi_fixture.json \
-  --dry-run \
-  --output-path data/debug/weekly_live_payload.json
-```
-
-Run the weekly registry loop with official Federal Register ingest, LLM scoring, and Kalshi discovery:
-
-```bash
-python -m pci_realtime.pipeline.weekly_live \
-  --start-date 2025-06-02 \
-  --end-date 2025-06-08 \
-  --skip-bodies \
+  --start-date 2026-05-18 \
+  --end-date 2026-05-24 \
   --confirm-cost \
   --fetch-markets
+```
+
+Refresh market outcomes and performance metadata from Supabase:
+
+```bash
+python -m pci_realtime.pipeline.daily_refresh --supabase
 ```
 
 Start the Supabase-backed registry and web app from one command:
@@ -150,7 +142,7 @@ Start the Supabase-backed registry and web app from one command:
 ./scripts/run_registry.sh
 ```
 
-The command defaults to port `8510` and network host `0.0.0.0`; override with `PORT` or `HOST`.
+The command sources `.env`, defaults to the previous complete Monday-Sunday week, runs every backend stage, refreshes outcomes, builds the web app, and serves it on port `8510` at host `0.0.0.0`. Override with `START_DATE`, `END_DATE`, `PORT`, or `HOST`.
 
 ## Web App
 
@@ -192,12 +184,13 @@ The product-facing contract is Supabase: `provisions`, `pci_weekly`, `policy_eve
 |---|---|
 | Paper anchors and OBBBA stress anchors | implemented |
 | Federal Register ingest | implemented |
-| Treasury, Congress, and OMB ingestors | scaffolded; not wired into the default weekly command |
+| Treasury, IRS, Congress, and OMB ingestors | wired into the default weekly command |
 | LLM scoring and caching | implemented |
 | Weekly PCI builder | implemented |
 | Forecast registry, Kalshi reads, and gated proposals | implemented |
 | Public Supabase views | implemented |
-| Cloud scheduler and secured webhook runner | remaining deployment work |
+| Cloud scheduler | GitHub Actions workflows for weekly production and daily refresh |
+| Secured webhook runner | Supabase Edge Functions proxy to an external Python runner when configured |
 
 ## Cloud Provisioning
 
@@ -227,6 +220,26 @@ vercel env add --cwd apps/web SUPABASE_URL production
 vercel env add --cwd apps/web SUPABASE_PUBLISHABLE_KEY production
 vercel deploy --cwd apps/web --prod
 ```
+
+Set these GitHub repository secrets for the production workflows:
+
+```bash
+gh secret set SUPABASE_URL
+gh secret set SUPABASE_SERVICE_ROLE_KEY
+gh secret set OPENAI_API_KEY
+gh secret set PROPUBLICA_CONGRESS_API_KEY
+```
+
+Optional repository variables:
+
+```bash
+gh variable set FEDERAL_REGISTER_USER_AGENT --body "pci-realtime-production/0.1"
+gh variable set PCI_SCREENING_MODEL --body "gpt-5.4-nano"
+gh variable set PCI_SCORING_MODEL --body "gpt-5.4-mini"
+gh variable set PCI_AUDIT_MODEL --body "gpt-5.5"
+```
+
+`.github/workflows/production-registry-pipeline.yml` runs the complete weekly loop every Monday. `.github/workflows/production-registry-refresh.yml` refreshes market settlements and metrics daily.
 
 GitHub CLI access currently needs re-authentication before pushing under `yudduy`.
 

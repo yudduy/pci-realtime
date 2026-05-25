@@ -147,12 +147,15 @@ REQUEST_TIMEOUT_SECONDS = 30
 
 TREASURY_GUIDANCE_PAGES = {
     "treasury": [
-        "https://home.treasury.gov/policy-issues/inflation-reduction-act",
         "https://home.treasury.gov/news/press-releases",
+        "https://home.treasury.gov/news/press-releases?search_api_fulltext=Inflation+Reduction+Act",
     ],
     "irs": [
-        "https://www.irs.gov/credits-deductions/inflation-reduction-act-of-2022",
-        "https://www.irs.gov/newsroom/tax-provisions-in-the-inflation-reduction-act",
+        "https://www.irs.gov/credits-deductions/clean-vehicle-and-energy-credits",
+        "https://www.irs.gov/clean-vehicle-tax-credits",
+        "https://www.irs.gov/credits-deductions/clean-electricity-production-credit",
+        "https://www.irs.gov/newsroom/posters-guides-and-toolkits-for-the-inflation-reduction-act-credits",
+        "https://www.irs.gov/newsroom/one-big-beautiful-bill-provisions-individuals-and-workers",
     ],
 }
 

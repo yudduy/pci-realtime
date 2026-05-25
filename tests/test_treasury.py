@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any
 
 from pci_realtime.config import TREASURY_GUIDANCE_PAGES
-from pci_realtime.ingest.treasury import TreasuryIngestor
+from pci_realtime.ingest.treasury import TreasuryIngestor, extract_page_date
 
 
 class FakeResponse:
@@ -58,3 +58,14 @@ def test_treasury_ingestor_parses_guidance_page(monkeypatch) -> None:
     assert df.loc[0, "source"] == "treasury"
     assert df.loc[0, "doc_id"] == "treasury:guidance-45x"
     assert df.loc[0, "provisions_mentioned"] == ["45X"]
+
+
+def test_extract_page_date_ignores_invalid_candidate_dates() -> None:
+    assert extract_page_date(
+        """
+            <html><body>
+              <p>Archive marker 2023-04-00 should not crash parsing.</p>
+              <p>Updated May 3, 2024.</p>
+            </body></html>
+            """
+    ) == date(2024, 5, 3)

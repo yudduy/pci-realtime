@@ -122,6 +122,29 @@ class SupabaseRestClient:
         )
         response.raise_for_status()
 
+    def select_rows(
+        self,
+        table: str,
+        *,
+        columns: str = "*",
+        params: dict[str, str] | None = None,
+    ) -> list[dict[str, Any]]:
+        query = {"select": columns}
+        if params:
+            query.update(params)
+        response = httpx.get(
+            f"{self.url}/rest/v1/{table}",
+            headers=self._headers(),
+            params=query,
+            timeout=self.timeout_seconds,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, list):
+            msg = f"Expected list payload from Supabase table {table}"
+            raise TypeError(msg)
+        return [json_clean(row) for row in payload]
+
     def _headers(self, prefer: str | None = None) -> dict[str, str]:
         headers = {
             "apikey": self.service_role_key,

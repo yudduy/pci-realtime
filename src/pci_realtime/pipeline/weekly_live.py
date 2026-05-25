@@ -33,7 +33,10 @@ from pci_realtime.forecast_registry.store import (
     write_supabase_rows as store_write_supabase_rows,
 )
 from pci_realtime.ingest.base import parse_date
+from pci_realtime.ingest.congress import run_window as ingest_congress
 from pci_realtime.ingest.federal_register import run_window as ingest_federal_register
+from pci_realtime.ingest.omb import run_window as ingest_omb
+from pci_realtime.ingest.treasury import run_window as ingest_treasury
 from pci_realtime.pci.builder import (
     BASELINE_WEEK,
     build_weekly_index,
@@ -44,6 +47,7 @@ from pci_realtime.scoring.scorer import run_week as score_week
 
 
 LOGGER = logging.getLogger(__name__)
+DEFAULT_INGEST_SOURCES = ("federal_register", "treasury", "irs", "omb", "congress")
 
 
 @dataclass(frozen=True)
@@ -230,6 +234,7 @@ def build_weekly_live_rows(
     fetch_markets: bool = False,
     query_file: Path = Path("config/policy_market_queries.yml"),
     run_id: str | None = None,
+    ingest_sources: tuple[str, ...] = DEFAULT_INGEST_SOURCES,
 ) -> dict[str, list[dict[str, Any]]]:
     run_id = run_id or str(uuid.uuid4())
     scored_for_pci = load_scored_deltas(scored_dir)
@@ -278,6 +283,7 @@ def build_weekly_live_rows(
             "source": "weekly_live.py",
             "metadata": {
                 "week": week,
+                "ingest_sources": list(ingest_sources),
                 "policy_events": len(policy_events),
                 "signals": len(signals),
                 "markets": len(markets),
@@ -308,6 +314,57 @@ def build_weekly_live_rows(
     }
 
 
+def run_official_ingest(
+    *,
+    start_date: date,
+    end_date: date,
+    raw_root: Path,
+    fetch_bodies: bool,
+    sources: tuple[str, ...] = DEFAULT_INGEST_SOURCES,
+) -> None:
+    for source in sources:
+        if source == "federal_register":
+            ingest_federal_register(
+                start_date=start_date,
+                end_date=end_date,
+                output_dir=raw_root / "federal_register",
+                fetch_bodies=fetch_bodies,
+            )
+        elif source == "treasury":
+            ingest_treasury(
+                start_date=start_date,
+                end_date=end_date,
+                output_dir=raw_root / "treasury",
+                fetch_bodies=fetch_bodies,
+                source="treasury",
+            )
+        elif source == "irs":
+            ingest_treasury(
+                start_date=start_date,
+                end_date=end_date,
+                output_dir=raw_root / "irs",
+                fetch_bodies=fetch_bodies,
+                source="irs",
+            )
+        elif source == "omb":
+            ingest_omb(
+                start_date=start_date,
+                end_date=end_date,
+                output_dir=raw_root / "omb",
+                fetch_bodies=fetch_bodies,
+            )
+        elif source == "congress":
+            ingest_congress(
+                start_date=start_date,
+                end_date=end_date,
+                output_dir=raw_root / "congress",
+                fetch_bodies=fetch_bodies,
+            )
+        else:
+            msg = f"Unsupported ingest source: {source}"
+            raise ValueError(msg)
+
+
 def write_supabase_rows(
     rows_by_table: dict[str, list[dict[str, Any]]],
     *,
@@ -323,31 +380,29 @@ def run_weekly_live(
     raw_root: Path = RAW_DATA_ROOT,
     scored_dir: Path = PROCESSED_DATA_ROOT / "scored",
     fetch_bodies: bool = True,
-    skip_ingest: bool = False,
-    skip_score: bool = False,
     confirm_cost: bool = False,
     market_fixture_path: Path | None = None,
     fetch_markets: bool = False,
     query_file: Path = Path("config/policy_market_queries.yml"),
+    ingest_sources: tuple[str, ...] = DEFAULT_INGEST_SOURCES,
     dry_run: bool = False,
     output_path: Path | None = None,
 ) -> WeeklyLiveResult:
     week = _iso_week_from_date(start_date)
     run_id = str(uuid.uuid4())
-    if not skip_ingest:
-        ingest_federal_register(
-            start_date=start_date,
-            end_date=end_date,
-            output_dir=raw_root / "federal_register",
-            fetch_bodies=fetch_bodies,
-        )
-    if not skip_score:
-        score_week(
-            week=week,
-            raw_root=raw_root,
-            output_dir=scored_dir,
-            confirm_cost=confirm_cost,
-        )
+    run_official_ingest(
+        start_date=start_date,
+        end_date=end_date,
+        raw_root=raw_root,
+        fetch_bodies=fetch_bodies,
+        sources=ingest_sources,
+    )
+    score_week(
+        week=week,
+        raw_root=raw_root,
+        output_dir=scored_dir,
+        confirm_cost=confirm_cost,
+    )
 
     rows_by_table = build_weekly_live_rows(
         week=week,
@@ -357,6 +412,7 @@ def run_weekly_live(
         fetch_markets=fetch_markets,
         query_file=query_file,
         run_id=run_id,
+        ingest_sources=ingest_sources,
     )
     counts = {table: len(rows) for table, rows in rows_by_table.items()}
     if output_path is not None:
@@ -381,13 +437,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--end-date", required=True)
     parser.add_argument("--raw-root", default=str(RAW_DATA_ROOT))
     parser.add_argument("--scored-dir", default=str(PROCESSED_DATA_ROOT / "scored"))
-    parser.add_argument("--skip-ingest", action="store_true")
-    parser.add_argument("--skip-score", action="store_true")
-    parser.add_argument("--skip-bodies", action="store_true")
     parser.add_argument("--confirm-cost", action="store_true")
     parser.add_argument("--market-fixture-path")
     parser.add_argument("--fetch-markets", action="store_true")
     parser.add_argument("--query-file", default="config/policy_market_queries.yml")
+    parser.add_argument(
+        "--ingest-source",
+        action="append",
+        choices=DEFAULT_INGEST_SOURCES,
+        help=(
+            "Official document source to ingest. May be repeated. "
+            "Defaults to all official sources."
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--output-path")
     return parser
@@ -401,15 +463,14 @@ def main() -> None:
         end_date=parse_date(args.end_date),
         raw_root=Path(args.raw_root),
         scored_dir=Path(args.scored_dir),
-        fetch_bodies=not args.skip_bodies,
-        skip_ingest=args.skip_ingest,
-        skip_score=args.skip_score,
+        fetch_bodies=True,
         confirm_cost=args.confirm_cost,
         market_fixture_path=Path(args.market_fixture_path)
         if args.market_fixture_path
         else None,
         fetch_markets=args.fetch_markets,
         query_file=Path(args.query_file),
+        ingest_sources=tuple(args.ingest_source or DEFAULT_INGEST_SOURCES),
         dry_run=args.dry_run,
         output_path=Path(args.output_path) if args.output_path else None,
     )
