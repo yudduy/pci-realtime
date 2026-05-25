@@ -23,7 +23,6 @@ from pci_realtime.forecast_registry.policy import PROVISION_DETAILS
 LOGGER = logging.getLogger(__name__)
 FORBIDDEN_PUBLIC_STRINGS = (
     "OPENAI_API_KEY",
-    "ANTHROPIC_API_KEY",
     "KALSHI_PRIVATE_KEY",
     "raw_response",
     "Company ID",

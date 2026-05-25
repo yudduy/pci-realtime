@@ -35,7 +35,6 @@ jobs:
           # Tests should not require real API keys; integration tests that do
           # are gated on these being set and skipped otherwise.
           OPENAI_API_KEY: ""
-          ANTHROPIC_API_KEY: ""
           PROPUBLICA_CONGRESS_API_KEY: ""
           FEDERAL_REGISTER_USER_AGENT: "pci-realtime-ci/0.1 (ci@github)"
         run: |
