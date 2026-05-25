@@ -23,6 +23,7 @@ import type {
   ResolvedForecast,
   TradeProposal,
 } from "@/lib/data"
+import { policyCopy } from "@/lib/policy-copy"
 
 type BoardTab = "all" | "forecasts" | "watchlist" | "markets" | "resolved"
 
@@ -66,49 +67,6 @@ function money(value: number | null | undefined) {
 
 function sourceTitle(sourceDoc: Record<string, unknown>) {
   return String(sourceDoc.title ?? sourceDoc.url ?? "Source document")
-}
-
-const POLICY_COPY: Record<string, { name: string; question: string; lane: string }> = {
-  "30D": {
-    name: "EV credits",
-    question: "Will EV credits stay stable?",
-    lane: "Consumer EVs",
-  },
-  "45Q": {
-    name: "Carbon capture",
-    question: "Will carbon capture stay stable?",
-    lane: "Carbon capture",
-  },
-  "45V": {
-    name: "Hydrogen",
-    question: "Will hydrogen credits stay stable?",
-    lane: "Hydrogen",
-  },
-  "45X": {
-    name: "Factory credits",
-    question: "Will factory credits stay stable?",
-    lane: "Manufacturing",
-  },
-  "50141": {
-    name: "Energy loans",
-    question: "Will energy loans stay stable?",
-    lane: "Loan programs",
-  },
-  "50144": {
-    name: "Reinvestment",
-    question: "Will reinvestment stay stable?",
-    lane: "Grid and plants",
-  },
-}
-
-function policyCopy(code: string, fallbackName?: string | null) {
-  return (
-    POLICY_COPY[code] ?? {
-      name: fallbackName ?? code,
-      question: `Will ${fallbackName ?? code} stay credible?`,
-      lane: "Policy",
-    }
-  )
 }
 
 export function RegistryDashboard({ data }: { data: RegistryData }) {

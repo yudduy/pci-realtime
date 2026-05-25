@@ -197,11 +197,13 @@ snapshots are fetched live only when `--fetch-markets` is set.
 
 ## Web App
 
-The lab-demo frontend lives in `apps/web`. It is the Polymarket-style registry
-surface: provision tiles, forecast cards, market-scan cards, gated proposal
-status, event feed, and resolved-forecast track record. "Read-only" means the
-app does not mutate registry state or own data; it renders live rows from
-Supabase public views.
+The lab-demo frontend lives in `apps/web`. The root route is a clean research
+companion for the paper: it explains PCI in lay terms, shows the six paper
+anchors, and links into the live monitor. `/dashboard` is the Polymarket-style
+registry surface: provision tiles, forecast cards, market-scan cards, gated
+proposal status, event feed, and resolved-forecast track record. "Read-only"
+means the app does not mutate registry state or own data; it renders live rows
+from Supabase public views.
 
 One command starts local Supabase if needed, seeds the paper anchors, runs a
 policy-filtered Kalshi scan, and launches the app:
@@ -219,6 +221,8 @@ With the demo server running, smoke-test the live local surface:
 ```bash
 npm --prefix apps/web run test:e2e:live
 ```
+
+Open the companion page at `/`; open the live registry at `/dashboard`.
 
 ```bash
 cd apps/web

@@ -63,6 +63,19 @@ input {
   display: none;
 }
 
+.landing-nav-link {
+  border-radius: 999px;
+  padding: 8px 14px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.landing-nav-link:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
 .market-card {
   min-height: 252px;
   border: 1px solid var(--border);

@@ -3,6 +3,14 @@ import { expect, test } from "@playwright/test"
 test("live local demo renders seeded Supabase state", async ({ page }) => {
   await page.goto("/")
 
+  await expect(
+    page.getByRole("heading", { name: "A live monitor for policy credibility." }),
+  ).toBeVisible()
+  await expect(page.getByText("Companion to the IRA venture-capital paper")).toBeVisible()
+  await expect(page.getByRole("link", { name: "Open live monitor" })).toBeVisible()
+
+  await page.goto("/dashboard")
+
   await expect(page.getByText("Energy Odds", { exact: true })).toBeVisible()
   await expect(page.getByText("Six policies. Real markets only.")).toBeVisible()
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible()
