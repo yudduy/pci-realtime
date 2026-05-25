@@ -21,6 +21,7 @@ supabase/snippets/
 apps/web/.vercel/
 apps/web/.next/
 apps/web/node_modules/
+apps/web/out/
 apps/web/playwright-report/
 apps/web/test-results/
 apps/web/tsconfig.tsbuildinfo

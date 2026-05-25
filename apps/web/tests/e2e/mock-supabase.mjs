@@ -76,6 +76,12 @@ function provision(code, name, pci, specificity, durability, enforceability, obb
 const server = createServer((request, response) => {
   const url = new URL(request.url ?? "/", "http://127.0.0.1:8787")
 
+  if (request.method === "OPTIONS") {
+    response.writeHead(204, corsHeaders())
+    response.end()
+    return
+  }
+
   if (url.pathname === "/health") {
     respond(response, { ok: true })
     return
@@ -87,13 +93,21 @@ const server = createServer((request, response) => {
     return
   }
 
-  response.writeHead(404, { "content-type": "application/json" })
+  response.writeHead(404, { ...corsHeaders(), "content-type": "application/json" })
   response.end(JSON.stringify({ error: "not found" }))
 })
 
 server.listen(8787, "127.0.0.1")
 
+function corsHeaders() {
+  return {
+    "access-control-allow-origin": "*",
+    "access-control-allow-headers": "apikey, authorization, content-type",
+    "access-control-allow-methods": "GET, OPTIONS",
+  }
+}
+
 function respond(response, payload) {
-  response.writeHead(200, { "content-type": "application/json" })
+  response.writeHead(200, { ...corsHeaders(), "content-type": "application/json" })
   response.end(JSON.stringify(payload))
 }

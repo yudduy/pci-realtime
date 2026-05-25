@@ -211,16 +211,15 @@ export SUPABASE_PROJECT_REF=<project-ref>
 
 For a new Supabase project, set `SUPABASE_ORG_ID` and `SUPABASE_DB_PASSWORD`; the script creates the project and prints the project ref to use on the next run.
 
-Provision Vercel after `vercel login`:
+Provision the public research-style site on GitHub Pages:
 
 ```bash
-export VERCEL_PROJECT_NAME=pci-forecast-registry
-./scripts/provision_vercel.sh
-vercel env add SUPABASE_URL production
-vercel env add SUPABASE_PUBLISHABLE_KEY production
-vercel git connect git@github.com:yudduy/pci-realtime.git
-vercel deploy --prod
+gh variable set NEXT_PUBLIC_SUPABASE_URL --body "https://<project-ref>.supabase.co"
+gh secret set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+gh workflow run github-pages.yml
 ```
+
+The Pages build statically exports `apps/web` and reads the public Supabase views from the browser, so the site stays static while the backend updates the data on its weekly and daily schedules.
 
 Set these GitHub repository secrets for the production workflows:
 

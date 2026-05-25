@@ -17,7 +17,7 @@ export default defineConfig({
     },
     {
       command:
-        "SUPABASE_URL=http://127.0.0.1:8787 SUPABASE_PUBLISHABLE_KEY=test npm run dev -- --hostname 127.0.0.1 --port 8511",
+        "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:8787 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=test npm run dev -- --hostname 127.0.0.1 --port 8511",
       reuseExistingServer: false,
       timeout: 120_000,
       url: "http://127.0.0.1:8511",

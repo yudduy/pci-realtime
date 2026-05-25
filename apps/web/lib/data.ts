@@ -191,6 +191,20 @@ async function fetchView<T>(
   }
 }
 
+export function emptyRegistryData(viewErrors: string[] = []): RegistryData {
+  return {
+    currentPci: [],
+    openForecasts: [],
+    resolvedForecasts: [],
+    tradeProposals: [],
+    marketSnapshots: [],
+    policyEvents: [],
+    pipelineRuns: [],
+    connected: false,
+    viewErrors,
+  }
+}
+
 export async function getRegistryData(): Promise<RegistryData> {
   const config = supabaseConfig()
   const [
