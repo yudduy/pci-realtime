@@ -12,12 +12,12 @@ dist/
 .venv/
 venv/
 
-# Supabase local state
+# Supabase state
 supabase/.branches/
 supabase/.temp/
 supabase/snippets/
 
-# Frontend local state
+# Frontend state
 apps/web/.vercel/
 apps/web/.next/
 apps/web/node_modules/
@@ -25,7 +25,7 @@ apps/web/playwright-report/
 apps/web/test-results/
 apps/web/tsconfig.tsbuildinfo
 
-# Local secrets and env
+# Secrets and env
 .env
 .env.*
 !.env.example
@@ -37,9 +37,8 @@ data/cache/**/*.json
 data/cache/**/*.csv
 data/private/**
 data/debug/**
-data/public/**
 
-# Local paper source material; do not commit licensed/private drafts by default
+# Paper source material; do not commit licensed/private drafts by default
 Research_report.pdf
 SI_Appendix.pdf
 

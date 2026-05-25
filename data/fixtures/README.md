@@ -1,4 +1,4 @@
-# Fixtures
+# Reference Data
 
 Small, committed reference data files used for tests and calibration.
 
@@ -12,22 +12,21 @@ the `federal_register.py` ingestor. Lives alongside `tests/test_federal_register
 
 20 federal-policy events spanning Aug 2022 → Jun 2025, each with manual
 ΔPCI scores on (specificity, durability, enforceability) for the affected
-provision(s). This is the **ground truth** used by Phase 2 calibration to
+provision(s). This is the **ground truth** used by scorer calibration to
 measure LLM scoring RMSE before scaling to the full corpus.
 
-**Workflow:**
+**Review path:**
 
-1. **Austin (Week 1)** — extends the seeded 20 rows: verify dates, fill in
+1. **Austin** — extends the seeded 20 rows: verify dates, fill in
    missing URLs (Federal Register, Treasury press releases, IRS Notice
-   pages, EO listings), tighten the `notes` column. Add up to 5 more
+   pages, EO listings), and tighten the `notes` column. Add up to 5 more
    high-impact events if found. Set `verified=TRUE` on rows whose
    metadata you've fact-checked against the upstream document.
-2. **Yikai (Week 1)** — reviews Austin's verified rows; overrides any
+2. **Yikai** — reviews Austin's verified rows; overrides any
    `*_delta` values that disagree with his manual scoring. Sets
    `scored_by=yikai` and `confidence` to `high` on rows he's signed off on.
-3. **Duy (Week 2)** — runs the LLM scoring module 5× per row at
-   `temperature=0.3`. Reports per-dimension RMSE in
-   `docs/calibration_report.md`. Gate: RMSE < 0.5 on the 1–5 scale.
+3. **Duy** — runs the LLM scoring module 5x per row at `temperature=0.3`.
+   Gate: RMSE < 0.5 on the 1-5 scale.
 
 **Internal consistency check:** Σ Δ-values per provision across all 20 rows
 should approximately equal the cumulative ΔPCI from the paper's Aug 2022
@@ -48,12 +47,12 @@ calibration error to fix before Duy uses this for RMSE.
 | `durability_delta` | `float` | Manual score, ±2.0 scale |
 | `enforceability_delta` | `float` | Manual score, ±2.0 scale |
 | `confidence` | `string` | `low` / `medium` / `high` — Yikai's confidence in the score |
-| `notes` | `string` | Free-text rationale and any TODOs |
+| `notes` | `string` | Free-text rationale and review notes |
 | `scored_by` | `string` | `starter` (this file's seed), `austin`, or `yikai` |
 | `verified` | `bool` | `TRUE` once the row has been cross-checked against upstream |
 
-## `scored_2024-W44_fixture.csv` (Duy synthetic Schema B handoff)
+## `scored_2024-W44_fixture.csv` (Duy reference scorer output)
 
 Small synthetic scored-delta fixture for Austin's `pci/builder.py` work.
-The rows follow Schema B from `docs/interfaces.md` but are not live LLM
-outputs and should not be used for calibration or paper results.
+The rows follow the scored-delta contract in the root README but are not live
+LLM outputs and should not be used for calibration or paper results.

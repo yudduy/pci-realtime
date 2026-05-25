@@ -1,7 +1,7 @@
 row_id,date,provision,doc_title,url,specificity_delta,durability_delta,enforceability_delta,confidence,notes,scored_by,verified
-1,2022-11-03,45V,IRS Notice 2022-58 (request for comments on hydrogen),https://www.federalregister.gov/d/2022-23896,0.0,0.0,0.3,medium,First signal Treasury would actively guide. Yikai TODO: verify date and confirm scores.,starter,FALSE
-2,2022-12-19,45X,IRS Notice 2022-50 (initial 45X interpretation),,0.3,0.0,0.3,medium,Codifies eligible component definitions. Yikai TODO: verify URL and scores.,starter,FALSE
-3,2023-04-04,30D,Treasury proposed regs (battery sourcing FEOC),,0.5,0.0,0.3,medium,Critical-mineral and Foreign Entity of Concern rules. Yikai TODO: verify.,starter,FALSE
+1,2022-11-03,45V,IRS Notice 2022-58 (request for comments on hydrogen),https://www.federalregister.gov/d/2022-23896,0.0,0.0,0.3,medium,First signal Treasury would actively guide. Yikai review: verify date and confirm scores.,starter,FALSE
+2,2022-12-19,45X,IRS Notice 2022-50 (initial 45X interpretation),,0.3,0.0,0.3,medium,Codifies eligible component definitions. Yikai review: verify URL and scores.,starter,FALSE
+3,2023-04-04,30D,Treasury proposed regs (battery sourcing FEOC),,0.5,0.0,0.3,medium,Critical-mineral and Foreign Entity of Concern rules. Yikai review.,starter,FALSE
 4,2023-06-14,ALL,IRS proposed regs Section 6418 (credit transferability),,0.3,0.3,0.5,medium,Transfer market clarity affects all six provisions. Score per provision in production.,starter,FALSE
 5,2023-08-29,45X+45V,IRS Notice 2023-29 (energy community bonus),,0.3,0.0,0.3,medium,Defines bonus eligibility geography for two provisions.,starter,FALSE
 6,2023-12-22,45V,Treasury proposed regs (three pillars: additionality / temporal matching / deliverability),,-0.5,0.0,0.5,low,Stricter than industry expected; narrowed eligible scope but added clarity. Major event - Yikai please review carefully.,starter,FALSE
@@ -14,8 +14,8 @@ row_id,date,provision,doc_title,url,specificity_delta,durability_delta,enforceab
 13,2024-12-05,45V,Treasury final hydrogen regs (softened pillars),,0.3,0.0,0.3,medium,Final rules slightly more flexible than the Dec 2023 proposed.,starter,FALSE
 14,2025-01-20,50141+50144,Executive Order 14154 'Unleashing American Energy' (pause on IRA funds),,0.0,-0.5,-1.0,high,Major enforceability shock for LPO programs.,starter,FALSE
 15,2025-01-20,ALL,Executive Order 14156 (declaring energy emergency),,0.0,-0.3,-0.3,medium,Political reversal signal across all provisions.,starter,FALSE
-16,2025-02-14,50141,DOE rescission of unobligated LPO balances,,0.0,-0.3,-0.7,low,Direct enforceability hit. Yikai TODO: verify exact date.,starter,FALSE
-17,2025-03-15,50144,LPO mission rebranding plus revised selection criteria,,-0.5,0.0,-0.7,low,Specificity and enforceability loss. Yikai TODO: verify exact date.,starter,FALSE
+16,2025-02-14,50141,DOE rescission of unobligated LPO balances,,0.0,-0.3,-0.7,low,Direct enforceability hit. Yikai review: verify exact date.,starter,FALSE
+17,2025-03-15,50144,LPO mission rebranding plus revised selection criteria,,-0.5,0.0,-0.7,low,Specificity and enforceability loss. Yikai review: verify exact date.,starter,FALSE
 18,2025-04-10,ALL,House budget resolution (signaling repeal effort),,0.0,-0.5,0.0,medium,Durability shock.,starter,FALSE
 19,2025-05-22,45X+45V+30D,OBBBA House passage (specific amendments),,-0.5,-1.0,0.0,high,Locks in design shocks for three provisions.,starter,FALSE
 20,2025-06-15,45Q,OBBBA Senate negotiations (45Q preserved),,0.0,0.3,0.0,medium,Within-provision contrast - 45Q escapes OBBBA design shocks.,starter,FALSE

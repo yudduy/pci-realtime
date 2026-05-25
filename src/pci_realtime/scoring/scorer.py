@@ -343,7 +343,7 @@ def run_week(
     temperature: float = SCORING_TEMPERATURE,
     confirm_cost: bool = False,
     client: StructuredOutputClient | None = None,
-    audit_log_path: Path = PROJECT_ROOT / "docs" / "llm_call_log.jsonl",
+    audit_log_path: Path = PROJECT_ROOT / "data" / "debug" / "llm_call_log.jsonl",
 ) -> Path:
     raw_df = read_raw_week(week, raw_root=raw_root)
     estimate = estimated_run_cost(len(raw_df))

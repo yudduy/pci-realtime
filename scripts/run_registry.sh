@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PORT="${PORT:-8510}"
+HOST="${HOST:-0.0.0.0}"
 
 if ! supabase status >/dev/null 2>&1; then
   supabase start
@@ -13,7 +14,7 @@ PUBLISHABLE_KEY="$(printf '%s\n' "$STATUS_ENV" | awk -F= '/^PUBLISHABLE_KEY=/{gs
 SECRET_KEY="$(printf '%s\n' "$STATUS_ENV" | awk -F= '/^SECRET_KEY=/{gsub("\"", "", $2); print $2}')"
 
 if [[ -z "$API_URL" || -z "$PUBLISHABLE_KEY" || -z "$SECRET_KEY" ]]; then
-  echo "Could not read local Supabase credentials from 'supabase status -o env'." >&2
+  echo "Could not read Supabase credentials from 'supabase status -o env'." >&2
   exit 1
 fi
 
@@ -36,4 +37,4 @@ SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" \
 
 SUPABASE_URL="$API_URL" \
 SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" \
-  npm --prefix apps/web run start -- --hostname 127.0.0.1 --port "$PORT"
+  npm --prefix apps/web run start -- --hostname "$HOST" --port "$PORT"

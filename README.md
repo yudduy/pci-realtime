@@ -1,165 +1,126 @@
-# PCI Real-Time Monitor
+# Policy Credibility Registry
 
-Real-time **Policy Credibility Index** (PCI) monitor for key Inflation Reduction Act (IRA) climate provisions. Ingests official federal policy documents, scores their effect on policy credibility with LLMs, and writes a Supabase-backed forecast and gated trading registry.
+Supabase-backed registry for the Policy Credibility Index (PCI) from the IRA venture-capital research project. The system turns official federal policy documents into weekly PCI updates, matches those updates to clean public prediction markets, and records forecasts, gated trade proposals, and resolved outcomes.
 
-> **Status:** Active build, Phases 0-3 complete through the PCI time-series builder. See `CLAUDE.md` for the full status board and two-RA track ownership.
+The public web app is a research companion and read-only registry surface. It does not place orders, invent forecasts, or expose private execution payloads.
 
-## Why this exists
+## Product Loop
 
-The companion PNAS paper (Cao, Eesley, Jain, Moorjani 2026) introduces a Policy Credibility Index (PCI) that scores six focal IRA provisions on **specificity** (rule-based eligibility vs. discretionary), **durability** (multi-year statutory horizon vs. annual reauthorization), and **enforceability** (clear agency assignment vs. discretionary implementation). The paper computes PCI as two static snapshots (Aug 2022 enactment + 2025 OBBBA shock). This repo turns those snapshots into a continuously updated weekly series.
+```text
+official policy documents
+  -> provision relevance filter
+  -> PCI delta scoring
+  -> weekly PCI series
+  -> market discovery
+  -> forecast registry
+  -> gated trade proposal
+  -> outcome tracking
+```
 
-The output supports a follow-up methods paper targeting *Nature Energy*.
+`weekly_live` owns the full weekly path: ingest, score, PCI build, market fetch, forecast creation, risk-gated proposal creation, and Supabase writes. `daily_refresh` owns market result refresh, settlement, metrics, and exposure refresh.
 
-## Six focal provisions
+Trading stays backend-only. Live execution is disabled unless `PCI_ENABLE_LIVE_TRADING=true`, Kalshi credentials are present, and a proposal id appears in an approval file.
 
-| Code | Provision | Aug 2022 baseline PCI |
+## Research Context
+
+The companion paper defines PCI as institutional design quality, scored from 1 to 5 across three dimensions:
+
+| Dimension | High Score Means |
+|---|---|
+| Specificity | Eligibility rules are clear and reduce discretion |
+| Durability | The commitment survives across the investment horizon |
+| Enforceability | Implementation has an assigned agency process |
+
+The baseline PCI snapshot starts at IRA enactment on 2022-08-16:
+
+| Code | Provision | Baseline PCI |
 |---|---|---:|
-| `45X` | Advanced Manufacturing Production Credit | 4.67 |
-| `45V` | Clean Hydrogen Production Credit | 4.33 |
-| `45Q` | Carbon Oxide Sequestration Credit | 4.33 |
-| `30D` | Clean Vehicle Credit | 4.00 |
-| `50144` | Energy Infrastructure Reinvestment (LPO) | 3.33 |
-| `50141` | Loan Programs Office Funding | 3.00 |
+| `45X` | Factory production credits | 4.67 |
+| `45V` | Clean hydrogen credits | 4.33 |
+| `45Q` | Carbon capture credits | 4.33 |
+| `30D` | EV purchase credits | 4.00 |
+| `50144` | Energy reinvestment loans | 3.33 |
+| `50141` | Loan office funding | 3.00 |
 
-Baseline anchors live (immutable) in `data/baseline/pci_baseline.csv`.
+The OBBBA stress snapshot used by the paper is encoded as provision-level anchors in the registry seed data.
 
-## Team
+## PCI Method
 
-| Role | Person | Owns |
-|---|---|---|
-| PI | Yikai Cao (Stanford) | scope, manual ΔPCI scoring of calibration set, code review, paper Intro + Discussion |
-| First author / methodology | **Duy** | LLM scoring module (`src/pci_realtime/scoring/`), validation analysis, paper Sections 2–4 |
-| Second author / infrastructure | **Austin** | additional ingestors (`src/pci_realtime/ingest/`), time-series builder (`src/pci_realtime/pci/`), deployment plumbing |
-| Senior coauthor | Charles Eesley (Stanford) | strategic direction, paper edits |
+Each relevant official document can change specificity, durability, and enforceability by dimension-level deltas in `[-2, +2]`. The weekly index is sticky unless a scored document changes it:
 
-Track-level deliverables and the 8-week timeline live in `CLAUDE.md` §Two-RA tracks.
+```text
+PCI[p, t] = clip(
+  PCI[p, t-1] + sum_doc((specificity_delta + durability_delta + enforceability_delta) / 3),
+  1.0,
+  5.0
+)
+```
 
-## Repository layout
+PCI is not investor sentiment and not a news index. General news scraping is intentionally out of scope for index updates. Market data is read from Kalshi only for public market matching and outcome tracking.
+
+## Repository Layout
 
 ```text
 pci-realtime/
-├── src/pci_realtime/        # installable package (`pip install -e .`)
-│   ├── config.py            # provision list, paths, defaults
-│   ├── ingest/              # Austin owns — federal_register.py exists
-│   ├── filter/              # Duy owns
-│   ├── scoring/             # Duy owns — Stage 1 screener + Stage 2 scorer + cache
-│   ├── pci/                 # Austin owns — weekly PCI builder
-│   ├── forecast_registry/   # policy constants, forecast engine, Kalshi, Supabase store
-│   ├── pipeline/            # seed, weekly live run, daily refresh entrypoints
-│   └── dashboard/           # placeholder; not the active product path
-├── supabase/                # Postgres migrations + orchestration Edge Functions
-├── data/
-│   ├── raw/                 # ingested docs (gitignored)
-│   ├── processed/           # scored docs + pci_weekly.parquet (gitignored)
-│   ├── cache/               # LLM response cache (gitignored)
-│   ├── baseline/            # immutable PCI anchors from the paper (committed)
-│   └── fixtures/            # 11-doc Federal Register golden set + 20-doc calibration set (committed)
-├── tests/
-├── docs/
-│   ├── phase0_scoring_spec.md     # Duy's locked scoring rubric (read first)
-│   └── interfaces.md              # locked Austin↔Duy hand-off schemas
-├── notebooks/
+├── README.md
+├── LICENSE
 ├── pyproject.toml
-├── .env.example
-└── CLAUDE.md                # full project guide for AI assistants and humans
+├── uv.lock
+├── src/pci_realtime/
+│   ├── config.py
+│   ├── ingest/
+│   ├── filter/
+│   ├── scoring/
+│   ├── pci/
+│   ├── forecast_registry/
+│   └── pipeline/
+├── apps/web/
+├── supabase/
+├── scripts/
+├── tests/
+└── data/
+    ├── baseline/
+    └── fixtures/
 ```
 
-## Quick start
+`data/raw`, `data/processed`, `data/cache`, `data/private`, `data/debug`, and generated web build outputs are ignored runtime state.
+
+## Setup
 
 ```bash
-# 1. Clone
-git clone git@github.com:yikaicao/pci-realtime.git
-cd pci-realtime
-
-# 2. Install
 pip install -e ".[dev]"
-
-# 3. Set up secrets
+npm --prefix apps/web ci
 cp .env.example .env
-# fill in OPENAI_API_KEY, ANTHROPIC_API_KEY, PROPUBLICA_CONGRESS_API_KEY
-
-# 4. Run tests
-pytest
-
-# 5. Pull a sample week from the Federal Register
-python -m pci_realtime.ingest.federal_register \
-  --start-date 2024-04-08 \
-  --end-date 2024-04-14 \
-  --output-dir data/raw/federal_register
-
-# 6. Rebuild the weekly PCI series from scored deltas
-python -m pci_realtime.pci.builder --rebuild
-
-# 7. Seed Supabase with paper anchors
-python -m pci_realtime.pipeline.seed_supabase --dry-run
-
-# 8. Run the one weekly backend loop in dry-run mode
-python -m pci_realtime.pipeline.weekly_live \
-  --start-date 2025-06-02 \
-  --end-date 2025-06-08 \
-  --skip-ingest \
-  --skip-score \
-  --dry-run \
-  --output-path data/debug/weekly_live_payload.json
-
-# 9. Launch the Supabase-backed local demo
-./scripts/demo_local.sh
 ```
 
-## LLM configuration
+Fill in the API keys and Supabase values needed for the command you plan to run. The Federal Register API path does not require a key.
 
-The scorer uses LLMs as policy-document annotators, not as a news sentiment
-engine. The default cascade is cost-optimized:
-
-- screening: `openai` / `gpt-5-mini`
-- primary scoring: `openai` / `gpt-5-mini`
-- audit model placeholder: `anthropic` / `claude-sonnet-4-6`
-
-Configure this through `.env`:
+Run the backend tests and linters:
 
 ```bash
-PCI_SCREENING_PROVIDER=openai
-PCI_SCREENING_MODEL=gpt-5-mini
-PCI_SCORING_PROVIDER=openai
-PCI_SCORING_MODEL=gpt-5-mini
-PCI_AUDIT_PROVIDER=anthropic
-PCI_AUDIT_MODEL=claude-sonnet-4-6
+uv run --extra dev pytest -q
+uv run --extra dev ruff check src/pci_realtime tests
+uv run --extra dev ruff format --check src/pci_realtime tests
 ```
 
-The scoring CLI also accepts explicit provider/model overrides:
+Run the web checks:
 
 ```bash
-python -m pci_realtime.scoring.scorer \
-  --week 2025-W23 \
-  --screening-provider openai \
-  --screening-model gpt-5-mini \
-  --scoring-provider openai \
-  --scoring-model gpt-5-mini
+npm --prefix apps/web run typecheck
+npm --prefix apps/web run lint
+npm --prefix apps/web run test:e2e
 ```
 
-## Backend Product Loop
+## Registry Commands
 
-The active product path is one backend loop, not a static bundle or dashboard:
-
-- paper-grounded six-provision PCI anchors
-- OBBBA implied PCI anchors
-- live weekly PCI values when scored official-source events exist
-- forecast commitments after a real signal is matched to a real eligible Kalshi market
-- gated trade proposals after forecasts pass risk checks
-- resolved forecast metrics after outcomes are available
-
-Seed Supabase locally or remotely with real paper anchors:
+Seed Supabase with the paper anchors:
 
 ```bash
 python -m pci_realtime.pipeline.seed_supabase --dry-run
 python -m pci_realtime.pipeline.seed_supabase
 ```
 
-The non-dry-run command requires `SUPABASE_URL` and
-`SUPABASE_SERVICE_ROLE_KEY`.
-
-Run the weekly loop against existing raw/scored inputs and a local Kalshi
-fixture:
+Run the weekly registry loop with an existing scored input set and a Kalshi market fixture:
 
 ```bash
 python -m pci_realtime.pipeline.weekly_live \
@@ -172,8 +133,7 @@ python -m pci_realtime.pipeline.weekly_live \
   --output-path data/debug/weekly_live_payload.json
 ```
 
-Run the live weekly loop with official Federal Register ingest, LLM scoring, and
-Kalshi market discovery:
+Run the weekly registry loop with official Federal Register ingest, LLM scoring, and Kalshi discovery:
 
 ```bash
 python -m pci_realtime.pipeline.weekly_live \
@@ -184,75 +144,60 @@ python -m pci_realtime.pipeline.weekly_live \
   --fetch-markets
 ```
 
-Trading proposals are created only after forecast risk gates pass. Live Kalshi
-execution is disabled unless `PCI_ENABLE_LIVE_TRADING=true`, Kalshi credentials
-are present, and the proposal id is explicitly approved in an approval file.
+Start the Supabase-backed registry and web app from one command:
 
-The repo does not currently scrape general news or use news sentiment to update
-PCI. The PCI score is official-source only. Today the one-command weekly loop
-calls the Federal Register ingestor; Treasury/IRS, Congress, and OMB ingestors
-exist in `src/pci_realtime/ingest/` but still need to be wired into
-`weekly_live.py` before they are part of the default weekly run. Kalshi market
-snapshots are fetched live only when `--fetch-markets` is set.
+```bash
+./scripts/run_registry.sh
+```
+
+The command defaults to port `8510` and network host `0.0.0.0`; override with `PORT` or `HOST`.
 
 ## Web App
 
-The lab-demo frontend lives in `apps/web`. The root route is a clean research
-companion for the paper: it explains PCI in lay terms, shows the six paper
-anchors, and links into the live monitor. `/dashboard` is the Polymarket-style
-registry surface: provision tiles, forecast cards, market-scan cards, gated
-proposal status, event feed, and resolved-forecast track record. "Read-only"
-means the app does not mutate registry state or own data; it renders live rows
-from Supabase public views.
+`apps/web` contains the read-only companion and dashboard:
 
-One command starts local Supabase if needed, seeds the paper anchors, runs a
-policy-filtered Kalshi scan, and launches the app:
+| Route | Purpose |
+|---|---|
+| `/` | Paper companion with the PCI method, anchors, and research interpretation |
+| `/dashboard` | Polymarket-style registry for PCI, markets, forecasts, proposals, events, and outcomes |
 
-```bash
-./scripts/demo_local.sh
-```
+The UI reads from Supabase public views:
 
-The demo intentionally shows zero forecast commitments when no official PCI
-event has matched a clean market. It does not invent rows to make the screen
-look busy.
+| View | UI Surface |
+|---|---|
+| `v_current_pci` | provision cards and PCI scores |
+| `v_open_forecasts` | active forecast cards |
+| `v_market_snapshots` | read-only market scan cards |
+| `v_trade_proposals` | gated proposal summaries |
+| `v_policy_events` | official policy event feed |
+| `v_resolved_forecasts` | track record |
 
-With the demo server running, smoke-test the live local surface:
+Private order payloads, raw model responses, API keys, firm data, signatures, and private file paths must never appear in public views.
 
-```bash
-npm --prefix apps/web run test:e2e:live
-```
+## Data Contracts
 
-Open the companion page at `/`; open the live registry at `/dashboard`.
+The backend keeps three file-level contracts for tests and offline runs:
 
-```bash
-cd apps/web
-npm ci
-SUPABASE_URL=http://127.0.0.1:54321 \
-SUPABASE_PUBLISHABLE_KEY=<local-or-cloud-publishable-key> \
-  npm run dev
-```
+| Contract | Producer | Consumer | Path |
+|---|---|---|---|
+| Raw official documents | `pci_realtime.ingest.*` | scoring filter and scorer | `data/raw/<source>/<source>_<YYYY-WW>.parquet` |
+| Scored PCI deltas | `pci_realtime.scoring.scorer` | weekly PCI builder | `data/processed/scored/scored_<YYYY-WW>.parquet` |
+| Weekly PCI series | `pci_realtime.pci.builder` | registry loop and export jobs | `data/processed/pci_weekly.parquet` |
 
-The UI is data-driven:
+The product-facing contract is Supabase: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `forecasts`, `trade_proposals`, `forecast_outcomes`, and `pipeline_runs`.
 
-- provision cards come from `v_current_pci`
-- forecast cards come from `v_open_forecasts`
-- read-only market-scan cards come from `v_market_snapshots`
-- gated proposal status comes from `v_trade_proposals`
-- policy events and track record come from `v_policy_events` and `v_resolved_forecasts`
+## Capability Status
 
-No synthetic forecasts, fake trades, private order payloads, or firm-level
-financing rows are rendered in the public app.
-
-## Current TODO
-
-1. Re-authenticate GitHub CLI, push `main`, and connect the Vercel project to the repo.
-2. Provision Supabase cloud, apply migrations, and seed paper anchors with `seed_supabase.py`.
-3. Add production Supabase env vars to Vercel and confirm the deployed UI reads public views.
-4. Add a real scheduler: GitHub Actions cron or Supabase cron should call the weekly and daily triggers.
-5. Wire Supabase Edge Function triggers to the secured Python weekly/daily backend runner.
-6. Add Treasury/IRS, Congress, and OMB ingestors to the default weekly loop after one Federal Register smoke run.
-7. Run one cost-reviewed official-source weekly pipeline; do not backfill until scoring calibration is reviewed.
-8. Expand Kalshi query coverage only with objective policy markets that map to the six IRA provisions.
+| Capability | Status |
+|---|---|
+| Paper anchors and OBBBA stress anchors | implemented |
+| Federal Register ingest | implemented |
+| Treasury, Congress, and OMB ingestors | scaffolded; not wired into the default weekly command |
+| LLM scoring and caching | implemented |
+| Weekly PCI builder | implemented |
+| Forecast registry, Kalshi reads, and gated proposals | implemented |
+| Public Supabase views | implemented |
+| Cloud scheduler and secured webhook runner | remaining deployment work |
 
 ## Cloud Provisioning
 
@@ -271,9 +216,7 @@ export SUPABASE_PROJECT_REF=<project-ref>
 ./scripts/provision_supabase.sh
 ```
 
-For a brand-new project, set `SUPABASE_ORG_ID` and `SUPABASE_DB_PASSWORD`
-instead of `SUPABASE_PROJECT_REF`; the script will create the project and ask
-you to rerun after you set the new ref.
+For a new Supabase project, set `SUPABASE_ORG_ID` and `SUPABASE_DB_PASSWORD`; the script creates the project and prints the project ref to use on the next run.
 
 Provision Vercel after `vercel login`:
 
@@ -285,44 +228,11 @@ vercel env add --cwd apps/web SUPABASE_PUBLISHABLE_KEY production
 vercel deploy --cwd apps/web --prod
 ```
 
-GitHub is currently blocked locally because `gh` has an invalid `yudduy`
-token. Re-authenticate with `gh auth login -h github.com`; then create or push
-the repo under `yudduy` before connecting it to Vercel.
+GitHub CLI access currently needs re-authentication before pushing under `yudduy`.
 
-## Hand-off contracts
+## Release Rules
 
-The original parquet hand-off schemas are locked in `docs/interfaces.md`:
-
-1. `ingest/` → `scoring/` — raw document parquet
-2. `scoring/` → `pci/builder.py` — scored deltas parquet
-3. `pci/` → registry/backend — weekly PCI time series parquet
-
-The active product-facing contract is Supabase: the weekly backend writes
-`provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `forecasts`,
-`trade_proposals`, `forecast_outcomes`, and `pipeline_runs`; frontend clients
-read only public views.
-
-Either Austin or Duy can change a column ONLY via PR with both as reviewers and Yikai signoff.
-
-## Phase status
-
-| Phase | Status | Owner | Output |
-|---|---|---|---|
-| 0 — Scoring spec | ✅ done | Duy | `docs/phase0_scoring_spec.md` |
-| 1 — Federal Register ingestion | ✅ done (POC week) | Duy | `src/pci_realtime/ingest/federal_register.py` |
-| 1 ext — Treasury / Congress / OMB ingestors | ✅ done (scaffold) | Austin | `src/pci_realtime/ingest/{base,treasury,congress,omb}.py` |
-| 2 — LLM scoring + calibration | ✅ MVP done | Duy | `src/pci_realtime/scoring/`, `docs/calibration_report.md` |
-| 3 — Time series builder | ✅ done | Austin | `src/pci_realtime/pci/builder.py` |
-| 4 — Paper evidence layer | ⏳ Week 6 | Duy | OBBBA anchors, aggregate CPU/VC evidence, forecast interpretation |
-| 5 — Registry backend + cron | ⏳ Week 7 | Austin | Supabase-backed weekly/daily jobs, forecast ledger, gated proposals |
-| 6 — Methods paper draft | ⏳ Week 8 | Duy + Yikai | external draft |
-
-## Data and license
-
-- **Code:** MIT.
-- **Output data:** PCI time series, public market snapshots, forecasts, outcomes, and aggregate metrics are public.
-- **Licensed inputs (PitchBook):** never enter this repo. Validation Check 2 reads them from the parent project's `Data/PanelData/` and only commits aggregated/de-identified outputs.
-
-## Privacy
-
-This is a private repo until the methods paper is on arXiv, then it flips to public for replication.
+- Code is MIT licensed.
+- Public outputs are PCI values, public market snapshots, forecasts, outcomes, proposal status summaries, and aggregate metrics.
+- Licensed or private firm-level inputs never enter this repository.
+- Backfills that may exceed the configured model-cost ceiling require `--confirm-cost`.

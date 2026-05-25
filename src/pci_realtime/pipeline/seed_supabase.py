@@ -36,11 +36,11 @@ def seed_supabase(*, dry_run: bool = False, output_path: Path | None = None) -> 
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Seed Supabase with real paper anchors for the lab demo."
+        description="Seed Supabase with real paper anchors for the registry."
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
-        "--output-path", default=str(DATA_ROOT / "public" / "seed_payload.json")
+        "--output-path", default=str(DATA_ROOT / "debug" / "seed_payload.json")
     )
     return parser
 

@@ -13,7 +13,7 @@ from pci_realtime.scoring.scorer import DELTA_COLUMNS, DocumentScorer
 
 LOGGER = logging.getLogger(__name__)
 CALIBRATION_PATH = PROJECT_ROOT / "data" / "fixtures" / "calibration_set_v1.csv"
-CALIBRATION_REPORT_PATH = PROJECT_ROOT / "docs" / "calibration_report.md"
+CALIBRATION_REPORT_PATH = PROJECT_ROOT / "data" / "debug" / "scorer_calibration.md"
 
 
 class CalibrationBlockedError(RuntimeError):

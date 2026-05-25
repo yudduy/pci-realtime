@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 
-test("live local demo renders seeded Supabase state", async ({ page }) => {
+test("registry renders seeded Supabase state", async ({ page }) => {
   await page.goto("/")
 
   await expect(

@@ -49,7 +49,7 @@ export default function Home() {
               </div>
             </div>
             <div className="hidden items-center gap-2 md:flex">
-              <a className="landing-nav-link" href="#demo">Demo</a>
+              <a className="landing-nav-link" href="#monitor">Monitor</a>
               <a className="landing-nav-link" href="#approach">Approach</a>
               <a className="landing-nav-link" href="#results">Results</a>
               <Link className="rounded-full bg-blue px-4 py-2 text-sm font-bold text-white" href="/dashboard">
@@ -126,10 +126,10 @@ export default function Home() {
           </section>
         </section>
 
-        <section id="demo" className="border-t border-border py-12">
+        <section id="monitor" className="border-t border-border py-12">
           <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-end">
             <div>
-              <h2 className="text-3xl font-black">Demo</h2>
+              <h2 className="text-3xl font-black">Monitor</h2>
               <p className="mt-2 max-w-2xl text-muted-foreground">
                 The live board is the operational companion: it shows current PCI, policy moves, matched markets, forecasts, gated trades, and resolved outcomes when real rows exist.
               </p>
