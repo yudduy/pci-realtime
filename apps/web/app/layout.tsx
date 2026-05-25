@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "PCI Markets",
-  description: "Policy credibility forecasts and gated market proposals.",
+  title: "Energy Odds",
+  description: "Simple energy policy odds backed by PCI and live market scans.",
 }
 
 export default function RootLayout({

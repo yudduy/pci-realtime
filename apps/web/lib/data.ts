@@ -164,6 +164,10 @@ function supabaseConfig() {
   return { url: url.replace(/\/$/, ""), key }
 }
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
 async function fetchView<T>(
   view: string,
   query = "select=*",
@@ -171,16 +175,20 @@ async function fetchView<T>(
   const config = supabaseConfig()
   if (!config) return { rows: [], error: null }
 
-  const response = await fetch(`${config.url}/rest/v1/${view}?${query}`, {
-    headers: {
-      apikey: config.key,
-      authorization: `Bearer ${config.key}`,
-    },
-    cache: "no-store",
-  })
+  try {
+    const response = await fetch(`${config.url}/rest/v1/${view}?${query}`, {
+      headers: {
+        apikey: config.key,
+        authorization: `Bearer ${config.key}`,
+      },
+      cache: "no-store",
+    })
 
-  if (!response.ok) return { rows: [], error: `${view}: ${response.status}` }
-  return { rows: (await response.json()) as T[], error: null }
+    if (!response.ok) return { rows: [], error: `${view}: ${response.status}` }
+    return { rows: (await response.json()) as T[], error: null }
+  } catch (error) {
+    return { rows: [], error: `${view}: ${errorMessage(error)}` }
+  }
 }
 
 export async function getRegistryData(): Promise<RegistryData> {

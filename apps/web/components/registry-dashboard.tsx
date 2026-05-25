@@ -64,13 +64,51 @@ function money(value: number | null | undefined) {
   return `$${Math.round(value).toLocaleString("en-US")}`
 }
 
-function compactOrigin(value: string | null | undefined) {
-  if (!value) return "anchor"
-  return value === "paper_anchor" ? "anchor" : value.replaceAll("_", " ")
-}
-
 function sourceTitle(sourceDoc: Record<string, unknown>) {
   return String(sourceDoc.title ?? sourceDoc.url ?? "Source document")
+}
+
+const POLICY_COPY: Record<string, { name: string; question: string; lane: string }> = {
+  "30D": {
+    name: "EV credits",
+    question: "Will EV credits stay stable?",
+    lane: "Consumer EVs",
+  },
+  "45Q": {
+    name: "Carbon capture",
+    question: "Will carbon capture stay stable?",
+    lane: "Carbon capture",
+  },
+  "45V": {
+    name: "Hydrogen",
+    question: "Will hydrogen credits stay stable?",
+    lane: "Hydrogen",
+  },
+  "45X": {
+    name: "Factory credits",
+    question: "Will factory credits stay stable?",
+    lane: "Manufacturing",
+  },
+  "50141": {
+    name: "Energy loans",
+    question: "Will energy loans stay stable?",
+    lane: "Loan programs",
+  },
+  "50144": {
+    name: "Reinvestment",
+    question: "Will reinvestment stay stable?",
+    lane: "Grid and plants",
+  },
+}
+
+function policyCopy(code: string, fallbackName?: string | null) {
+  return (
+    POLICY_COPY[code] ?? {
+      name: fallbackName ?? code,
+      question: `Will ${fallbackName ?? code} stay credible?`,
+      lane: "Policy",
+    }
+  )
 }
 
 export function RegistryDashboard({ data }: { data: RegistryData }) {
@@ -139,15 +177,18 @@ export function RegistryDashboard({ data }: { data: RegistryData }) {
             <ProvisionMarketGrid provisions={provisionWatchlist} />
           )}
 
-          {(activeTab === "all" || activeTab === "forecasts") && (
+          {((activeTab === "all" && openForecasts.length > 0) ||
+            activeTab === "forecasts") && (
             <ForecastGrid forecasts={openForecasts} />
           )}
 
-          {(activeTab === "all" || activeTab === "markets") && (
+          {((activeTab === "all" && marketSnapshots.length > 0) ||
+            activeTab === "markets") && (
             <MarketSnapshotGrid snapshots={marketSnapshots} />
           )}
 
-          {(activeTab === "all" || activeTab === "resolved") && (
+          {((activeTab === "all" && data.resolvedForecasts.length > 0) ||
+            activeTab === "resolved") && (
             <ResolvedGrid resolved={data.resolvedForecasts} />
           )}
         </section>
@@ -185,9 +226,9 @@ function MarketHeader({
             PCI
           </div>
           <div className="leading-tight">
-            <div className="font-semibold">Policy Markets</div>
+            <div className="font-semibold">Energy Odds</div>
             <div className="hidden text-xs text-muted-foreground sm:block">
-              Credibility forecasts
+              Policy markets
             </div>
           </div>
         </div>
@@ -197,7 +238,7 @@ function MarketHeader({
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search provisions, markets, tickers"
+            placeholder="Search policies or markets"
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
@@ -287,7 +328,7 @@ function LeftRail({
     <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
       <section className="rounded-xl border border-border bg-card p-3">
         <div className="mb-2 px-1 text-xs font-semibold uppercase text-muted-foreground">
-          Markets
+          Policies
         </div>
         <div className="space-y-1">
           {provisions.map((provision) => (
@@ -300,8 +341,12 @@ function LeftRail({
                   : "text-foreground hover:bg-muted"
               }`}
             >
-              <span>{provision}</span>
-              {provision !== "All" && <span className="text-xs opacity-65">PCI</span>}
+              <span className="truncate">
+                {provision === "All" ? "All" : policyCopy(provision).name}
+              </span>
+              {provision !== "All" && (
+                <span className="ml-2 text-xs opacity-65">{provision}</span>
+              )}
             </button>
           ))}
         </div>
@@ -309,13 +354,13 @@ function LeftRail({
 
       <section className="rounded-xl border border-border bg-card p-3">
         <div className="mb-2 px-1 text-xs font-semibold uppercase text-muted-foreground">
-          Live counts
+          Live
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <MiniStat label="Events" value={counts.policyEvents} />
+          <MiniStat label="Moves" value={counts.policyEvents} />
           <MiniStat label="Markets" value={counts.eligibleMarkets} />
-          <MiniStat label="Forecasts" value={counts.forecasts} />
-          <MiniStat label="Proposals" value={counts.tradeProposals} />
+          <MiniStat label="Odds" value={counts.forecasts} />
+          <MiniStat label="Trades" value={counts.tradeProposals} />
         </div>
       </section>
     </aside>
@@ -344,15 +389,15 @@ function MarketBoardTop({
     <section className="mb-4 rounded-xl border border-border bg-card px-4 py-3">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-normal">Featured markets</h1>
+          <h1 className="text-2xl font-black tracking-normal">Energy policy odds</h1>
           <div className="mt-1 text-sm text-muted-foreground">
-            PCI-backed IRA odds · official sources only · no synthetic markets
+            Six policies. Real markets only.
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-lg bg-muted px-3 py-2">
             <div className="text-[10px] font-bold uppercase text-muted-foreground">
-              Last run
+              Run
             </div>
             <div className="mt-1 whitespace-nowrap text-sm font-bold">
               {latestRun ? shortDate(latestRun.started_at) : "pending"}
@@ -360,7 +405,7 @@ function MarketBoardTop({
           </div>
           <div className="rounded-lg bg-muted px-3 py-2">
             <div className="text-[10px] font-bold uppercase text-muted-foreground">
-              Forecasts
+              Odds
             </div>
             <div className="mt-1 text-sm font-bold">{counts.forecasts}</div>
           </div>
@@ -391,9 +436,9 @@ function Tabs({
 }) {
   const tabs: Array<[BoardTab, string, number | null]> = [
     ["all", "All", null],
-    ["forecasts", "Forecasts", forecastCount],
-    ["watchlist", "Watchlist", null],
-    ["markets", "Market scan", marketCount],
+    ["forecasts", "Odds", forecastCount],
+    ["watchlist", "Policies", null],
+    ["markets", "Kalshi", marketCount],
     ["resolved", "Resolved", resolvedCount],
   ]
 
@@ -420,14 +465,14 @@ function Tabs({
 function ForecastGrid({ forecasts }: { forecasts: Forecast[] }) {
   if (!forecasts.length) {
     return (
-      <MarketSection title="Forecast markets" subtitle="Real commitments only">
+      <MarketSection title="Odds" subtitle="Real commitments only">
         <EmptyMarketCard />
       </MarketSection>
     )
   }
 
   return (
-    <MarketSection title="Forecast markets" subtitle="Timestamped PCI commitments">
+    <MarketSection title="Odds" subtitle="Published forecasts">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {forecasts.map((forecast) => (
           <ForecastCard key={forecast.forecast_id} forecast={forecast} />
@@ -438,11 +483,18 @@ function ForecastGrid({ forecasts }: { forecasts: Forecast[] }) {
 }
 
 function ProvisionMarketGrid({ provisions }: { provisions: CurrentPci[] }) {
+  if (!provisions.length) {
+    return (
+      <MarketSection title="Policies">
+        <div className="rounded-lg border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
+          Backend offline.
+        </div>
+      </MarketSection>
+    )
+  }
+
   return (
-    <MarketSection
-      title="All markets"
-      subtitle="Six tracked IRA provision contracts"
-    >
+    <MarketSection title="Policies">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {provisions.map((provision) => (
           <ProvisionCard key={provision.code} provision={provision} />
@@ -455,17 +507,16 @@ function ProvisionMarketGrid({ provisions }: { provisions: CurrentPci[] }) {
 function MarketSnapshotGrid({ snapshots }: { snapshots: MarketSnapshot[] }) {
   if (!snapshots.length) {
     return (
-      <MarketSection title="Eligible Kalshi markets" subtitle="Latest scan output">
+      <MarketSection title="Kalshi matches" subtitle="Latest scan">
         <div className="rounded-lg border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
-          No eligible policy markets in the latest scan. Unrelated or ambiguous
-          contracts are rejected before publication.
+          No clean market match yet.
         </div>
       </MarketSection>
     )
   }
 
   return (
-    <MarketSection title="Eligible Kalshi markets" subtitle="Read-only market data">
+    <MarketSection title="Kalshi matches" subtitle="Live market data">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {snapshots.map((market) => (
           <SnapshotCard key={`${market.venue}:${market.ticker}`} market={market} />
@@ -478,16 +529,16 @@ function MarketSnapshotGrid({ snapshots }: { snapshots: MarketSnapshot[] }) {
 function ResolvedGrid({ resolved }: { resolved: ResolvedForecast[] }) {
   if (!resolved.length) {
     return (
-      <MarketSection title="Resolved track record" subtitle="Brier score appears here">
+      <MarketSection title="Track record" subtitle="Resolved forecasts">
         <div className="rounded-lg border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
-          No resolved forecast commitments yet.
+          No resolved forecasts yet.
         </div>
       </MarketSection>
     )
   }
 
   return (
-    <MarketSection title="Resolved track record" subtitle="Forecast accuracy">
+    <MarketSection title="Track record" subtitle="Forecast accuracy">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {resolved.map((row) => (
           <ResolvedCard key={row.forecast_id} row={row} />
@@ -503,7 +554,7 @@ function MarketSection({
   children,
 }: {
   title: string
-  subtitle: string
+  subtitle?: string
   children: ReactNode
 }) {
   return (
@@ -511,7 +562,7 @@ function MarketSection({
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold">{title}</h2>
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
       </div>
       {children}
@@ -527,9 +578,9 @@ function EmptyMarketCard() {
           <Search className="h-5 w-5 text-muted-foreground" />
         </div>
         <div>
-          <h3 className="font-bold">No published forecasts yet</h3>
+          <h3 className="font-bold">No live odds yet</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Waiting for a scored policy event and a clean eligible market.
+            Waiting for a policy move and a clean market.
           </p>
         </div>
       </div>
@@ -540,19 +591,20 @@ function EmptyMarketCard() {
 function ForecastCard({ forecast }: { forecast: Forecast }) {
   const title =
     forecast.market_title ?? `${forecast.venue.toUpperCase()} ${forecast.market_ticker}`
+  const copy = policyCopy(forecast.provision, forecast.provision_name)
   const positive = forecast.edge >= 0
 
   return (
     <article className="market-card">
       <div className="p-4">
         <CardTopline
-          left={`${forecast.provision} · ${forecast.venue.toUpperCase()}`}
+          left={`${copy.name} · ${forecast.venue.toUpperCase()}`}
           right={forecast.market_ticker}
         />
         <h3 className="market-title">{title}</h3>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <OddsButton label="Market" value={percent(forecast.market_probability)} />
-          <OddsButton label="PCI model" value={percent(forecast.model_probability)} strong />
+          <OddsButton label="Model" value={percent(forecast.model_probability)} strong />
         </div>
         <div
           className={`mt-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
@@ -563,7 +615,7 @@ function ForecastCard({ forecast }: { forecast: Forecast }) {
           {edgeLabel(forecast.edge)}
         </div>
         <details className="mt-3 rounded-md bg-muted p-3 text-sm">
-          <summary className="cursor-pointer font-semibold">Reasoning trace</summary>
+          <summary className="cursor-pointer font-semibold">Why</summary>
           <p className="mt-2 text-muted-foreground">{sourceTitle(forecast.source_doc)}</p>
           {forecast.market_rules && (
             <p className="mt-2 text-muted-foreground">{forecast.market_rules}</p>
@@ -575,6 +627,7 @@ function ForecastCard({ forecast }: { forecast: Forecast }) {
 }
 
 function ProvisionCard({ provision }: { provision: CurrentPci }) {
+  const copy = policyCopy(provision.code, provision.name)
   const stressDelta = (provision.obbba_post_pci ?? provision.baseline_pci) - provision.baseline_pci
   const current = provision.pci ?? provision.baseline_pci
 
@@ -586,24 +639,22 @@ function ProvisionCard({ provision }: { provision: CurrentPci }) {
         </div>
         <div className="min-w-0">
           <div className="truncate text-xs font-bold uppercase text-muted-foreground">
-            {compactOrigin(provision.data_origin)}
+            {copy.lane}
           </div>
-          <div className="truncate text-sm font-semibold">{provision.name}</div>
+          <div className="truncate text-sm font-semibold">{copy.name}</div>
         </div>
       </div>
       <div className="p-4">
-        <h3 className="market-title">
-          Will {provision.code} credibility improve after the next official update?
-        </h3>
+        <h3 className="market-title">{copy.question}</h3>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <OddsButton label="Current PCI" value={score(current)} strong />
-          <OddsButton label="OBBBA stress" value={score(provision.obbba_post_pci)} />
+          <OddsButton label="Now" value={score(current)} strong />
+          <OddsButton label="Stress" value={score(provision.obbba_post_pci)} />
         </div>
         <div className="mt-3">
           <DimensionBars provision={provision} />
         </div>
         <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-          <span className="text-xs font-semibold text-muted-foreground">Awaiting market match</span>
+          <span className="text-xs font-semibold text-muted-foreground">No market yet</span>
           <DeltaBadge value={stressDelta} />
         </div>
       </div>
@@ -643,7 +694,7 @@ function ResolvedCard({ row }: { row: ResolvedForecast }) {
         <CardTopline left={`${row.provision} · ${row.result}`} right={row.market_ticker} />
         <h3 className="market-title">{row.market_title ?? row.market_ticker}</h3>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <OddsButton label="PCI forecast" value={percent(row.model_probability)} strong />
+          <OddsButton label="Model" value={percent(row.model_probability)} strong />
           <OddsButton label="Market" value={percent(row.market_probability)} />
         </div>
         <div className="mt-3 border-t border-border pt-3 text-sm text-muted-foreground">
@@ -682,9 +733,9 @@ function OddsButton({
 
 function DimensionBars({ provision }: { provision: CurrentPci }) {
   const rows = [
-    ["Specificity", provision.specificity],
-    ["Durability", provision.durability],
-    ["Enforceability", provision.enforceability],
+    ["Specific", provision.specificity],
+    ["Durable", provision.durability],
+    ["Enforced", provision.enforceability],
   ] as const
 
   return (
@@ -724,21 +775,24 @@ function RightRail({
 }) {
   return (
     <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-      <RailCard title="System status" icon={<Activity className="h-4 w-4" />}>
+      <RailCard title="Status" icon={<Activity className="h-4 w-4" />}>
         <div className="space-y-3">
-          <StatusRow label="Last run" value={latestRun ? compactDate(latestRun.started_at) : "pending"} />
-          <StatusRow label="Policy events" value={String(counts.policyEvents)} />
-          <StatusRow label="Forecasts" value={String(counts.forecasts)} />
-          <StatusRow label="Trade proposals" value={String(counts.tradeProposals)} />
+          <StatusRow label="Run" value={latestRun ? compactDate(latestRun.started_at) : "pending"} />
+          <StatusRow label="Moves" value={String(counts.policyEvents)} />
+          <StatusRow label="Odds" value={String(counts.forecasts)} />
+          <StatusRow label="Trades" value={String(counts.tradeProposals)} />
           {viewErrors.length > 0 && (
-            <div className="rounded-md bg-red-soft p-2 text-xs font-semibold text-red">
-              {viewErrors.join(", ")}
+            <div
+              className="rounded-md bg-red-soft p-2 text-xs font-semibold text-red"
+              title={viewErrors.join(", ")}
+            >
+              Backend offline
             </div>
           )}
         </div>
       </RailCard>
 
-      <RailCard title="Gated execution" icon={<ShieldCheck className="h-4 w-4" />}>
+      <RailCard title="Trades" icon={<ShieldCheck className="h-4 w-4" />}>
         {proposals.length ? (
           <div className="space-y-2">
             {proposals.slice(0, 4).map((proposal) => (
@@ -752,11 +806,11 @@ function RightRail({
             ))}
           </div>
         ) : (
-          <EmptySmall>No proposals pending approval.</EmptySmall>
+          <EmptySmall>No trades pending.</EmptySmall>
         )}
       </RailCard>
 
-      <RailCard title="Official event feed" icon={<Clock3 className="h-4 w-4" />}>
+      <RailCard title="Policy moves" icon={<Clock3 className="h-4 w-4" />}>
         {events.length ? (
           <div className="space-y-2">
             {events.slice(0, 5).map((event) => (
@@ -776,7 +830,7 @@ function RightRail({
             ))}
           </div>
         ) : (
-          <EmptySmall>No scored official events yet.</EmptySmall>
+          <EmptySmall>No policy moves yet.</EmptySmall>
         )}
       </RailCard>
     </aside>
