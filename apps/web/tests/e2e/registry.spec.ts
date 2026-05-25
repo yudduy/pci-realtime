@@ -4,15 +4,18 @@ test("renders the research companion landing page", async ({ page }) => {
   await page.goto("/")
 
   await expect(
-    page.getByRole("heading", { name: "A live registry for policy credibility." }),
+    page.getByRole("heading", {
+      name: "Industrial policy reshapes venture capital allocation and growth trajectories in climate technologies",
+    }),
   ).toBeVisible()
-  await expect(page.getByText("Companion to the IRA venture-capital paper")).toBeVisible()
+  await expect(page.getByText("Policy Credibility Index", { exact: true })).toBeVisible()
   await expect(page.getByText("7,271")).toBeVisible()
   await expect(page.getByText("132,826")).toBeVisible()
   await expect(page.getByRole("heading", { name: "Paper anchor" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Policy credibility by IRA provision" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Approach" })).toBeVisible()
   await expect(page.getByText("Official documents")).toBeVisible()
-  await expect(page.getByRole("link", { name: "Open registry" })).toBeVisible()
+  await expect(page.getByRole("navigation", { name: "Project navigation" }).getByRole("link", { name: "Registry" })).toBeVisible()
 
   await expect(page.getByText("Sports")).toHaveCount(0)
   await expect(page.getByText("Crypto")).toHaveCount(0)

@@ -1,24 +1,55 @@
 import Link from "next/link"
+import {
+  BarChart3,
+  Database,
+  FileText,
+  Github,
+  LineChart,
+} from "lucide-react"
 import { POLICIES } from "@/lib/policy-copy"
 
-const stats = [
-  ["7,271", "climate tech companies"],
+const authors = [
+  { name: "Yikai Cao", institution: "Stanford University" },
+  { name: "Charles Eesley", institution: "Stanford University" },
+  { name: "Rishee Jain", institution: "Stanford University" },
+  { name: "Dinesh Moorjani", institution: "Stanford University" },
+]
+
+const links = [
+  { label: "Paper", href: "#abstract", icon: FileText },
+  { label: "Code", href: "https://github.com/yudduy/pci-realtime", icon: Github },
+  { label: "Registry", href: "/dashboard", icon: BarChart3, internal: true },
+  { label: "Data Flow", href: "#approach", icon: Database },
+]
+
+const paperFacts = [
+  ["7,271", "climate technology companies"],
   ["132,826", "firm-quarter observations"],
+  ["22", "quarters from Q1 2020 to Q2 2025"],
   ["6", "IRA provisions tracked live"],
 ]
 
-const loop = [
-  ["Official documents", "Federal policy text, not news sentiment"],
-  ["PCI scoring", "Specific, durable, enforced"],
-  ["Weekly series", "Sticky credibility on a 1-5 scale"],
-  ["Market match", "Only clean public markets"],
-  ["Live registry", "Forecasts, trades, outcomes"],
+const findings = [
+  [
+    "Capital moved selectively",
+    "IRA exposure increased venture entry where incentives directly matched firm technologies.",
+  ],
+  [
+    "Credibility changed the response",
+    "Investors reacted to statutory specificity, durability, and enforceability, not only subsidy size.",
+  ],
+  [
+    "Durability shocks mattered",
+    "The OBBBA stress window depressed activity in credibility-dependent sectors.",
+  ],
 ]
 
-const results = [
-  ["IRA targeted capital", "VC response rose most where statutory incentives directly applied."],
-  ["Credibility mattered", "Investors reacted to design quality, not only subsidy size."],
-  ["OBBBA stress test", "Credibility shocks predicted sharper contractions in exposed sectors."],
+const pipeline = [
+  ["Official documents", "Federal Register, Treasury, IRS, Congress, and OMB text"],
+  ["PCI scoring", "Specificity, durability, and enforceability on a 1-5 scale"],
+  ["Market match", "Public Kalshi markets only when the resolution is clean"],
+  ["Forecast gates", "Probability, edge, liquidity, confidence, and private-info checks"],
+  ["Registry", "Supabase views power the live public dashboard"],
 ]
 
 function score(value: number) {
@@ -29,191 +60,243 @@ function delta(policy: (typeof POLICIES)[number]) {
   return policy.stress - policy.baseline
 }
 
+function pct(value: number) {
+  return `${Math.round((value / 5) * 100)}%`
+}
+
 export default function Home() {
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-6xl px-5 py-4 lg:px-8">
-        <div className="mb-4 text-center text-xs text-muted-foreground">
-          Best viewed on a desktop browser. The registry uses hover states and wide policy cards.
+    <main className="academic-page min-h-screen bg-white text-zinc-950">
+      <div className="academic-mobile-note">
+        Best viewed on a desktop browser. Tables and figures use a wide reading column.
+      </div>
+
+      <nav className="academic-topbar" aria-label="Project navigation">
+        <a href="#abstract">Abstract</a>
+        <a href="#approach">Approach</a>
+        <a href="#results">Results</a>
+        <Link href="/dashboard">Registry</Link>
+      </nav>
+
+      <header className="academic-header">
+        <p className="academic-kicker">Policy Credibility Index</p>
+        <h1>
+          Industrial policy reshapes venture capital allocation and growth
+          trajectories in climate technologies
+        </h1>
+
+        <div className="academic-authors" aria-label="Authors">
+          {authors.map((author) => (
+            <div key={author.name}>
+              <div className="academic-author-name">{author.name}</div>
+              <div className="academic-institution">{author.institution}</div>
+            </div>
+          ))}
         </div>
 
-        <nav className="sticky top-0 z-40 -mx-5 mb-10 border-b border-border bg-background/95 px-5 py-3 backdrop-blur lg:-mx-8 lg:px-8">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue text-sm font-black text-white">
-                PCI
-              </div>
-              <div>
-                <div className="font-bold">Policy Credibility Index</div>
-                <div className="text-xs text-muted-foreground">Research companion</div>
-              </div>
-            </div>
-            <div className="hidden items-center gap-2 md:flex">
-              <a className="landing-nav-link" href="#approach">Approach</a>
-              <a className="landing-nav-link" href="#results">Results</a>
-              <Link className="rounded-full bg-blue px-4 py-2 text-sm font-bold text-white" href="/dashboard">
-                Dashboard
-              </Link>
-            </div>
-          </div>
-        </nav>
+        <p className="academic-venue">Research article companion · May 2026</p>
 
-        <section className="grid gap-8 pb-12 lg:grid-cols-[1fr_390px] lg:items-start">
-          <div>
-            <div className="mb-3 text-sm font-bold uppercase text-blue">
-              Companion to the IRA venture-capital paper
-            </div>
-            <h1 className="max-w-3xl text-4xl font-black leading-[1.02] tracking-normal md:text-6xl">
-              A live registry for policy credibility.
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-              The paper shows that clean-energy investment depends on how credible policy commitments are. This site turns the paper&apos;s two PCI snapshots into a weekly, inspectable registry.
-            </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link className="rounded-full bg-blue px-5 py-3 text-sm font-bold text-white" href="/dashboard">
-                Open registry
-              </Link>
-              <a className="rounded-full bg-card px-5 py-3 text-sm font-bold text-foreground ring-1 ring-border" href="#approach">
-                See method
+        <div className="academic-link-row" aria-label="Project links">
+          {links.map((link) => {
+            const Icon = link.icon
+            const className = "academic-pill-link"
+            const content = (
+              <>
+                <Icon aria-hidden="true" className="h-5 w-5" />
+                <span>{link.label}</span>
+              </>
+            )
+
+            if (link.internal) {
+              return (
+                <Link key={link.label} className={className} href={link.href}>
+                  {content}
+                </Link>
+              )
+            }
+
+            return (
+              <a key={link.label} className={className} href={link.href}>
+                {content}
               </a>
-            </div>
-            <div className="mt-8 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
-              {stats.map(([value, label]) => (
-                <div key={label} className="rounded-xl border border-border bg-card p-4">
-                  <div className="text-2xl font-black">{value}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">{label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+            )
+          })}
+        </div>
+      </header>
 
-          <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-black">Paper anchor</h2>
-                <p className="text-sm text-muted-foreground">Baseline to OBBBA stress</p>
-              </div>
-              <span className="rounded-full bg-blue-soft px-3 py-1 text-xs font-bold text-blue">
-                1-5 scale
-              </span>
-            </div>
-            <div className="space-y-2">
-              {POLICIES.map((policy) => (
-                <div key={policy.code} className="rounded-lg bg-muted p-3">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate font-bold">{policy.name}</div>
-                      <div className="text-xs text-muted-foreground">{policy.code}</div>
-                    </div>
-                    <div className={`rounded-full px-2.5 py-1 text-xs font-bold ${delta(policy) < 0 ? "bg-red-soft text-red" : "bg-muted text-muted-foreground"}`}>
-                      {delta(policy) === 0 ? "flat" : delta(policy).toFixed(2)}
-                    </div>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-card">
-                    <div
-                      className="h-full rounded-full bg-blue"
-                      style={{ width: `${(policy.baseline / 5) * 100}%` }}
-                    />
-                  </div>
-                  <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-                    <span>Baseline {score(policy.baseline)}</span>
-                    <span>Stress {score(policy.stress)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </section>
+      <section id="abstract" className="academic-highlight">
+        <div className="academic-text-column">
+          <h2>Abstract</h2>
+          <p>
+            Transitioning to a low-carbon economy requires private risk capital,
+            but policy scale alone does not explain where that capital moves.
+            This project companion follows the paper&apos;s core result: the U.S.
+            Inflation Reduction Act increased venture funding in targeted climate
+            technologies, and the response depended on the institutional
+            credibility of the policy commitment.
+          </p>
+          <p>
+            The live registry extends the paper by turning the Policy Credibility
+            Index into an inspectable weekly system. Official policy documents
+            update PCI, market matches create forecasts, and trade proposals stay
+            gated behind backend risk checks.
+          </p>
+        </div>
+      </section>
 
-        <section id="registry" className="border-t border-border py-12">
-          <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-end">
+      <section className="academic-section">
+        <h2>Paper anchor</h2>
+        <p>
+          The empirical setting covers venture financing around the IRA and an
+          OBBBA durability shock. These are the fixed anchors that the live
+          product should explain in plain language before users enter the
+          dashboard.
+        </p>
+
+        <div className="academic-facts" aria-label="Paper facts">
+          {paperFacts.map(([value, label]) => (
+            <div key={label}>
+              <strong>{value}</strong>
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="academic-wide" aria-labelledby="pci-figure-title">
+        <div className="academic-figure">
+          <div className="academic-figure-header">
             <div>
-              <p className="mt-2 max-w-2xl text-muted-foreground">
-                The live board is the operational companion: it shows current PCI, policy moves, matched markets, forecasts, gated trades, and resolved outcomes when real rows exist.
-              </p>
+              <p className="academic-figure-label">Figure 1</p>
+              <h2 id="pci-figure-title">Policy credibility by IRA provision</h2>
             </div>
-            <Link className="w-fit rounded-full bg-blue px-5 py-3 text-sm font-bold text-white" href="/dashboard">
-              Launch dashboard
+            <Link className="academic-outline-link" href="/dashboard">
+              Open live registry
             </Link>
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {POLICIES.slice(0, 3).map((policy) => (
-              <article key={policy.code} className="market-card min-h-0">
-                <div className="flex items-center gap-3 border-b border-border bg-muted/50 p-3">
-                  <div className="flex h-11 w-12 shrink-0 items-center justify-center rounded-lg bg-blue text-xs font-black text-white">
-                    {policy.code}
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold uppercase text-muted-foreground">{policy.lane}</div>
-                    <div className="font-bold">{policy.name}</div>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="market-title min-h-0">{policy.question}</h3>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <div className="odds-button odds-button-strong">
-                      <div className="text-[11px] font-bold uppercase">Now</div>
-                      <div className="mt-1 text-base font-black">{score(policy.baseline)}</div>
-                    </div>
-                    <div className="odds-button">
-                      <div className="text-[11px] font-bold uppercase">Stress</div>
-                      <div className="mt-1 text-base font-black">{score(policy.stress)}</div>
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
 
-        <section id="approach" className="border-t border-border py-12">
-          <h2 className="text-3xl font-black">Approach</h2>
-          <p className="mt-2 max-w-3xl text-muted-foreground">
-            PCI measures institutional design quality. It is not investor sentiment and it is not a news index.
-          </p>
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            <DimensionCard title="Specific" body="Are eligibility rules clear enough to reduce discretion?" />
-            <DimensionCard title="Durable" body="Is the commitment insulated over the investment horizon?" />
-            <DimensionCard title="Enforced" body="Is implementation assigned to a clear agency process?" />
-          </div>
-
-          <div className="mt-8 rounded-xl border border-border bg-card p-4">
-            <h3 className="mb-4 text-lg font-black">Live pipeline</h3>
-            <div className="grid gap-3 lg:grid-cols-5">
-              {loop.map(([title, body], index) => (
-                <div key={title} className="relative rounded-lg bg-muted p-4">
-                  <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-blue text-xs font-black text-white">
-                    {index + 1}
-                  </div>
-                  <div className="font-bold">{title}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">{body}</div>
-                </div>
-              ))}
+          <div className="pci-table" role="table" aria-label="Policy credibility scores">
+            <div className="pci-row pci-head" role="row">
+              <div role="columnheader">Provision</div>
+              <div role="columnheader">Plain name</div>
+              <div role="columnheader">Baseline PCI</div>
+              <div role="columnheader">OBBBA stress</div>
+              <div role="columnheader">Move</div>
             </div>
+            {POLICIES.map((policy) => {
+              const move = delta(policy)
+              return (
+                <div className="pci-row" role="row" key={policy.code}>
+                  <div role="cell" className="pci-code">{policy.code}</div>
+                  <div role="cell">
+                    <strong>{policy.name}</strong>
+                    <span>{policy.formalName}</span>
+                  </div>
+                  <div role="cell">
+                    <ScoreBar value={policy.baseline} />
+                  </div>
+                  <div role="cell">
+                    <ScoreBar value={policy.stress} muted />
+                  </div>
+                  <div role="cell" className={move < 0 ? "pci-move-down" : "pci-move-flat"}>
+                    {move === 0 ? "flat" : move.toFixed(2)}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        </section>
 
-        <section id="results" className="border-t border-border py-12">
-          <h2 className="text-3xl font-black">What the paper establishes</h2>
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            {results.map(([title, body]) => (
-              <div key={title} className="rounded-xl border border-border bg-card p-5">
-                <h3 className="text-lg font-black">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+          <p className="academic-caption">
+            PCI is the simple average of specificity, durability, and
+            enforceability. The dashboard keeps these names readable while
+            preserving the research paper&apos;s six load-bearing policy anchors.
+          </p>
+        </div>
+      </section>
+
+      <section id="approach" className="academic-section">
+        <h2>Approach</h2>
+        <p>
+          The backend stays the source of truth. The landing page explains the
+          paper; the registry tab shows current PCI, policy moves, market
+          matches, forecasts, proposals, and resolved outcomes.
+        </p>
+
+        <div className="pipeline-diagram">
+          {pipeline.map(([title, body], index) => (
+            <div key={title} className="pipeline-step">
+              <div className="pipeline-index">{index + 1}</div>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="results" className="academic-section">
+        <h2>Results</h2>
+        <p>
+          The site should not make users parse statutory names first. It should
+          start from the paper&apos;s logic, then let users click into live policy
+          tracking when they need the operational view.
+        </p>
+
+        <div className="results-grid">
+          {findings.map(([title, body]) => (
+            <article key={title}>
+              <LineChart aria-hidden="true" className="h-5 w-5" />
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="academic-highlight">
+        <div className="academic-text-column">
+          <h2>Live registry</h2>
+          <p>
+            The dashboard is the operational layer: current scores, latest
+            official policy moves, public market matches, open forecasts, gated
+            trade proposals, and outcomes. It remains separate from the landing
+            paper so the homepage stays readable.
+          </p>
+          <Link className="academic-primary-link" href="/dashboard">
+            Open registry
+          </Link>
+        </div>
+      </section>
+
+      <section id="citation" className="academic-section">
+        <h2>BibTeX</h2>
+        <pre className="bibtex-block">{`@article{cao2026industrialpolicy,
+  title={Industrial policy reshapes venture capital allocation and growth trajectories in climate technologies},
+  author={Cao, Yikai and Eesley, Charles and Jain, Rishee and Moorjani, Dinesh},
+  year={2026},
+  note={Research article companion}
+}`}</pre>
+      </section>
+
+      <footer className="academic-footer">
+        <p>
+          Built with a layout adapted from{" "}
+          <a href="https://research-template.roman.technology">
+            Roman Hauksson-Neill&apos;s project page template
+          </a>
+          .
+        </p>
+      </footer>
     </main>
   )
 }
 
-function DimensionCard({ title, body }: { title: string; body: string }) {
+function ScoreBar({ value, muted = false }: { value: number; muted?: boolean }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h3 className="text-lg font-black">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
+    <div className="score-bar-wrap">
+      <span>{score(value)}</span>
+      <div className={muted ? "score-bar score-bar-muted" : "score-bar"}>
+        <div style={{ width: pct(value) }} />
+      </div>
     </div>
   )
 }

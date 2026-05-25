@@ -4,9 +4,11 @@ test("registry renders seeded Supabase state", async ({ page }) => {
   await page.goto("/")
 
   await expect(
-    page.getByRole("heading", { name: "A live registry for policy credibility." }),
+    page.getByRole("heading", {
+      name: "Industrial policy reshapes venture capital allocation and growth trajectories in climate technologies",
+    }),
   ).toBeVisible()
-  await expect(page.getByText("Companion to the IRA venture-capital paper")).toBeVisible()
+  await expect(page.getByText("Policy Credibility Index", { exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: "Open registry" })).toBeVisible()
 
   await page.goto("/dashboard")
