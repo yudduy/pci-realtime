@@ -12,7 +12,7 @@ const loop = [
   ["PCI scoring", "Specific, durable, enforced"],
   ["Weekly series", "Sticky credibility on a 1-5 scale"],
   ["Market match", "Only clean public markets"],
-  ["Live monitor", "Forecasts, trades, outcomes"],
+  ["Live registry", "Forecasts, trades, outcomes"],
 ]
 
 const results = [
@@ -34,7 +34,7 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-6xl px-5 py-4 lg:px-8">
         <div className="mb-4 text-center text-xs text-muted-foreground">
-          Best viewed on a desktop browser. The live monitor uses hover states and wide policy cards.
+          Best viewed on a desktop browser. The registry uses hover states and wide policy cards.
         </div>
 
         <nav className="sticky top-0 z-40 -mx-5 mb-10 border-b border-border bg-background/95 px-5 py-3 backdrop-blur lg:-mx-8 lg:px-8">
@@ -49,11 +49,10 @@ export default function Home() {
               </div>
             </div>
             <div className="hidden items-center gap-2 md:flex">
-              <a className="landing-nav-link" href="#monitor">Monitor</a>
               <a className="landing-nav-link" href="#approach">Approach</a>
               <a className="landing-nav-link" href="#results">Results</a>
               <Link className="rounded-full bg-blue px-4 py-2 text-sm font-bold text-white" href="/dashboard">
-                Live monitor
+                Dashboard
               </Link>
             </div>
           </div>
@@ -65,14 +64,14 @@ export default function Home() {
               Companion to the IRA venture-capital paper
             </div>
             <h1 className="max-w-3xl text-4xl font-black leading-[1.02] tracking-normal md:text-6xl">
-              A live monitor for policy credibility.
+              A live registry for policy credibility.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-              The paper shows that clean-energy investment depends on how credible policy commitments are. This site turns the paper&apos;s two PCI snapshots into a weekly, inspectable monitor.
+              The paper shows that clean-energy investment depends on how credible policy commitments are. This site turns the paper&apos;s two PCI snapshots into a weekly, inspectable registry.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link className="rounded-full bg-blue px-5 py-3 text-sm font-bold text-white" href="/dashboard">
-                Open live monitor
+                Open registry
               </Link>
               <a className="rounded-full bg-card px-5 py-3 text-sm font-bold text-foreground ring-1 ring-border" href="#approach">
                 See method
@@ -126,10 +125,9 @@ export default function Home() {
           </section>
         </section>
 
-        <section id="monitor" className="border-t border-border py-12">
+        <section id="registry" className="border-t border-border py-12">
           <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-end">
             <div>
-              <h2 className="text-3xl font-black">Monitor</h2>
               <p className="mt-2 max-w-2xl text-muted-foreground">
                 The live board is the operational companion: it shows current PCI, policy moves, matched markets, forecasts, gated trades, and resolved outcomes when real rows exist.
               </p>

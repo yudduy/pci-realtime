@@ -4,10 +4,10 @@ test("registry renders seeded Supabase state", async ({ page }) => {
   await page.goto("/")
 
   await expect(
-    page.getByRole("heading", { name: "A live monitor for policy credibility." }),
+    page.getByRole("heading", { name: "A live registry for policy credibility." }),
   ).toBeVisible()
   await expect(page.getByText("Companion to the IRA venture-capital paper")).toBeVisible()
-  await expect(page.getByRole("link", { name: "Open live monitor" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Open registry" })).toBeVisible()
 
   await page.goto("/dashboard")
 

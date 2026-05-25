@@ -4,7 +4,7 @@ test("renders the research companion landing page", async ({ page }) => {
   await page.goto("/")
 
   await expect(
-    page.getByRole("heading", { name: "A live monitor for policy credibility." }),
+    page.getByRole("heading", { name: "A live registry for policy credibility." }),
   ).toBeVisible()
   await expect(page.getByText("Companion to the IRA venture-capital paper")).toBeVisible()
   await expect(page.getByText("7,271")).toBeVisible()
@@ -12,7 +12,7 @@ test("renders the research companion landing page", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Paper anchor" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Approach" })).toBeVisible()
   await expect(page.getByText("Official documents")).toBeVisible()
-  await expect(page.getByRole("link", { name: "Open live monitor" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Open registry" })).toBeVisible()
 
   await expect(page.getByText("Sports")).toHaveCount(0)
   await expect(page.getByText("Crypto")).toHaveCount(0)
