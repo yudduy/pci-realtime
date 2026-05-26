@@ -15,15 +15,20 @@ on:
         default: false
         type: boolean
   schedule:
+    # Finalize the previous complete week.
     - cron: "15 14 * * 1"
+    # Rolling live ingest for the current week-to-date on Federal Register
+    # publication days. This runs the full e2e loop: ingest, score, market
+    # match, forecast, proposal gate, and publish.
+    - cron: "15 20 * * 1-5"
 
 concurrency:
   group: production-registry-pipeline
   cancel-in-progress: false
 
 jobs:
-  weekly:
-    name: Weekly ingest, score, forecast, and publish
+  registry:
+    name: Ingest, score, forecast, and publish
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -41,6 +46,7 @@ jobs:
       PCI_AUDIT_MODEL: ${{ vars.PCI_AUDIT_MODEL || 'gpt-5.5' }}
       INPUT_START_DATE: ${{ github.event.inputs.start_date || '' }}
       INPUT_END_DATE: ${{ github.event.inputs.end_date || '' }}
+      TRIGGER_SCHEDULE: ${{ github.event.schedule || '' }}
       DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
 
     steps:
@@ -58,7 +64,7 @@ jobs:
           python -m pip install --upgrade pip uv
           uv sync --extra dev
 
-      - name: Resolve weekly date window
+      - name: Resolve ingest date window
         run: |
           python - <<'PY' >> "$GITHUB_ENV"
           import os
@@ -66,8 +72,12 @@ jobs:
 
           today = date.today()
           this_monday = today - timedelta(days=today.weekday())
-          default_start = this_monday - timedelta(days=7)
-          default_end = this_monday - timedelta(days=1)
+          if os.environ.get("TRIGGER_SCHEDULE") == "15 20 * * 1-5":
+              default_start = this_monday
+              default_end = today
+          else:
+              default_start = this_monday - timedelta(days=7)
+              default_end = this_monday - timedelta(days=1)
           start = os.environ.get("INPUT_START_DATE") or default_start.isoformat()
           end = os.environ.get("INPUT_END_DATE") or default_end.isoformat()
           print(f"START_DATE={start}")
