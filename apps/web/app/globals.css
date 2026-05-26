@@ -1362,10 +1362,6 @@ input {
     padding-inline: 16px;
   }
 
-  .site-brand span:last-child {
-    display: none;
-  }
-
   .site-nav {
     gap: 2px;
   }

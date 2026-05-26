@@ -25,7 +25,6 @@ export function SiteHeader() {
             priority
             aria-hidden="true"
           />
-          <span>PCIndex</span>
         </Link>
         <nav className="site-nav" aria-label="Primary navigation">
           {navItems.map((item) => {
