@@ -116,6 +116,7 @@ def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
     assert len(rows["scored_deltas"]) == 1
     assert len(rows["policy_events"]) == 1
     assert len(rows["market_snapshots"]) == 1
+    assert len(rows["market_discovery_candidates"]) == 1
     assert len(rows["source_documents"]) == 2
     assert len(rows["evidence_items"]) == 2
     assert len(rows["source_links"]) >= 3
@@ -128,6 +129,7 @@ def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
     assert rows["forecasts"][0]["run_id"] == FIXED_RUN_ID
     assert rows["forecasts"][0]["provision"] == "45V"
     assert rows["trade_proposals"][0]["approval_status"] == "pending_human_approval"
+    assert rows["market_discovery_candidates"][0]["eligible_snapshot"] is True
     assert (
         rows["source_documents"][0]["source_doc_id"] == "federal_register:45v-guidance"
     )
@@ -160,6 +162,7 @@ def test_weekly_live_rows_baseline_only_has_no_fake_forecasts(tmp_path: Path) ->
     assert rows["policy_events"] == []
     assert rows["scored_deltas"] == []
     assert rows["market_snapshots"] == []
+    assert rows["market_discovery_candidates"] == []
     assert rows["forecasts"] == []
     assert rows["trade_proposals"] == []
     assert rows["pipeline_runs"][0]["metadata"]["policy_events"] == 0
@@ -184,6 +187,7 @@ def test_weekly_live_can_publish_market_scan_without_fake_forecasts(
     )
 
     assert len(rows["market_snapshots"]) == 1
+    assert len(rows["market_discovery_candidates"]) == 1
     assert rows["scored_deltas"] == []
     assert len(rows["source_documents"]) == 1
     assert len(rows["evidence_items"]) == 1
@@ -232,6 +236,12 @@ def test_write_supabase_rows_uses_upserts_for_current_state_tables(
     )
     assert ("upsert", "policy_events", 1, "event_id") in client.calls
     assert ("insert", "forecasts", 1, None) in client.calls
+    assert (
+        "upsert",
+        "market_discovery_candidates",
+        len(rows["market_discovery_candidates"]),
+        "candidate_id",
+    ) in client.calls
     assert (
         "upsert",
         "source_documents",

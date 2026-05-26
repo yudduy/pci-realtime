@@ -16,6 +16,7 @@ from pci_realtime.forecast_registry.engine import (
     generate_signals,
     match_signals_to_markets,
 )
+from pci_realtime.forecast_registry.discovery import market_candidate_row
 from pci_realtime.forecast_registry.kalshi import (
     ExecutionGateError,
     create_signed_order_request,
@@ -24,6 +25,7 @@ from pci_realtime.forecast_registry.kalshi import (
     snapshots_from_fixture,
 )
 from pci_realtime.forecast_registry.store import (
+    assert_public_payload_safe,
     forecast_to_row,
     write_json,
     write_jsonl,
@@ -158,6 +160,8 @@ def test_market_snapshot_publication_filters_non_policy_noise(tmp_path: Path) ->
     noisy_market["subtitle"] = "sports market"
     noisy_market["yes_sub_title"] = "team wins"
     noisy_market["no_sub_title"] = "team loses"
+    noisy_market["yes_sub_title"] = "team wins"
+    noisy_market["no_sub_title"] = "team loses"
     noisy_market["rules_primary"] = (
         "This market resolves Yes if the listed basketball team wins tonight."
     )
@@ -167,6 +171,34 @@ def test_market_snapshot_publication_filters_non_policy_noise(tmp_path: Path) ->
     snapshots = snapshots_from_fixture(market_path, generated_at=FIXED_NOW)
 
     assert [snapshot["ticker"] for snapshot in snapshots] == ["KXIRA-45VREPEAL-YES"]
+
+
+def test_market_candidate_audit_records_rejection_reasons() -> None:
+    noisy_market = _kalshi_market(
+        ticker="KXSPORTS-ENERGY-YES",
+        title="Will a high-energy basketball team win tonight?",
+    )
+    noisy_market["event_ticker"] = "KXSPORTS"
+    noisy_market["subtitle"] = "sports market"
+    noisy_market["yes_sub_title"] = "team wins"
+    noisy_market["no_sub_title"] = "team loses"
+    noisy_market["rules_primary"] = (
+        "This market resolves Yes if the listed basketball team wins tonight."
+    )
+    noisy_market["rules_secondary"] = "Official league score controls resolution."
+    snapshot = parse_market_snapshot(noisy_market, generated_at=FIXED_NOW)
+
+    row = market_candidate_row(
+        snapshot,
+        run_id="00000000-0000-0000-0000-000000000001",
+        generated_at=FIXED_NOW,
+        rank=1,
+        query_name="test",
+    )
+
+    assert row["eligible_snapshot"] is False
+    assert "no_tracked_provision_overlap" in row["rejection_reasons"]
+    assert row["matched_keywords"] == []
 
 
 def test_market_matching_links_pci_signal_to_policy_market() -> None:
@@ -334,3 +366,10 @@ def test_end_to_end_debug_artifacts_contain_no_private_fields(
         assert "Company ID" not in text
         assert "OPENAI_API_KEY" not in text
         assert "trade_proposals" not in text
+
+
+def test_public_payload_guard_allows_public_slugs_but_blocks_keys() -> None:
+    assert_public_payload_safe({"slug": "sk-telecom-market"})
+
+    with pytest.raises(ValueError, match="OpenAI project key"):
+        assert_public_payload_safe({"token": "sk-proj-" + "a" * 32})

@@ -14,6 +14,29 @@ const currentPci = [
 const openForecasts = []
 const tradeProposals = []
 const marketSnapshots = []
+const marketDiscoveryCandidates = [
+  {
+    candidate_id: "test-run:kalshi:KXIRA-45VREPEAL",
+    run_id: "test-run",
+    generated_at: now,
+    venue: "kalshi",
+    ticker: "KXIRA-45VREPEAL",
+    event_ticker: "KXIRA",
+    title: "Will Congress repeal the 45V clean hydrogen tax credit?",
+    market_url: null,
+    status: "active",
+    query_name: "ira_climate_policy",
+    matched_keywords: ["tax credit"],
+    matched_provisions: ["45V"],
+    policy_relevant: true,
+    resolution_clear: true,
+    eligible_snapshot: true,
+    rejection_reasons: [],
+    liquidity_dollars: 250,
+    volume: 1000,
+    volume_24h: 10,
+  },
+]
 const policyEvents = [
   {
     event_id: "2026-W21:federal_register:45v-guidance:45V",
@@ -129,6 +152,7 @@ const views = {
   v_resolved_forecasts: [],
   v_trade_proposals: tradeProposals,
   v_market_snapshots: marketSnapshots,
+  v_market_discovery_candidates: marketDiscoveryCandidates,
   v_policy_events: policyEvents,
   v_pipeline_status: pipelineRuns,
   v_provision_timelines: provisionTimelines,

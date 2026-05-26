@@ -110,6 +110,17 @@ uv run --extra dev python -m pci_realtime.pipeline.weekly_live \
 
 Use `--dry-run --output-path data/debug/weekly_live_payload.json` to inspect payloads without writing Supabase.
 
+Run standalone market discovery:
+
+```bash
+uv run --extra dev python -m pci_realtime.pipeline.market_discovery --dry-run \
+  --output-path data/debug/market_discovery_payload.json
+uv run --extra dev python -m pci_realtime.pipeline.market_discovery
+```
+
+Use `--include-all-candidates` only for bounded absence audits; the normal production job persists eligible markets and near-miss candidates instead of every sports/crypto/noise market.
+The scheduled default scans 5,000 open Kalshi markets plus 1,000 active Polymarket events. Raise `--polymarket-limit` only for one-off deeper absence checks.
+
 Refresh outcomes and context:
 
 ```bash
@@ -212,8 +223,9 @@ The baseline anchor is immutable repo data in `data/baseline/pci_baseline.csv`. 
 `src/pci_realtime/forecast_registry/`
 
 - `policy.py`: provision metadata, market keywords, exposure channels, policy relevance and orientation helpers.
+- `discovery.py`: market-candidate audit rows, policy/provision term matching, resolution clarity checks, and scan result contracts.
 - `kalshi.py`: public Kalshi market reads, fixture parsing, signed order request construction, and execution gates.
-- `polymarket.py`: read-only Polymarket Gamma market snapshots.
+- `polymarket.py`: read-only Polymarket Gamma event/market snapshots.
 - `engine.py`: policy events -> signals -> market matches -> forecasts -> trade proposals/outcomes/metrics.
 - `store.py`: Supabase REST client, public payload safety checks, seed rows, row adapters, and write ordering.
 - `evidence.py`: source documents, evidence items, source links, source health rows.
@@ -223,6 +235,7 @@ The baseline anchor is immutable repo data in `data/baseline/pci_baseline.csv`. 
 
 - `seed_supabase.py`: writes paper anchors.
 - `weekly_live.py`: official ingest, scoring, PCI build, market scan, forecast/proposal generation, evidence rows, Supabase writes.
+- `market_discovery.py`: standalone public Kalshi/Polymarket discovery with candidate/rejection audit rows.
 - `daily_refresh.py`: reads open forecasts, refreshes market snapshots, writes outcomes/performance/context rows.
 
 ## Forecast And Trading Rules
@@ -257,17 +270,17 @@ Core tables:
 
 ```text
 provisions, pipeline_runs, scored_deltas, pci_weekly, policy_events, market_snapshots,
-forecasts, trade_proposals, forecast_outcomes, source_documents,
-evidence_items, source_links, source_health
+market_discovery_candidates, forecasts, trade_proposals, forecast_outcomes,
+source_documents, evidence_items, source_links, source_health
 ```
 
 Public views:
 
 ```text
 v_current_pci, v_provision_timelines, v_policy_events, v_open_forecasts,
-v_resolved_forecasts, v_market_snapshots, v_trade_proposals,
-v_forecast_performance, v_pipeline_status, v_source_documents,
-v_evidence_items, v_source_links, v_source_health
+v_resolved_forecasts, v_market_snapshots, v_market_discovery_candidates,
+v_trade_proposals, v_forecast_performance, v_pipeline_status,
+v_source_documents, v_evidence_items, v_source_links, v_source_health
 ```
 
 Public forecast/proposal views deliberately require:
@@ -276,7 +289,7 @@ Public forecast/proposal views deliberately require:
 - `reasoning -> match -> policy_relevant = true`
 - `reasoning -> match -> resolution_clear = true`
 
-`v_market_snapshots` filters to `policy_relevant = true`. Tests assert these filters exist. If changing migrations, update the Python row adapters and web TypeScript types together.
+`v_market_snapshots` filters to `policy_relevant = true`. `v_market_discovery_candidates` exposes the latest public near-misses and eligible candidates so a zero-forecast run can be audited. Tests assert these filters and contracts exist. If changing migrations, update the Python row adapters and web TypeScript types together.
 
 ## Web App Map
 
@@ -346,6 +359,7 @@ GitHub workflows:
 
 - `.github/workflows/ci.yml`: tests/lint/web checks.
 - `.github/workflows/production-registry-pipeline.yml`: scheduled Monday finalized weekly loop plus weekday rolling live ingest.
+- `.github/workflows/production-market-discovery.yml`: scheduled six-hour public market scan and candidate audit.
 - `.github/workflows/production-registry-refresh.yml`: scheduled six-hour daily refresh.
 
 Supabase functions:
@@ -365,7 +379,7 @@ Vercel serves `apps/web`; it should receive only public Supabase URL/key values.
 - Do not inspect or print `.env` or `.env.local` values.
 - Do not edit immutable baseline/fixture data unless explicitly asked and tests/docs are updated.
 - Keep Schema A/B/C, Supabase migrations, row adapters, TypeScript types, and tests aligned.
-- Keep public payloads clean: no `OPENAI_API_KEY`, `sk-`, `KALSHI_PRIVATE_KEY`, `raw_response`, private company identifiers, local `/Users/` paths, or signed trade data.
+- Keep public payloads clean: no API key names or OpenAI-style `sk-*` secrets, `KALSHI_PRIVATE_KEY`, `raw_response`, private company identifiers, local `/Users/` paths, or signed trade data.
 - Do not add fake forecasts when there are no eligible signals or markets. Tests expect baseline-only runs to produce no synthetic forecasts/proposals.
 - Treat `apps/web/node_modules`, `.next`, `.venv`, `.pytest_cache`, `.ruff_cache`, `data/raw`, `data/processed`, `data/cache`, `data/debug`, and `data/private` as generated or local state.
 

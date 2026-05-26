@@ -18,13 +18,19 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
 from pci_realtime.config import DATA_ROOT, REQUEST_TIMEOUT_SECONDS
+from pci_realtime.forecast_registry.discovery import (
+    MarketScanResult,
+    any_keyword_match,
+    market_candidate_row,
+    matched_provisions,
+    should_store_candidate,
+)
 from pci_realtime.forecast_registry.engine import (
     FORECAST_SCHEMA_VERSION,
     clamp_probability,
 )
 from pci_realtime.forecast_registry.policy import (
     is_policy_relevant_text,
-    text_contains_keyword,
 )
 
 
@@ -78,23 +84,52 @@ class KalshiClient:
         *,
         base_url: str = KALSHI_PRODUCTION_BASE_URL,
         timeout_seconds: int = REQUEST_TIMEOUT_SECONDS,
+        request_interval_seconds: float = 0.0,
+        max_retries: int = 4,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.client = httpx.Client(timeout=timeout_seconds)
+        self.request_interval_seconds = request_interval_seconds
+        self.max_retries = max_retries
+        self.request_count = 0
+        self.rate_limited_count = 0
+        self.retry_count = 0
 
     def close(self) -> None:
         self.client.close()
+
+    def _get_json(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
+        attempt = 0
+        while True:
+            self.request_count += 1
+            response = self.client.get(f"{self.base_url}{path}", params=params)
+            if response.status_code != 429:
+                response.raise_for_status()
+                if self.request_interval_seconds > 0:
+                    time.sleep(self.request_interval_seconds)
+                return response.json()
+            self.rate_limited_count += 1
+            if attempt >= self.max_retries:
+                response.raise_for_status()
+            delay = min(8.0, 0.5 * (2**attempt))
+            self.retry_count += 1
+            LOGGER.warning("Kalshi API rate limited; backing off for %.1fs", delay)
+            time.sleep(delay)
+            attempt += 1
 
     def get_markets(
         self,
         *,
         status: str = "open",
         limit: int = 100,
+        page_limit: int = 1000,
         series_ticker: str | None = None,
         event_ticker: str | None = None,
         tickers: tuple[str, ...] = (),
     ) -> list[dict[str, Any]]:
-        params: dict[str, Any] = {"status": status, "limit": limit}
+        max_results = max(0, limit)
+        per_page = max(1, min(page_limit, 1000, max_results or page_limit))
+        params: dict[str, Any] = {"status": status, "limit": per_page}
         if series_ticker:
             params["series_ticker"] = series_ticker
         if event_ticker:
@@ -105,23 +140,20 @@ class KalshiClient:
         rows: list[dict[str, Any]] = []
         cursor: str | None = None
         while True:
+            remaining = max_results - len(rows)
+            if remaining <= 0:
+                return rows[:max_results]
+            params["limit"] = min(per_page, remaining)
             if cursor:
                 params["cursor"] = cursor
-            response = self.client.get(f"{self.base_url}/markets", params=params)
-            response.raise_for_status()
-            payload = response.json()
+            payload = self._get_json("/markets", params=params)
             rows.extend(payload.get("markets", []))
             cursor = payload.get("cursor")
             if not cursor or len(rows) >= limit:
                 return rows[:limit]
 
     def get_orderbook(self, ticker: str, *, depth: int = 1) -> dict[str, Any]:
-        response = self.client.get(
-            f"{self.base_url}/markets/{ticker}/orderbook",
-            params={"depth": depth},
-        )
-        response.raise_for_status()
-        return response.json()
+        return self._get_json(f"/markets/{ticker}/orderbook", params={"depth": depth})
 
     def get_market_candlesticks(
         self,
@@ -131,8 +163,8 @@ class KalshiClient:
         end_ts: int,
         period_interval: int = 60,
     ) -> dict[str, Any]:
-        response = self.client.get(
-            f"{self.base_url}/markets/candlesticks",
+        return self._get_json(
+            "/markets/candlesticks",
             params={
                 "market_tickers": ",".join(tickers),
                 "start_ts": start_ts,
@@ -141,13 +173,9 @@ class KalshiClient:
                 "include_latest_before_start": "true",
             },
         )
-        response.raise_for_status()
-        return response.json()
 
     def get_market(self, ticker: str) -> dict[str, Any]:
-        response = self.client.get(f"{self.base_url}/markets/{ticker}")
-        response.raise_for_status()
-        payload = response.json()
+        payload = self._get_json(f"/markets/{ticker}")
         market = payload.get("market", payload)
         if not isinstance(market, dict):
             msg = f"Expected market payload for ticker {ticker}"
@@ -187,10 +215,7 @@ def _orderbook_depth(orderbook: dict[str, Any], side: str) -> float | None:
 
 
 def _passes_query_keywords(market: dict[str, Any], keywords: tuple[str, ...]) -> bool:
-    if not keywords:
-        return True
-    text = _market_text(market)
-    return any(text_contains_keyword(text, keyword) for keyword in keywords)
+    return any_keyword_match(_market_text(market), keywords)
 
 
 def parse_market_snapshot(
@@ -358,17 +383,51 @@ def fetch_market_snapshots(
     base_url: str = KALSHI_PRODUCTION_BASE_URL,
     generated_at: str | None = None,
     audit: dict[str, int] | None = None,
+    run_id: str | None = None,
+    include_all_candidates: bool = False,
+    request_interval_seconds: float = 0.0,
 ) -> list[dict[str, Any]]:
-    client = KalshiClient(base_url=base_url)
+    result = fetch_market_snapshot_scan(
+        query_file=query_file,
+        base_url=base_url,
+        generated_at=generated_at,
+        run_id=run_id,
+        include_all_candidates=include_all_candidates,
+        request_interval_seconds=request_interval_seconds,
+    )
+    if audit is not None:
+        audit.update(result.stats)
+    return result.snapshots
+
+
+def fetch_market_snapshot_scan(
+    *,
+    query_file: Path,
+    base_url: str = KALSHI_PRODUCTION_BASE_URL,
+    generated_at: str | None = None,
+    audit: dict[str, Any] | None = None,
+    run_id: str | None = None,
+    include_all_candidates: bool = False,
+    request_interval_seconds: float = 0.0,
+) -> MarketScanResult:
+    client = KalshiClient(
+        base_url=base_url, request_interval_seconds=request_interval_seconds
+    )
     generated = generated_at or utc_now_iso()
+    scan_run_id = run_id or f"local-{generated}"
     seen: set[str] = set()
     snapshots: list[dict[str, Any]] = []
+    candidates: list[dict[str, Any]] = []
     stats = {
         "scanned": 0,
         "published": 0,
+        "stored_candidates": 0,
         "rejected_duplicate": 0,
         "rejected_query_keywords": 0,
         "rejected_not_policy_relevant": 0,
+        "requests": 0,
+        "rate_limited": 0,
+        "retries": 0,
     }
     try:
         for query in load_queries(query_file):
@@ -385,26 +444,57 @@ def fetch_market_snapshots(
                 if not ticker or ticker in seen:
                     stats["rejected_duplicate"] += 1
                     continue
-                if not _passes_query_keywords(market, query.keywords):
+                passes_query = _passes_query_keywords(market, query.keywords)
+                if not passes_query:
                     stats["rejected_query_keywords"] += 1
+                text = _market_text(market)
+                likely_candidate = bool(
+                    passes_query or include_all_candidates or matched_provisions(text)
+                )
+                if not likely_candidate:
+                    seen.add(ticker)
                     continue
                 snapshot = parse_market_snapshot(
                     market,
                     query_name=query.name,
-                    orderbook=_safe_get_orderbook(client, ticker),
+                    orderbook=_safe_get_orderbook(client, ticker)
+                    if passes_query
+                    else None,
                     generated_at=generated,
                 )
+                candidate = market_candidate_row(
+                    snapshot,
+                    run_id=scan_run_id,
+                    generated_at=generated,
+                    rank=stats["scanned"],
+                    query_name=query.name,
+                )
+                if should_store_candidate(
+                    candidate, include_all_candidates=include_all_candidates
+                ):
+                    candidates.append(candidate)
+                    stats["stored_candidates"] += 1
+                seen.add(ticker)
+                if not passes_query:
+                    continue
+                snapshot["policy_relevant"] = bool(candidate["eligible_snapshot"])
                 if not snapshot["policy_relevant"]:
                     stats["rejected_not_policy_relevant"] += 1
                     continue
-                seen.add(ticker)
                 snapshots.append(snapshot)
                 stats["published"] += 1
     finally:
+        stats["requests"] = client.request_count
+        stats["rate_limited"] = client.rate_limited_count
+        stats["retries"] = client.retry_count
         client.close()
     if audit is not None:
         audit.update(stats)
-    return sorted(snapshots, key=lambda row: row["ticker"])
+    return MarketScanResult(
+        snapshots=sorted(snapshots, key=lambda row: row["ticker"]),
+        candidates=sorted(candidates, key=lambda row: (row["venue"], row["ticker"])),
+        stats=stats,
+    )
 
 
 def _safe_get_orderbook(client: KalshiClient, ticker: str) -> dict[str, Any] | None:

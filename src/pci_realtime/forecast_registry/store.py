@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -23,7 +24,6 @@ from pci_realtime.forecast_registry.policy import PROVISION_DETAILS
 LOGGER = logging.getLogger(__name__)
 FORBIDDEN_PUBLIC_STRINGS = (
     "OPENAI_API_KEY",
-    "sk-",
     "KALSHI_PRIVATE_KEY",
     "raw_response",
     "Company ID",
@@ -31,6 +31,10 @@ FORBIDDEN_PUBLIC_STRINGS = (
     "CTVC",
     "trade_signature",
     "/Users/",
+)
+FORBIDDEN_PUBLIC_PATTERNS = (
+    ("OpenAI project key", re.compile(r"sk-proj-[A-Za-z0-9_-]{20,}")),
+    ("OpenAI secret key", re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_]{32,}")),
 )
 
 
@@ -61,6 +65,10 @@ def assert_public_payload_safe(payload: Any) -> None:
     for forbidden in FORBIDDEN_PUBLIC_STRINGS:
         if forbidden in text:
             msg = f"Public payload contains forbidden token: {forbidden}"
+            raise ValueError(msg)
+    for label, pattern in FORBIDDEN_PUBLIC_PATTERNS:
+        if pattern.search(text):
+            msg = f"Public payload contains forbidden token: {label}"
             raise ValueError(msg)
 
 
@@ -398,6 +406,11 @@ def write_supabase_rows(
     )
     client.insert_rows("pipeline_runs", rows_by_table["pipeline_runs"])
     client.insert_rows("market_snapshots", rows_by_table["market_snapshots"])
+    client.upsert_rows(
+        "market_discovery_candidates",
+        rows_by_table.get("market_discovery_candidates", []),
+        on_conflict="candidate_id",
+    )
     client.upsert_rows(
         "source_documents",
         rows_by_table.get("source_documents", []),

@@ -78,6 +78,7 @@ export function RegistryDashboard({ data }: { data: RegistryData }) {
           <Kpi label="Avg PCI" value={formatScore(averagePci)} />
           <Kpi label="Policy questions" value={String(data.currentPci.length)} />
           <Kpi label="Matched markets" value={String(data.marketSnapshots.length)} />
+          <Kpi label="Candidates" value={String(data.marketDiscoveryCandidates.length)} />
           <Kpi label="Open forecasts" value={String(data.openForecasts.length)} />
         </section>
 

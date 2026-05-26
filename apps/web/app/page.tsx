@@ -54,6 +54,7 @@ export default async function Home() {
             <Kpi label="Avg PCI" value={formatScore(averagePci)} />
             <Kpi label="Open forecasts" value={String(data.openForecasts.length)} />
             <Kpi label="Matched markets" value={String(data.marketSnapshots.length)} />
+            <Kpi label="Candidates" value={String(data.marketDiscoveryCandidates.length)} />
             <Kpi label="Last update" value={formatDateTime(run?.completed_at ?? run?.started_at)} />
           </div>
         </div>

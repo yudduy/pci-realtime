@@ -120,7 +120,7 @@ python -m pci_realtime.pipeline.seed_supabase --dry-run
 python -m pci_realtime.pipeline.seed_supabase
 ```
 
-Run the weekly registry loop with official source ingest, LLM scoring, Kalshi discovery, gated proposals, and Supabase writes:
+Run the weekly registry loop with official source ingest, LLM scoring, broad market discovery, gated proposals, and Supabase writes:
 
 ```bash
 python -m pci_realtime.pipeline.weekly_live \
@@ -130,6 +130,17 @@ python -m pci_realtime.pipeline.weekly_live \
   --fetch-markets \
   --fetch-polymarket
 ```
+
+Run only the public market discovery/audit loop:
+
+```bash
+python -m pci_realtime.pipeline.market_discovery --dry-run \
+  --output-path data/debug/market_discovery_payload.json
+python -m pci_realtime.pipeline.market_discovery
+```
+
+The discovery loop paginates public Kalshi and Polymarket surfaces, stores eligible market snapshots, and records near-miss candidates with rejection reasons. Use `--include-all-candidates` only for bounded absence audits because it persists every scanned public market row.
+The scheduled default scans 5,000 open Kalshi markets plus 1,000 active Polymarket events; raise `--polymarket-limit` for one-off deeper absence audits.
 
 Refresh market outcomes and performance metadata from Supabase:
 
@@ -161,6 +172,7 @@ The UI reads from Supabase public views:
 | `v_current_pci` | provision cards and PCI scores |
 | `v_open_forecasts` | active forecast cards |
 | `v_market_snapshots` | read-only market scan cards |
+| `v_market_discovery_candidates` | latest eligible and near-miss market candidates |
 | `v_trade_proposals` | gated proposal summaries |
 | `v_policy_events` | official policy event feed |
 | `v_resolved_forecasts` | track record |
@@ -180,7 +192,7 @@ The backend keeps three file-level contracts for tests and offline runs:
 | Scored PCI deltas | `pci_realtime.scoring.scorer` | weekly PCI builder | `data/processed/scored/scored_<YYYY-WW>.parquet` |
 | Weekly PCI series | `pci_realtime.pci.builder` | registry loop and export jobs | `data/processed/pci_weekly.parquet` |
 
-The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `forecasts`, `trade_proposals`, `forecast_outcomes`, `pipeline_runs`, `source_documents`, `evidence_items`, `source_links`, and `source_health`.
+The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `market_discovery_candidates`, `forecasts`, `trade_proposals`, `forecast_outcomes`, `pipeline_runs`, `source_documents`, `evidence_items`, `source_links`, and `source_health`.
 
 ## Capability Status
 
@@ -256,7 +268,7 @@ gh variable set PCI_SCORING_MODEL --body "gpt-5.4-mini"
 gh variable set PCI_AUDIT_MODEL --body "gpt-5.5"
 ```
 
-`.github/workflows/production-registry-pipeline.yml` runs the complete weekly loop every Monday. `.github/workflows/production-registry-refresh.yml` refreshes market settlements and metrics daily.
+`.github/workflows/production-registry-pipeline.yml` runs the complete weekly loop every Monday. `.github/workflows/production-market-discovery.yml` scans public market venues every six hours. `.github/workflows/production-registry-refresh.yml` refreshes market settlements and metrics daily.
 `.github/workflows/production-smoke.yml` checks `https://pcindex.vercel.app` and the public Supabase views every six hours.
 
 Supabase Edge Function triggers are intentionally fail-closed. If they are used, set both the outbound webhook values and the inbound trigger secret:

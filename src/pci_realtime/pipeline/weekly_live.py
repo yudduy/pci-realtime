@@ -20,7 +20,9 @@ from pci_realtime.forecast_registry.engine import (
     compute_forecast_metrics,
     generate_signals,
     match_signals_to_markets,
+    utc_now_iso,
 )
+from pci_realtime.forecast_registry.discovery import market_candidate_row
 from pci_realtime.forecast_registry.evidence import (
     evidence_rows_from_market_snapshots,
     evidence_rows_from_policy_events,
@@ -32,10 +34,10 @@ from pci_realtime.forecast_registry.evidence import (
     source_links_from_policy_events,
 )
 from pci_realtime.forecast_registry.kalshi import (
-    fetch_market_snapshots,
+    fetch_market_snapshot_scan,
     snapshots_from_fixture,
 )
-from pci_realtime.forecast_registry.polymarket import fetch_polymarket_snapshots
+from pci_realtime.forecast_registry.polymarket import fetch_polymarket_snapshot_scan
 from pci_realtime.forecast_registry.store import (
     SupabaseRestClient,
     build_seed_rows,
@@ -374,19 +376,58 @@ def build_weekly_live_rows(
         weekly, events=policy_events, scored_events=scored_events
     )
 
-    market_scan: dict[str, int] = {
+    market_scan: dict[str, Any] = {
         "scanned": 0,
         "published": 0,
+        "stored_candidates": 0,
         "rejected_duplicate": 0,
         "rejected_query_keywords": 0,
         "rejected_not_policy_relevant": 0,
+        "requests": 0,
+        "rate_limited": 0,
+        "retries": 0,
+        "by_venue": {},
     }
+    market_candidates: list[dict[str, Any]] = []
+    market_generated_at = utc_now_iso()
+
+    def merge_market_scan(venue: str, stats: dict[str, Any]) -> None:
+        market_scan["by_venue"][venue] = stats
+        for key, value in stats.items():
+            if isinstance(value, int) and isinstance(market_scan.get(key), int):
+                market_scan[key] += value
+
     if market_fixture_path is not None:
         markets = snapshots_from_fixture(market_fixture_path, audit=market_scan)
+        market_candidates = [
+            market_candidate_row(
+                market,
+                run_id=run_id,
+                generated_at=str(market.get("generated_at") or market_generated_at),
+                rank=index,
+                query_name=str(market.get("query_name") or "fixture"),
+            )
+            for index, market in enumerate(markets, start=1)
+        ]
+        market_scan["stored_candidates"] = len(market_candidates)
     elif fetch_markets:
-        markets = fetch_market_snapshots(query_file=query_file, audit=market_scan)
+        kalshi_scan = fetch_market_snapshot_scan(
+            query_file=query_file,
+            run_id=run_id,
+            generated_at=market_generated_at,
+        )
+        markets = list(kalshi_scan.snapshots)
+        market_candidates.extend(kalshi_scan.candidates)
+        merge_market_scan("kalshi", kalshi_scan.stats)
         if fetch_polymarket:
-            markets.extend(fetch_polymarket_snapshots(query_file=query_file))
+            polymarket_scan = fetch_polymarket_snapshot_scan(
+                query_file=query_file,
+                run_id=run_id,
+                generated_at=market_generated_at,
+            )
+            markets.extend(polymarket_scan.snapshots)
+            market_candidates.extend(polymarket_scan.candidates)
+            merge_market_scan("polymarket", polymarket_scan.stats)
     else:
         markets = []
 
@@ -429,6 +470,7 @@ def build_weekly_live_rows(
         "pci_weekly": weekly_rows,
         "policy_events": _policy_event_table_rows(policy_events),
         "market_snapshots": [market_to_row(market) for market in markets],
+        "market_discovery_candidates": market_candidates,
         "source_documents": [
             *source_document_rows_from_raw_docs(raw_docs),
             *source_document_rows_from_markets(markets),
