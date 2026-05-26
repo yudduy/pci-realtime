@@ -25,6 +25,22 @@ from pci_realtime.ingest.base import (
 )
 
 
+FEDERAL_REGISTER_API_FIELDS = (
+    "document_number",
+    "title",
+    "abstract",
+    "excerpts",
+    "publication_date",
+    "agencies",
+    "type",
+    "html_url",
+    "pdf_url",
+    "raw_text_url",
+    "full_text_xml_url",
+    "body_html_url",
+)
+
+
 def build_query_params(
     term: str,
     start_date: date,
@@ -40,6 +56,7 @@ def build_query_params(
         "order": "relevance",
         "page": page,
         "per_page": per_page,
+        "fields[]": list(FEDERAL_REGISTER_API_FIELDS),
     }
 
 
@@ -102,16 +119,55 @@ def is_allowed_agency(doc: dict) -> bool:
     return bool(slugs & ALLOWED_FEDERAL_REGISTER_AGENCY_SLUGS)
 
 
-def fetch_document_body(
-    html_url: str, session: Optional[requests.Session] = None
+def fetch_document_text_url(
+    url: str, session: Optional[requests.Session] = None
 ) -> str:
-    if not html_url:
+    if not url:
         return ""
 
     session = session or get_session()
-    response = session.get(html_url, timeout=FEDERAL_REGISTER_CONFIG.timeout_seconds)
+    response = session.get(url, timeout=FEDERAL_REGISTER_CONFIG.timeout_seconds)
     response.raise_for_status()
-    return clean_text_from_html(response.text)
+    text = clean_text_from_html(response.text)
+    return "" if is_access_limited_body(text) else text
+
+
+def is_access_limited_body(text: str) -> bool:
+    lowered = text.lower()
+    return (
+        "request access" in lowered
+        and "aggressive automated scraping" in lowered
+        and "captcha" in lowered
+    )
+
+
+def federal_register_api_text(raw_doc: dict) -> str:
+    return clean_text_from_html(
+        " ".join(
+            str(part or "")
+            for part in [
+                raw_doc.get("abstract"),
+                raw_doc.get("excerpts"),
+            ]
+            if part
+        )
+    )
+
+
+def fetch_document_body(
+    raw_doc: dict, session: Optional[requests.Session] = None
+) -> str:
+    for key in ("raw_text_url", "full_text_xml_url", "body_html_url"):
+        url = raw_doc.get(key)
+        if not url:
+            continue
+        try:
+            text = fetch_document_text_url(str(url), session=session)
+        except Exception:
+            continue
+        if text:
+            return text
+    return ""
 
 
 class FederalRegisterIngestor(BaseIngestor):
@@ -133,17 +189,12 @@ def normalize_document(
     raw_doc: dict, fetch_bodies: bool = True, session: Optional[requests.Session] = None
 ) -> dict:
     title = raw_doc.get("title") or ""
-    abstract = raw_doc.get("abstract") or ""
-    excerpts = raw_doc.get("excerpts") or ""
     html_url = raw_doc.get("html_url") or ""
+    api_text = federal_register_api_text(raw_doc)
     body = ""
-    if fetch_bodies and html_url:
-        try:
-            body = fetch_document_body(html_url=html_url, session=session)
-        except Exception:
-            body = ""
-
-    combined_text = " ".join(part for part in [title, abstract, excerpts, body] if part)
+    if fetch_bodies:
+        body = fetch_document_body(raw_doc, session=session)
+    combined_text = " ".join(part for part in [title, api_text, body] if part)
     provisions = infer_provisions_from_text(combined_text)
     native_id = raw_doc.get("document_number") or raw_doc.get("id") or html_url
 
@@ -153,7 +204,7 @@ def normalize_document(
         date_value=raw_doc.get("publication_date"),
         agency="; ".join(extract_agency_names(raw_doc)),
         title=title,
-        body=body or abstract,
+        body=body or api_text,
         url=html_url,
         provisions_mentioned=provisions,
     )
