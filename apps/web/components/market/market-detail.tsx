@@ -1,4 +1,4 @@
-import type { RegistryData } from "@/lib/data"
+import type { EvidenceItem, PolicyEvent, RegistryData } from "@/lib/data"
 import type { PolicyMarket } from "@/lib/market-model"
 import {
   formatCents,
@@ -25,6 +25,7 @@ export function MarketDetail({
   const relatedEvents = data.policyEvents
     .filter((event) => event.provision === market.provision)
     .slice(0, 3)
+  const citations = citationsForMarket(market, data, relatedEvents)
   const proposals = data.tradeProposals
     .filter(
       (proposal) =>
@@ -93,6 +94,17 @@ export function MarketDetail({
         </section>
       )}
 
+      {citations.length > 0 && (
+        <section className="detail-section">
+          <h3>Why This Moved</h3>
+          <div className="citation-list">
+            {citations.slice(0, 4).map((citation, index) => (
+              <CitationRow key={citation.evidence_id} citation={citation} index={index + 1} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {market.market?.resolution_text && (
         <section className="detail-section">
           <h3>Resolution Rules</h3>
@@ -133,8 +145,51 @@ export function MarketDetail({
           )}
         </section>
       )}
+
+      <section className="detail-section">
+        <h3>Trace</h3>
+        <details className="trace-drawer">
+          <summary>Evidence path</summary>
+          <ol>
+            <li>{citations.length ? "Fetched public source documents" : "Waiting for cited public sources"}</li>
+            <li>{relatedEvents.length ? "Extracted policy evidence" : "No scored policy move yet"}</li>
+            <li>{market.policy || market.forecast ? "Updated PCI dimensions" : "PCI link pending"}</li>
+            <li>{market.market || market.forecast ? "Matched public market data" : "No clean public market match"}</li>
+            <li>{market.forecast ? "Published model odds" : "Forecast pending"}</li>
+            <li>{proposals.length ? "Proposal gate recorded" : "No public execution path"}</li>
+          </ol>
+        </details>
+      </section>
     </aside>
   )
+}
+
+function CitationRow({
+  citation,
+  index,
+}: {
+  citation: EvidenceItem
+  index: number
+}) {
+  const source = citation.source_name ?? "Official source"
+  const title = citation.source_title ?? citation.snippet ?? source
+  const body = (
+    <>
+      <span>[{index}] {source}</span>
+      <strong>{title}</strong>
+      {citation.snippet && <em>{citation.snippet}</em>}
+    </>
+  )
+
+  if (citation.url) {
+    return (
+      <a href={citation.url} className="citation-row">
+        {body}
+      </a>
+    )
+  }
+
+  return <div className="citation-row">{body}</div>
 }
 
 function DetailPrice({
@@ -186,4 +241,53 @@ function Breakdown({
 
 function sourceTitle(sourceDoc: Record<string, unknown>) {
   return String(sourceDoc.title ?? sourceDoc.url ?? "Official source")
+}
+
+function citationsForMarket(
+  market: PolicyMarket,
+  data: RegistryData,
+  relatedEvents: PolicyEvent[],
+): EvidenceItem[] {
+  const evidenceIds = new Set<string>()
+  const targetIds = new Set<string>()
+
+  if (market.forecast?.forecast_id) targetIds.add(`forecasts:${market.forecast.forecast_id}`)
+  if (market.market?.venue && market.market.ticker) {
+    targetIds.add(`market_snapshots:${market.market.venue}:${market.market.ticker}`)
+  }
+  for (const event of relatedEvents) targetIds.add(`policy_events:${event.event_id}`)
+
+  for (const link of data.sourceLinks) {
+    if (targetIds.has(`${link.target_table}:${link.target_id}`)) {
+      evidenceIds.add(link.evidence_id)
+    }
+  }
+
+  const citations = data.evidenceItems.filter((item) => evidenceIds.has(item.evidence_id))
+  if (citations.length) return citations
+
+  return relatedEvents
+    .map((event) => data.policyEvents.find((item) => item.event_id === event.event_id))
+    .filter((event): event is NonNullable<typeof event> => Boolean(event))
+    .map((event) => ({
+      evidence_id: `fallback:${event.event_id}`,
+      source_doc_id: event.doc_id ?? null,
+      provision: event.provision,
+      provision_name: event.provision_name,
+      evidence_type: "policy_event",
+      snippet: event.rationale,
+      normalized_signal: `${event.pci_delta > 0 ? "+" : ""}${event.pci_delta.toFixed(2)} PCI`,
+      score_dimension: "pci",
+      confidence: event.confidence,
+      extractor_version: event.prompt_version ?? null,
+      created_at: event.created_at,
+      source: event.doc_source ?? null,
+      source_name: event.agency ?? "Official source",
+      source_type: "official_text",
+      source_title: event.title,
+      agency: event.agency,
+      url: event.url,
+      published_at: event.week_start,
+      fetched_at: event.created_at,
+    }))
 }

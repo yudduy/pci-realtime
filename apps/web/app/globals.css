@@ -668,6 +668,56 @@ input {
   padding: 0 24px 14px;
 }
 
+.source-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  padding: 0 24px 14px;
+}
+
+.source-strip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px 10px;
+}
+
+.source-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #00a660;
+}
+
+.source-dot.muted {
+  background: #9ca3af;
+}
+
+.source-strip-item strong,
+.source-strip-item span {
+  display: block;
+}
+
+.source-strip-item strong {
+  color: #111827;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.source-strip-item span {
+  margin-top: 1px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 650;
+}
+
 .kpi-chip {
   border: 1px solid #e3e7ef;
   border-radius: 8px;
@@ -955,6 +1005,17 @@ input {
   margin-top: 3px;
   color: #6b7280;
   font-size: 12px;
+}
+
+.activity-item small {
+  display: inline-block;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #1f6feb;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 7px;
 }
 
 .activity-item em {
@@ -1353,6 +1414,73 @@ input {
   font-size: 12px;
 }
 
+.citation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.citation-row {
+  display: block;
+  border: 1px solid #e5ebf4;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #111827;
+  padding: 10px;
+  text-decoration: none;
+}
+
+.citation-row span,
+.citation-row strong,
+.citation-row em {
+  display: block;
+}
+
+.citation-row span {
+  color: #1f6feb;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.citation-row strong {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.citation-row em {
+  margin-top: 5px;
+  color: #6b7280;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.trace-drawer {
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.trace-drawer summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.trace-drawer ol {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.trace-drawer li {
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .academic-header.compact h1 {
   font-size: clamp(2.1rem, 5vw, 3.7rem);
 }
@@ -1382,6 +1510,7 @@ input {
   .tracker-split,
   .dashboard-top,
   .dashboard-kpis,
+  .source-strip,
   .dashboard-controls,
   .dashboard-featured,
   .dashboard-main {

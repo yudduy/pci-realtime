@@ -16,6 +16,7 @@ export function ActivityList({
       meta: `${policyCopy(event.provision, event.provision_name).name} / ${formatDate(event.created_at)}`,
       value: event.pci_delta === 0 ? "flat" : `${event.pci_delta > 0 ? "+" : ""}${event.pci_delta.toFixed(2)} PCI`,
       href: event.url,
+      source: event.agency ?? event.doc_source ?? "Official source",
     })),
     ...outcomes.map((outcome) => ({
       id: `outcome:${outcome.forecast_id}`,
@@ -23,6 +24,7 @@ export function ActivityList({
       meta: `Resolved / ${formatDate(outcome.resolved_at)}`,
       value: formatPercent(outcome.settlement_value),
       href: null,
+      source: outcome.venue,
     })),
   ].slice(0, 8)
 
@@ -40,6 +42,7 @@ export function ActivityList({
                 <div>
                   <strong>{item.title}</strong>
                   <span>{item.meta}</span>
+                  <small>{item.source}</small>
                 </div>
                 <em>{item.value}</em>
               </>

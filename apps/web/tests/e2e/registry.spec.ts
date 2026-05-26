@@ -5,6 +5,7 @@ test("renders the live tracker landing page", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "Live odds for climate policy credibility." })).toBeVisible()
   await expect(page.getByText("Live policy data")).toBeVisible()
+  await expect(page.getByText("Federal Register").first()).toBeVisible()
   await expect(page.getByText("Featured Policy Markets")).toBeVisible()
   await expect(page.getByText("Will EV credits stay stable?").first()).toBeVisible()
   await expect(page.getByRole("link", { name: "Open tracker" })).toBeVisible()
@@ -57,7 +58,11 @@ test("renders the PCI market tracker without clone clutter", async ({ page }) =>
   await expect(page.getByText("Waiting for a clean public market").first()).toBeVisible()
   await expect(page.getByRole("button", { name: /Policy moves\s*6/ })).toBeVisible()
   await expect(page.getByRole("button", { name: /Forecasts\s*0/ })).toHaveCount(0)
+  await page.getByText("Will hydrogen credits stay stable?").first().click()
   await expect(page.getByText("Market Facts")).toBeVisible()
+  await expect(page.getByText("Why This Moved")).toBeVisible()
+  await expect(page.getByText("Evidence path")).toBeVisible()
+  await expect(page.getByText("Treasury guidance narrows eligibility").first()).toBeVisible()
   expect(await page.content()).not.toMatch(/supabase/i)
 
   await expect(page.getByText("Pipeline")).toHaveCount(0)

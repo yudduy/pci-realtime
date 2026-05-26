@@ -168,6 +168,57 @@ create table if not exists forecast_outcomes (
   market_status text
 );
 
+create table if not exists source_documents (
+  source_doc_id text primary key,
+  source text not null,
+  source_name text not null,
+  source_type text not null,
+  external_id text,
+  title text not null,
+  agency text,
+  url text,
+  published_at timestamptz,
+  fetched_at timestamptz not null default now(),
+  content_hash text not null,
+  text_excerpt text,
+  raw_public_metadata jsonb not null default '{}'::jsonb
+);
+
+create table if not exists evidence_items (
+  evidence_id text primary key,
+  source_doc_id text references source_documents(source_doc_id),
+  provision text references provisions(code),
+  evidence_type text not null,
+  snippet text,
+  normalized_signal text,
+  score_dimension text,
+  confidence numeric,
+  extractor_version text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists source_links (
+  link_id text primary key,
+  evidence_id text references evidence_items(evidence_id),
+  target_table text not null,
+  target_id text not null,
+  link_type text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists source_health (
+  source text primary key,
+  source_name text not null,
+  status text not null,
+  last_attempt_at timestamptz not null default now(),
+  last_success_at timestamptz,
+  latency_ms integer,
+  row_count integer not null default 0,
+  last_error_class text,
+  last_error_summary text,
+  details jsonb not null default '{}'::jsonb
+);
+
 alter table provisions enable row level security;
 alter table pipeline_runs enable row level security;
 alter table pci_weekly enable row level security;
@@ -176,6 +227,10 @@ alter table market_snapshots enable row level security;
 alter table forecasts enable row level security;
 alter table trade_proposals enable row level security;
 alter table forecast_outcomes enable row level security;
+alter table source_documents enable row level security;
+alter table evidence_items enable row level security;
+alter table source_links enable row level security;
+alter table source_health enable row level security;
 
 create view v_current_pci as
 select distinct on (p.code)
@@ -344,7 +399,7 @@ select
   t.approval_status,
   t.human_approval_required,
   case
-    when t.execution_enabled then 'backend_enabled_after_approval'
+    when t.execution_enabled then 'review_enabled_after_approval'
     else 'public_execution_unavailable'
   end as public_execution_status,
   t.rejection_reasons
@@ -382,6 +437,74 @@ from pipeline_runs r
 order by r.started_at desc
 limit 20;
 
+create view v_source_documents as
+select
+  d.source_doc_id,
+  d.source,
+  d.source_name,
+  d.source_type,
+  d.external_id,
+  d.title,
+  d.agency,
+  d.url,
+  d.published_at,
+  d.fetched_at,
+  d.text_excerpt,
+  d.raw_public_metadata
+from source_documents d;
+
+create view v_evidence_items as
+select
+  e.evidence_id,
+  e.source_doc_id,
+  e.provision,
+  p.name as provision_name,
+  e.evidence_type,
+  e.snippet,
+  e.normalized_signal,
+  e.score_dimension,
+  e.confidence,
+  e.extractor_version,
+  e.created_at,
+  d.source,
+  d.source_name,
+  d.source_type,
+  d.title as source_title,
+  d.agency,
+  d.url,
+  d.published_at,
+  d.fetched_at
+from evidence_items e
+left join source_documents d on d.source_doc_id = e.source_doc_id
+left join provisions p on p.code = e.provision;
+
+create view v_source_links as
+select
+  l.link_id,
+  l.evidence_id,
+  l.target_table,
+  l.target_id,
+  l.link_type,
+  l.created_at
+from source_links l;
+
+create view v_source_health as
+select
+  h.source,
+  h.source_name,
+  h.status,
+  h.last_attempt_at,
+  h.last_success_at,
+  h.latency_ms,
+  h.row_count,
+  h.last_error_class,
+  h.last_error_summary,
+  h.details
+from source_health h
+order by
+  case h.status when 'success' then 0 when 'disabled' then 1 else 2 end,
+  h.source_name asc;
+
 revoke all on all tables in schema public from anon, authenticated;
 grant select on v_current_pci to anon, authenticated;
 grant select on v_provision_timelines to anon, authenticated;
@@ -392,6 +515,10 @@ grant select on v_market_snapshots to anon, authenticated;
 grant select on v_trade_proposals to anon, authenticated;
 grant select on v_forecast_performance to anon, authenticated;
 grant select on v_pipeline_status to anon, authenticated;
+grant select on v_source_documents to anon, authenticated;
+grant select on v_evidence_items to anon, authenticated;
+grant select on v_source_links to anon, authenticated;
+grant select on v_source_health to anon, authenticated;
 
 grant all on provisions to service_role;
 grant all on pipeline_runs to service_role;
@@ -401,3 +528,7 @@ grant all on market_snapshots to service_role;
 grant all on forecasts to service_role;
 grant all on trade_proposals to service_role;
 grant all on forecast_outcomes to service_role;
+grant all on source_documents to service_role;
+grant all on evidence_items to service_role;
+grant all on source_links to service_role;
+grant all on source_health to service_role;

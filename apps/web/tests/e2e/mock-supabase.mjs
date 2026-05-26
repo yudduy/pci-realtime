@@ -14,7 +14,27 @@ const currentPci = [
 const openForecasts = []
 const tradeProposals = []
 const marketSnapshots = []
-const policyEvents = []
+const policyEvents = [
+  {
+    event_id: "2026-W21:federal_register:45v-guidance:45V",
+    provision: "45V",
+    provision_name: "Clean Hydrogen Production Credit",
+    week: "2026-W21",
+    week_start: "2026-05-18",
+    doc_id: "federal_register:45v-guidance",
+    doc_source: "federal_register",
+    agency: "Treasury Department",
+    title: "Clean hydrogen production credit guidance",
+    url: "https://www.federalregister.gov/documents/example",
+    pci_delta: -0.33,
+    dimension_deltas: { specificity: -1, durability: 0, enforceability: 0 },
+    rationale: "Treasury guidance narrows eligibility for the clean hydrogen credit.",
+    confidence: 0.82,
+    prompt_version: "test",
+    scored_at: now,
+    created_at: now,
+  },
+]
 const provisionTimelines = currentPci.flatMap((policy) => [
   timeline(policy, "2022-W33", "2022-08-15", policy.baseline_pci),
   timeline(policy, "2026-W21", "2026-05-18", policy.pci),
@@ -53,6 +73,56 @@ const pipelineRuns = [
   },
 ]
 
+const evidenceItems = [
+  {
+    evidence_id: "evidence:2026-W21:federal_register:45v-guidance:45V",
+    source_doc_id: "federal_register:45v-guidance",
+    provision: "45V",
+    provision_name: "Clean Hydrogen Production Credit",
+    evidence_type: "pci_scoring_rationale",
+    snippet: "Treasury guidance narrows eligibility for the clean hydrogen credit.",
+    normalized_signal: "-0.33 PCI",
+    score_dimension: "specificity",
+    confidence: 0.82,
+    extractor_version: "test",
+    created_at: now,
+    source: "federal_register",
+    source_name: "Federal Register",
+    source_type: "official_text",
+    source_title: "Clean hydrogen production credit guidance",
+    agency: "Treasury Department",
+    url: "https://www.federalregister.gov/documents/example",
+    published_at: now,
+    fetched_at: now,
+  },
+]
+
+const sourceLinks = [
+  {
+    link_id: "link:policy_events:2026-W21:federal_register:45v-guidance:45V",
+    evidence_id: "evidence:2026-W21:federal_register:45v-guidance:45V",
+    target_table: "policy_events",
+    target_id: "2026-W21:federal_register:45v-guidance:45V",
+    link_type: "primary_source",
+    created_at: now,
+  },
+]
+
+const sourceHealth = [
+  {
+    source: "federal_register",
+    source_name: "Federal Register",
+    status: "success",
+    last_attempt_at: now,
+    last_success_at: now,
+    latency_ms: 123,
+    row_count: 1,
+    last_error_class: null,
+    last_error_summary: null,
+    details: {},
+  },
+]
+
 const views = {
   v_current_pci: currentPci,
   v_open_forecasts: openForecasts,
@@ -63,6 +133,9 @@ const views = {
   v_pipeline_status: pipelineRuns,
   v_provision_timelines: provisionTimelines,
   v_forecast_performance: forecastPerformance,
+  v_evidence_items: evidenceItems,
+  v_source_links: sourceLinks,
+  v_source_health: sourceHealth,
 }
 
 function provision(code, name, pci, specificity, durability, enforceability, obbbaPostPci) {

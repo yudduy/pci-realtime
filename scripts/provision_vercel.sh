@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PROJECT_NAME="${VERCEL_PROJECT_NAME:-pci-forecast-registry}"
+PRODUCTION_DOMAIN="${PRODUCTION_DOMAIN:-pcindex.vercel.app}"
 SCOPE_ARGS=()
 if [[ -n "${VERCEL_SCOPE:-}" ]]; then
   SCOPE_ARGS=(--scope "$VERCEL_SCOPE")
@@ -20,11 +21,14 @@ printf '{"rootDirectory":"apps/web","nodeVersion":"22.x"}' \
     --silent \
     "${SCOPE_ARGS[@]}"
 
-cat >&2 <<'EOF'
+cat >&2 <<EOF
 Set these Vercel env vars from the repo root:
   SUPABASE_URL
   SUPABASE_PUBLISHABLE_KEY
 
 Then deploy:
   vercel deploy --prod
+
+Then make the production alias canonical:
+  vercel alias set <deployment-url> $PRODUCTION_DOMAIN
 EOF

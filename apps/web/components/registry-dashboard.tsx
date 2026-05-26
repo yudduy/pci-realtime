@@ -9,6 +9,7 @@ import { MarketCard } from "@/components/market/market-card"
 import { MarketDetail } from "@/components/market/market-detail"
 import { MarketTable } from "@/components/market/market-table"
 import { PolicyTrend } from "@/components/market/policy-trend"
+import { SourceHealthStrip } from "@/components/market/source-health"
 import {
   buildPolicyMarkets,
   latestCompletedRun,
@@ -62,7 +63,7 @@ export function RegistryDashboard({ data }: { data: RegistryData }) {
             <h1>IRA credibility markets</h1>
             <p>
               Plain-language policy questions, public Kalshi matches, model
-              odds, and backend-gated proposal status.
+              odds, and review-gated proposal status.
             </p>
           </div>
           <div className="dashboard-status">
@@ -79,6 +80,8 @@ export function RegistryDashboard({ data }: { data: RegistryData }) {
           <Kpi label="Matched markets" value={String(data.marketSnapshots.length)} />
           <Kpi label="Open forecasts" value={String(data.openForecasts.length)} />
         </section>
+
+        <SourceHealthStrip sources={data.sourceHealth} />
 
         <section className="dashboard-controls">
           <label className="tracker-search">

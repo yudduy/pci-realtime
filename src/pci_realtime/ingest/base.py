@@ -29,7 +29,20 @@ SCHEMA_A_COLUMNS = [
     "ingested_at",
     "ingestor_version",
 ]
-ALLOWED_SOURCES = {"federal_register", "treasury", "irs", "congress", "omb"}
+ALLOWED_SOURCES = {
+    "federal_register",
+    "treasury",
+    "irs",
+    "congress",
+    "omb",
+    "regulations_gov",
+    "reginfo",
+    "usaspending",
+    "govinfo",
+    "eia",
+    "fred",
+    "courtlistener",
+}
 MAX_BODY_CHARS = 50_000
 
 

@@ -76,12 +76,22 @@ def test_daily_refresh_reads_supabase_and_writes_outcomes() -> None:
         supabase=True,
         client=client,  # type: ignore[arg-type]
         market_fetcher=fetch_markets,
+        context_fetcher=lambda: {
+            "source_documents": [],
+            "evidence_items": [],
+            "source_links": [],
+            "source_health": [],
+        },
     )
 
     assert counts == {
         "pipeline_runs": 1,
         "market_snapshots": 1,
         "forecast_outcomes": 1,
+        "source_health": 1,
+        "source_documents": 0,
+        "evidence_items": 0,
+        "source_links": 0,
     }
     assert client.inserts[0][0] == "pipeline_runs"
     assert client.inserts[1][0] == "market_snapshots"

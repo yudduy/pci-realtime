@@ -30,6 +30,7 @@ export type PolicyMarket = {
   updatedAt: string | null
   ticker: string | null
   venue: string | null
+  sourceCount: number
   searchText: string
   policy?: CurrentPci
   forecast?: Forecast
@@ -42,6 +43,7 @@ export function latestCompletedRun(data: RegistryData) {
 }
 
 export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
+  const sourceCounts = countSources(data)
   const forecasts = data.openForecasts.map((forecast): PolicyMarket => {
     const copy = policyCopy(forecast.provision, forecast.provision_name)
     const title =
@@ -68,6 +70,7 @@ export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
       updatedAt: forecast.created_at,
       ticker: forecast.market_ticker,
       venue: forecast.venue,
+      sourceCount: sourceCounts.get(`forecast:${forecast.forecast_id}`) ?? 0,
       searchText: [
         title,
         copy.name,
@@ -105,6 +108,10 @@ export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
       updatedAt: market.generated_at,
       ticker: market.ticker,
       venue: market.venue,
+      sourceCount:
+        sourceCounts.get(`market:${market.venue}:${market.ticker}`) ??
+        sourceCounts.get(`market_snapshots:${market.venue}:${market.ticker}`) ??
+        0,
       searchText: [
         title,
         market.ticker,
@@ -141,6 +148,7 @@ export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
       updatedAt: policy.updated_at,
       ticker: policy.code,
       venue: "pci",
+      sourceCount: data.policyEvents.filter((event) => event.provision === policy.code).length,
       searchText: [
         policy.code,
         policy.name,
@@ -177,6 +185,7 @@ export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
       updatedAt: row.resolved_at,
       ticker: row.market_ticker,
       venue: row.venue,
+      sourceCount: sourceCounts.get(`forecast:${row.forecast_id}`) ?? 0,
       searchText: [
         row.market_title,
         row.market_ticker,
@@ -189,6 +198,23 @@ export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
   })
 
   return [...forecasts, ...markets, ...policies, ...resolved]
+}
+
+function countSources(data: RegistryData) {
+  const linksByTarget = new Map<string, Set<string>>()
+  for (const link of data.sourceLinks) {
+    const targetKey =
+      link.target_table === "forecasts"
+        ? `forecast:${link.target_id}`
+        : link.target_table === "market_snapshots"
+          ? `market_snapshots:${link.target_id}`
+          : `${link.target_table}:${link.target_id}`
+    if (!linksByTarget.has(targetKey)) linksByTarget.set(targetKey, new Set())
+    linksByTarget.get(targetKey)?.add(link.evidence_id)
+  }
+  return new Map(
+    [...linksByTarget.entries()].map(([key, evidenceIds]) => [key, evidenceIds.size]),
+  )
 }
 
 function edgeStatus(value: number | null | undefined) {

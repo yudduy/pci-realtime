@@ -123,6 +123,27 @@ class KalshiClient:
         response.raise_for_status()
         return response.json()
 
+    def get_market_candlesticks(
+        self,
+        *,
+        tickers: tuple[str, ...],
+        start_ts: int,
+        end_ts: int,
+        period_interval: int = 60,
+    ) -> dict[str, Any]:
+        response = self.client.get(
+            f"{self.base_url}/markets/candlesticks",
+            params={
+                "market_tickers": ",".join(tickers),
+                "start_ts": start_ts,
+                "end_ts": end_ts,
+                "period_interval": period_interval,
+                "include_latest_before_start": "true",
+            },
+        )
+        response.raise_for_status()
+        return response.json()
+
     def get_market(self, ticker: str) -> dict[str, Any]:
         response = self.client.get(f"{self.base_url}/markets/{ticker}")
         response.raise_for_status()
@@ -156,6 +177,13 @@ def _best_bid_from_orderbook(orderbook: dict[str, Any], side: str) -> float | No
     prices = [parse_float(level[0]) for level in levels if level]
     prices = [price for price in prices if price is not None]
     return max(prices) if prices else None
+
+
+def _orderbook_depth(orderbook: dict[str, Any], side: str) -> float | None:
+    levels = (orderbook.get("orderbook_fp") or {}).get(f"{side}_dollars") or []
+    sizes = [parse_float(level[1]) for level in levels if len(level) > 1]
+    sizes = [size for size in sizes if size is not None]
+    return sum(sizes) if sizes else None
 
 
 def _passes_query_keywords(market: dict[str, Any], keywords: tuple[str, ...]) -> bool:
@@ -193,6 +221,13 @@ def parse_market_snapshot(
         spread = None
 
     text = _market_text(market)
+    raw_public_metadata = {}
+    if orderbook:
+        raw_public_metadata["orderbook_depth"] = {
+            "yes": _orderbook_depth(orderbook, "yes"),
+            "no": _orderbook_depth(orderbook, "no"),
+        }
+
     return {
         "schema_version": FORECAST_SCHEMA_VERSION,
         "generated_at": generated_at or utc_now_iso(),
@@ -233,6 +268,7 @@ def parse_market_snapshot(
             if part
         ),
         "source": "kalshi_public_market_data",
+        "raw_public_metadata": raw_public_metadata,
     }
 
 
@@ -355,6 +391,7 @@ def fetch_market_snapshots(
                 snapshot = parse_market_snapshot(
                     market,
                     query_name=query.name,
+                    orderbook=_safe_get_orderbook(client, ticker),
                     generated_at=generated,
                 )
                 if not snapshot["policy_relevant"]:
@@ -368,6 +405,14 @@ def fetch_market_snapshots(
     if audit is not None:
         audit.update(stats)
     return sorted(snapshots, key=lambda row: row["ticker"])
+
+
+def _safe_get_orderbook(client: KalshiClient, ticker: str) -> dict[str, Any] | None:
+    try:
+        return client.get_orderbook(ticker, depth=20)
+    except httpx.HTTPError as exc:
+        LOGGER.debug("Could not fetch Kalshi orderbook for %s: %s", ticker, exc)
+        return None
 
 
 class ExecutionGateError(RuntimeError):

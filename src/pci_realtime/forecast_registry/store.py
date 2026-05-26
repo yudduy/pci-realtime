@@ -23,12 +23,14 @@ from pci_realtime.forecast_registry.policy import PROVISION_DETAILS
 LOGGER = logging.getLogger(__name__)
 FORBIDDEN_PUBLIC_STRINGS = (
     "OPENAI_API_KEY",
+    "sk-",
     "KALSHI_PRIVATE_KEY",
     "raw_response",
     "Company ID",
     "PitchBook",
     "CTVC",
     "trade_signature",
+    "/Users/",
 )
 
 
@@ -43,6 +45,8 @@ def json_clean(value: Any) -> Any:
         return {str(key): json_clean(item) for key, item in value.items()}
     if isinstance(value, (list, tuple, set)):
         return [json_clean(item) for item in value]
+    if hasattr(value, "tolist"):
+        return json_clean(value.tolist())
     if not isinstance(value, (list, dict, tuple, set)):
         try:
             if pd.isna(value):
@@ -247,6 +251,7 @@ def market_to_row(market: dict[str, Any]) -> dict[str, Any]:
     row["raw_public_metadata"] = {
         "query_name": market.get("query_name"),
         "source": market.get("source"),
+        **(market.get("raw_public_metadata") or {}),
     }
     return json_clean(row)
 
@@ -349,12 +354,38 @@ def outcome_to_row(outcome: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def scored_delta_to_row(row: dict[str, Any]) -> dict[str, Any]:
+    return json_clean(
+        {
+            "week": row["week"],
+            "doc_id": row["doc_id"],
+            "provision": row["provision"],
+            "specificity_delta": row["specificity_delta"],
+            "durability_delta": row["durability_delta"],
+            "enforceability_delta": row["enforceability_delta"],
+            "rationale": row.get("rationale"),
+            "confidence": row.get("confidence"),
+            "model": row.get("model"),
+            "prompt_version": row.get("prompt_version"),
+            "temperature": row.get("temperature"),
+            "scored_at": row.get("scored_at"),
+            "cached": bool(row.get("cached")),
+            "cost_usd": row.get("cost_usd"),
+        }
+    )
+
+
 def write_supabase_rows(
     rows_by_table: dict[str, list[dict[str, Any]]],
     *,
     client: SupabaseRestClient,
 ) -> None:
     client.upsert_rows("provisions", rows_by_table["provisions"], on_conflict="code")
+    client.upsert_rows(
+        "scored_deltas",
+        rows_by_table.get("scored_deltas", []),
+        on_conflict="week,doc_id,provision",
+    )
     client.upsert_rows(
         "pci_weekly",
         rows_by_table["pci_weekly"],
@@ -367,6 +398,26 @@ def write_supabase_rows(
     )
     client.insert_rows("pipeline_runs", rows_by_table["pipeline_runs"])
     client.insert_rows("market_snapshots", rows_by_table["market_snapshots"])
+    client.upsert_rows(
+        "source_documents",
+        rows_by_table.get("source_documents", []),
+        on_conflict="source_doc_id",
+    )
+    client.upsert_rows(
+        "evidence_items",
+        rows_by_table.get("evidence_items", []),
+        on_conflict="evidence_id",
+    )
+    client.upsert_rows(
+        "source_links",
+        rows_by_table.get("source_links", []),
+        on_conflict="link_id",
+    )
+    client.upsert_rows(
+        "source_health",
+        rows_by_table.get("source_health", []),
+        on_conflict="source",
+    )
     client.insert_rows("forecasts", rows_by_table["forecasts"])
     client.insert_rows("trade_proposals", rows_by_table["trade_proposals"])
     client.insert_rows("forecast_outcomes", rows_by_table.get("forecast_outcomes", []))

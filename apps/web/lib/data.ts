@@ -164,6 +164,50 @@ export type ForecastPerformance = {
   pci_brier_score: number | null
 }
 
+export type EvidenceItem = {
+  evidence_id: string
+  source_doc_id: string | null
+  provision: string | null
+  provision_name: string | null
+  evidence_type: string
+  snippet: string | null
+  normalized_signal: string | null
+  score_dimension: string | null
+  confidence: number | null
+  extractor_version: string | null
+  created_at: string
+  source: string | null
+  source_name: string | null
+  source_type: string | null
+  source_title: string | null
+  agency: string | null
+  url: string | null
+  published_at: string | null
+  fetched_at: string | null
+}
+
+export type SourceLink = {
+  link_id: string
+  evidence_id: string
+  target_table: string
+  target_id: string
+  link_type: string
+  created_at: string
+}
+
+export type SourceHealth = {
+  source: string
+  source_name: string
+  status: string
+  last_attempt_at: string
+  last_success_at: string | null
+  latency_ms: number | null
+  row_count: number
+  last_error_class: string | null
+  last_error_summary: string | null
+  details: Record<string, unknown>
+}
+
 export type RegistryData = {
   currentPci: CurrentPci[]
   openForecasts: Forecast[]
@@ -174,17 +218,20 @@ export type RegistryData = {
   pipelineRuns: PipelineRun[]
   provisionTimelines: ProvisionTimeline[]
   forecastPerformance: ForecastPerformance | null
+  evidenceItems: EvidenceItem[]
+  sourceLinks: SourceLink[]
+  sourceHealth: SourceHealth[]
   connected: boolean
   viewErrors: string[]
 }
 
-function supabaseConfig() {
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
+function registryConfig() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL
   const key =
-    process.env.SUPABASE_ANON_KEY ??
-    process.env.SUPABASE_PUBLISHABLE_KEY ??
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.SUPABASE_ANON_KEY ??
+    process.env.SUPABASE_PUBLISHABLE_KEY
 
   if (!url || !key) return null
   return { url: url.replace(/\/$/, ""), key }
@@ -198,7 +245,7 @@ async function fetchView<T>(
   view: string,
   query = "select=*",
 ): Promise<{ rows: T[]; error: string | null }> {
-  const config = supabaseConfig()
+  const config = registryConfig()
   if (!config) return { rows: [], error: null }
 
   try {
@@ -242,13 +289,16 @@ export function emptyRegistryData(viewErrors: string[] = []): RegistryData {
     pipelineRuns: [],
     provisionTimelines: [],
     forecastPerformance: null,
+    evidenceItems: [],
+    sourceLinks: [],
+    sourceHealth: [],
     connected: false,
     viewErrors,
   }
 }
 
 export async function getRegistryData(): Promise<RegistryData> {
-  const config = supabaseConfig()
+  const config = registryConfig()
   const [
     currentPciResult,
     openForecastsResult,
@@ -259,6 +309,9 @@ export async function getRegistryData(): Promise<RegistryData> {
     pipelineRunsResult,
     provisionTimelinesResult,
     forecastPerformanceResult,
+    evidenceItemsResult,
+    sourceLinksResult,
+    sourceHealthResult,
   ] = await Promise.all([
     fetchView<CurrentPci>("v_current_pci", "select=*&order=code.asc"),
     fetchView<Forecast>("v_open_forecasts", "select=*&order=created_at.desc"),
@@ -272,6 +325,9 @@ export async function getRegistryData(): Promise<RegistryData> {
       "select=*&order=provision.asc,week_start.asc",
     ),
     fetchView<ForecastPerformance>("v_forecast_performance", "select=*&limit=1"),
+    fetchView<EvidenceItem>("v_evidence_items", "select=*&order=created_at.desc"),
+    fetchView<SourceLink>("v_source_links", "select=*&order=created_at.desc"),
+    fetchView<SourceHealth>("v_source_health", "select=*"),
   ])
   const viewErrors = [
     currentPciResult.error,
@@ -283,6 +339,9 @@ export async function getRegistryData(): Promise<RegistryData> {
     pipelineRunsResult.error,
     provisionTimelinesResult.error,
     forecastPerformanceResult.error,
+    evidenceItemsResult.error,
+    sourceLinksResult.error,
+    sourceHealthResult.error,
   ].filter((error): error is string => Boolean(error))
 
   const currentPci = currentPciResult.rows
@@ -297,6 +356,9 @@ export async function getRegistryData(): Promise<RegistryData> {
   }))
   const provisionTimelines = provisionTimelinesResult.rows
   const forecastPerformance = forecastPerformanceResult.rows[0] ?? null
+  const evidenceItems = evidenceItemsResult.rows
+  const sourceLinks = sourceLinksResult.rows
+  const sourceHealth = sourceHealthResult.rows
 
   return {
     currentPci,
@@ -308,6 +370,9 @@ export async function getRegistryData(): Promise<RegistryData> {
     pipelineRuns,
     provisionTimelines,
     forecastPerformance,
+    evidenceItems,
+    sourceLinks,
+    sourceHealth,
     connected: Boolean(config),
     viewErrors,
   }

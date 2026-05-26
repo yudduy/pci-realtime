@@ -7,11 +7,13 @@ from pathlib import Path
 from typing import Any
 
 from pci_realtime.config import DATA_ROOT
+from pci_realtime.forecast_registry.context import build_context_rows
 from pci_realtime.forecast_registry.engine import (
     build_outcomes,
     compute_forecast_metrics,
     utc_now_iso,
 )
+from pci_realtime.forecast_registry.evidence import source_health_row
 from pci_realtime.forecast_registry.kalshi import (
     KALSHI_PRODUCTION_BASE_URL,
     KalshiClient,
@@ -29,6 +31,7 @@ from pci_realtime.forecast_registry.store import (
 
 LOGGER = logging.getLogger(__name__)
 MarketFetcher = Callable[[list[dict[str, Any]]], list[dict[str, Any]]]
+ContextFetcher = Callable[[], dict[str, list[dict[str, Any]]]]
 
 
 def _as_float(value: Any) -> float | None:
@@ -63,9 +66,15 @@ def _fetch_current_market_snapshots(
     try:
         for ticker in tickers:
             market = client.get_market(ticker)
+            try:
+                orderbook = client.get_orderbook(ticker, depth=20)
+            except Exception as exc:  # noqa: BLE001 - snapshot can still refresh.
+                LOGGER.debug("Could not refresh orderbook for %s: %s", ticker, exc)
+                orderbook = None
             snapshots.append(
                 parse_market_snapshot(
                     market,
+                    orderbook=orderbook,
                     query_name="daily_refresh",
                     generated_at=generated_at,
                 )
@@ -79,6 +88,7 @@ def _run_supabase_daily_refresh(
     *,
     client: SupabaseRestClient,
     market_fetcher: MarketFetcher | None = None,
+    context_fetcher: ContextFetcher | None = None,
     base_url: str = KALSHI_PRODUCTION_BASE_URL,
     dry_run: bool = False,
     output_path: Path | None = None,
@@ -131,7 +141,25 @@ def _run_supabase_daily_refresh(
         ],
         "market_snapshots": [market_to_row(market) for market in markets],
         "forecast_outcomes": [outcome_to_row(outcome) for outcome in outcomes],
+        "source_health": [
+            source_health_row(
+                source="kalshi",
+                status="success",
+                row_count=len(markets),
+                details={"refresh": "market snapshots and outcomes"},
+            )
+        ],
     }
+    context_rows = (
+        context_fetcher() if context_fetcher is not None else build_context_rows()
+    )
+    rows_by_table["source_documents"] = context_rows["source_documents"]
+    rows_by_table["evidence_items"] = context_rows["evidence_items"]
+    rows_by_table["source_links"] = context_rows["source_links"]
+    rows_by_table["source_health"] = [
+        *rows_by_table["source_health"],
+        *context_rows["source_health"],
+    ]
     counts = {table: len(rows) for table, rows in rows_by_table.items()}
     if output_path is not None:
         write_json(output_path, {"counts": counts, "rows": rows_by_table})
@@ -144,6 +172,26 @@ def _run_supabase_daily_refresh(
         "forecast_outcomes",
         rows_by_table["forecast_outcomes"],
         on_conflict="outcome_id",
+    )
+    client.upsert_rows(
+        "source_health",
+        rows_by_table["source_health"],
+        on_conflict="source",
+    )
+    client.upsert_rows(
+        "source_documents",
+        rows_by_table["source_documents"],
+        on_conflict="source_doc_id",
+    )
+    client.upsert_rows(
+        "evidence_items",
+        rows_by_table["evidence_items"],
+        on_conflict="evidence_id",
+    )
+    client.upsert_rows(
+        "source_links",
+        rows_by_table["source_links"],
+        on_conflict="link_id",
     )
     return counts
 
@@ -159,6 +207,7 @@ def run_daily_refresh(
     output_path: Path | None = None,
     client: SupabaseRestClient | None = None,
     market_fetcher: MarketFetcher | None = None,
+    context_fetcher: ContextFetcher | None = None,
     base_url: str = KALSHI_PRODUCTION_BASE_URL,
 ) -> dict[str, int]:
     if supabase:
@@ -170,6 +219,7 @@ def run_daily_refresh(
         return _run_supabase_daily_refresh(
             client=client,
             market_fetcher=market_fetcher,
+            context_fetcher=context_fetcher,
             base_url=base_url,
             dry_run=dry_run,
             output_path=output_path,

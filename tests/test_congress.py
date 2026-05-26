@@ -18,30 +18,54 @@ class FakeResponse:
 
 
 class FakeSession:
-    def get(self, *_: Any, **__: Any) -> FakeResponse:
+    def get(self, url: str, *_: Any, **__: Any) -> FakeResponse:
+        if url.endswith("/summaries"):
+            return FakeResponse(
+                {
+                    "summaries": [
+                        {
+                            "actionDate": "2024-05-03",
+                            "actionDesc": "Introduced in House",
+                            "bill": {
+                                "congress": 118,
+                                "type": "HR",
+                                "number": "1234",
+                                "title": "Section 45V clean hydrogen fix",
+                                "url": "https://api.congress.gov/v3/bill/118/hr/1234",
+                            },
+                            "text": "Updates section 45V clean hydrogen production credit implementation.",
+                        }
+                    ]
+                }
+            )
+        if url.endswith("/text"):
+            return FakeResponse(
+                {
+                    "textVersions": [
+                        {
+                            "formats": [
+                                {
+                                    "type": "Formatted Text",
+                                    "url": "https://congress.test/bill/hr1234/text",
+                                }
+                            ]
+                        }
+                    ]
+                }
+            )
         return FakeResponse(
             {
-                "results": [
-                    {
-                        "bills": [
-                            {
-                                "bill_id": "hr1234-118",
-                                "latest_major_action_date": "2024-05-03",
-                                "introduced_date": "2024-04-30",
-                                "short_title": "Section 45V clean hydrogen fix",
-                                "title": "A bill to amend clean hydrogen rules",
-                                "summary": "Updates section 45V clean hydrogen production credit implementation.",
-                                "latest_major_action": "Referred to committee",
-                                "congressdotgov_url": "https://congress.test/bill/hr1234",
-                            }
-                        ]
-                    }
-                ]
+                "bill": {
+                    "title": "Section 45V clean hydrogen fix",
+                    "latestAction": {"text": "Referred to committee"},
+                    "policyArea": {"name": "Taxation"},
+                    "sponsors": [{"fullName": "Rep. Example"}],
+                }
             }
         )
 
 
-def test_congress_ingestor_normalizes_propublica_search_results() -> None:
+def test_congress_ingestor_normalizes_congress_gov_summaries() -> None:
     df = CongressIngestor(api_key="test-key", session=FakeSession()).collect_documents(
         start_date=date(2024, 5, 1),
         end_date=date(2024, 5, 10),
@@ -49,5 +73,5 @@ def test_congress_ingestor_normalizes_propublica_search_results() -> None:
 
     assert len(df) == 1
     assert df.loc[0, "source"] == "congress"
-    assert df.loc[0, "doc_id"] == "congress:hr1234-118"
+    assert df.loc[0, "doc_id"] == "congress:118-hr-1234-2024-05-03"
     assert df.loc[0, "provisions_mentioned"] == ["45V"]

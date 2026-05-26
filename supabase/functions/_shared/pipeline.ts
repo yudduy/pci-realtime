@@ -1,18 +1,45 @@
 type PipelineKind = "weekly" | "daily_refresh";
 
-export async function triggerPipeline(kind: PipelineKind): Promise<Response> {
+function jsonResponse(payload: Record<string, unknown>, status: number): Response {
+  return Response.json(payload, { status });
+}
+
+function isAuthorized(request: Request): boolean {
+  const expected =
+    Deno.env.get("PYTHON_PIPELINE_TRIGGER_SECRET") ??
+    Deno.env.get("PYTHON_PIPELINE_WEBHOOK_SECRET") ??
+    "";
+  if (!expected) return false;
+  return request.headers.get("x-pci-pipeline-secret") === expected;
+}
+
+export async function triggerPipeline(
+  kind: PipelineKind,
+  request: Request,
+): Promise<Response> {
+  if (!isAuthorized(request)) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "Unauthorized pipeline trigger.",
+        run_type: kind,
+      },
+      401,
+    );
+  }
+
   const webhookUrl = Deno.env.get("PYTHON_PIPELINE_WEBHOOK_URL");
   const webhookSecret = Deno.env.get("PYTHON_PIPELINE_WEBHOOK_SECRET") ?? "";
 
   if (!webhookUrl) {
-    return Response.json(
+    return jsonResponse(
       {
         ok: false,
         error:
           "PYTHON_PIPELINE_WEBHOOK_URL is not configured; Edge Function is orchestration-only.",
         run_type: kind,
       },
-      { status: 503 },
+      503,
     );
   }
 
@@ -30,13 +57,13 @@ export async function triggerPipeline(kind: PipelineKind): Promise<Response> {
   });
 
   const text = await response.text();
-  return Response.json(
+  return jsonResponse(
     {
       ok: response.ok,
       run_type: kind,
       status: response.status,
       response: text,
     },
-    { status: response.ok ? 202 : 502 },
+    response.ok ? 202 : 502,
   );
 }

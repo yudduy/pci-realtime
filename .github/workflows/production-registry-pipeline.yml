@@ -35,7 +35,13 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CONGRESS_GOV_API_KEY: ${{ secrets.CONGRESS_GOV_API_KEY }}
       PROPUBLICA_CONGRESS_API_KEY: ${{ secrets.PROPUBLICA_CONGRESS_API_KEY }}
+      GOVINFO_API_KEY: ${{ secrets.GOVINFO_API_KEY }}
+      REGULATIONS_GOV_API_KEY: ${{ secrets.REGULATIONS_GOV_API_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+      COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
       FEDERAL_REGISTER_USER_AGENT: ${{ vars.FEDERAL_REGISTER_USER_AGENT || 'pci-realtime-production/0.1' }}
       PCI_LLM_PROVIDER: openai
       PCI_SCREENING_PROVIDER: openai
@@ -89,7 +95,8 @@ jobs:
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_SERVICE_ROLE_KEY"
           test -n "$OPENAI_API_KEY"
-          test -n "$PROPUBLICA_CONGRESS_API_KEY"
+          test -n "$CONGRESS_GOV_API_KEY"
+          test -n "$REGULATIONS_GOV_API_KEY"
 
       - name: Seed paper anchors
         run: |
@@ -106,6 +113,7 @@ jobs:
             --end-date "$END_DATE"
             --confirm-cost
             --fetch-markets
+            --fetch-polymarket
           )
           if [[ "$DRY_RUN" == "true" ]]; then
             args+=(--dry-run --output-path data/debug/weekly_live_payload.json)

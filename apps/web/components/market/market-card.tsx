@@ -35,6 +35,7 @@ export function MarketCard({
             <span>{formatKind(market.kind)}</span>
             <span>{market.lane}</span>
             {market.ticker && <span>{market.ticker}</span>}
+            {market.sourceCount > 0 && <span>{market.sourceCount} sources</span>}
           </div>
           <h3>{market.title}</h3>
         </div>

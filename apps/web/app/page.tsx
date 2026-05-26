@@ -3,6 +3,7 @@ import { ActivityList } from "@/components/market/activity-list"
 import { formatDateTime, formatScore } from "@/components/market/format"
 import { MarketCard } from "@/components/market/market-card"
 import { PolicyTrend } from "@/components/market/policy-trend"
+import { SourceHealthStrip } from "@/components/market/source-health"
 import { SiteHeader } from "@/components/layout/site-header"
 import { buildPolicyMarkets, latestCompletedRun } from "@/lib/market-model"
 import {
@@ -31,8 +32,8 @@ export default async function Home() {
           <h1>Live odds for climate policy credibility.</h1>
           <p>
             PCIndex tracks official IRA policy updates, maps them to public
-            prediction markets, and shows the forecast layer that updates from
-            the backend each week.
+            prediction markets, and shows the forecast layer that refreshes as
+            new source checks run.
           </p>
           <div className="hero-actions">
             <Link href="/dashboard" className="primary-action">
@@ -57,6 +58,8 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      <SourceHealthStrip sources={data.sourceHealth} />
 
       <section className="tracker-grid-section">
         <div className="section-heading">

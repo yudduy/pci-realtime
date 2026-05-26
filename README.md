@@ -17,7 +17,7 @@ official policy documents
   -> outcome tracking
 ```
 
-`weekly_live` owns the full weekly path: ingest official sources, score PCI deltas, build PCI, fetch Kalshi markets, create forecasts, gate trade proposals, and write Supabase. `daily_refresh` reads Supabase forecasts, refreshes Kalshi market results, records settlements, and stores performance metadata.
+`weekly_live` owns the full weekly path: ingest official sources, score PCI deltas, build PCI, fetch public market data, create forecasts, gate trade proposals, and publish registry rows. `daily_refresh` reads open forecasts, refreshes market results, records settlements, refreshes public context sources, and stores performance metadata.
 
 Trading stays backend-only. Live execution is disabled unless `PCI_ENABLE_LIVE_TRADING=true`, Kalshi credentials are present, and a proposal id appears in an approval file.
 
@@ -56,7 +56,7 @@ PCI[p, t] = clip(
 )
 ```
 
-PCI is not investor sentiment and not a news index. General news scraping is intentionally out of scope for index updates. Market data is read from Kalshi only for public market matching and outcome tracking.
+PCI is not investor sentiment and not a news index. General news scraping is intentionally out of scope for index updates. Public market data is read only for market matching and outcome tracking; trading remains backend-gated.
 
 ## Repository Layout
 
@@ -93,7 +93,7 @@ npm --prefix apps/web ci
 cp .env.example .env
 ```
 
-Fill in the API keys and Supabase values needed for the command you plan to run. Federal Register, Treasury, IRS, and OMB reads do not require keys; Congress ingest uses `PROPUBLICA_CONGRESS_API_KEY`.
+Fill in the API keys and registry values needed for the command you plan to run. Federal Register, Treasury, IRS, OMB, RegInfo, USAspending, EIA demo reads, and CourtListener public search can run without paid vendors. Congress uses `CONGRESS_GOV_API_KEY` first and `PROPUBLICA_CONGRESS_API_KEY` only as a fallback. Regulations.gov and FRED require their own free API keys.
 
 Run the backend tests and linters:
 
@@ -127,7 +127,8 @@ python -m pci_realtime.pipeline.weekly_live \
   --start-date 2026-05-18 \
   --end-date 2026-05-24 \
   --confirm-cost \
-  --fetch-markets
+  --fetch-markets \
+  --fetch-polymarket
 ```
 
 Refresh market outcomes and performance metadata from Supabase:
@@ -150,7 +151,7 @@ The command sources `.env`, defaults to the previous complete Monday-Sunday week
 
 | Route | Purpose |
 |---|---|
-| `/` | Paper companion with the PCI method, anchors, and research interpretation |
+| `/` | Live policy-market tracker landing with cited official-source updates |
 | `/dashboard` | Polymarket-style registry for PCI, markets, forecasts, proposals, events, and outcomes |
 
 The UI reads from Supabase public views:
@@ -163,6 +164,9 @@ The UI reads from Supabase public views:
 | `v_trade_proposals` | gated proposal summaries |
 | `v_policy_events` | official policy event feed |
 | `v_resolved_forecasts` | track record |
+| `v_evidence_items` | citations and source-backed snippets |
+| `v_source_links` | links from evidence to events, forecasts, and market rows |
+| `v_source_health` | plain-language source freshness labels |
 
 Private order payloads, raw model responses, API keys, firm data, signatures, and private file paths must never appear in public views.
 
@@ -176,23 +180,28 @@ The backend keeps three file-level contracts for tests and offline runs:
 | Scored PCI deltas | `pci_realtime.scoring.scorer` | weekly PCI builder | `data/processed/scored/scored_<YYYY-WW>.parquet` |
 | Weekly PCI series | `pci_realtime.pci.builder` | registry loop and export jobs | `data/processed/pci_weekly.parquet` |
 
-The product-facing contract is Supabase: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `forecasts`, `trade_proposals`, `forecast_outcomes`, and `pipeline_runs`.
+The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `forecasts`, `trade_proposals`, `forecast_outcomes`, `pipeline_runs`, `source_documents`, `evidence_items`, `source_links`, and `source_health`.
 
 ## Capability Status
 
 | Capability | Status |
 |---|---|
 | Paper anchors and OBBBA stress anchors | implemented |
-| Federal Register ingest | implemented |
-| Treasury, IRS, Congress, and OMB ingestors | wired into the default weekly command |
+| Federal Register, Treasury, IRS, and OMB ingest | implemented |
+| Congress.gov primary legislative ingest | implemented, ProPublica fallback optional |
+| Regulations.gov, RegInfo/OIRA, and USAspending ingest | wired into the default weekly command |
+| GovInfo, EIA, FRED, CourtListener, and Polymarket clients | scaffolded for public context and market discovery |
 | LLM scoring and caching | implemented |
 | Weekly PCI builder | implemented |
-| Forecast registry, Kalshi reads, and gated proposals | implemented |
+| Forecast registry, public market reads, and gated proposals | implemented |
+| Normalized source documents, evidence items, trace links, and source health | implemented |
 | Public Supabase views | implemented |
 | Cloud scheduler | GitHub Actions workflows for weekly production and daily refresh |
 | Secured webhook runner | Supabase Edge Functions proxy to an external Python runner when configured |
 
 ## Cloud Provisioning
+
+Canonical public URL: <https://pcindex.vercel.app>.
 
 CLI checks:
 
@@ -215,10 +224,11 @@ Provision the public research-style site on Vercel:
 
 ```bash
 cd apps/web
-vercel link --project pcindex
+vercel link --project pci-forecast-registry
 vercel env add NEXT_PUBLIC_SUPABASE_URL production
 vercel env add NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY production
 vercel --prod
+vercel alias set <deployment-url> pcindex.vercel.app
 ```
 
 The Vercel app reads the public Supabase views from the browser, so the landing page and registry stay current while the backend updates the data on its weekly and daily schedules.
@@ -229,7 +239,12 @@ Set these GitHub repository secrets for the production workflows:
 gh secret set SUPABASE_URL
 gh secret set SUPABASE_SERVICE_ROLE_KEY
 gh secret set OPENAI_API_KEY
+gh secret set CONGRESS_GOV_API_KEY
+gh secret set REGULATIONS_GOV_API_KEY
+gh secret set GOVINFO_API_KEY
+gh secret set FRED_API_KEY
 gh secret set PROPUBLICA_CONGRESS_API_KEY
+gh secret set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 ```
 
 Optional repository variables:
@@ -242,6 +257,15 @@ gh variable set PCI_AUDIT_MODEL --body "gpt-5.5"
 ```
 
 `.github/workflows/production-registry-pipeline.yml` runs the complete weekly loop every Monday. `.github/workflows/production-registry-refresh.yml` refreshes market settlements and metrics daily.
+`.github/workflows/production-smoke.yml` checks `https://pcindex.vercel.app` and the public Supabase views every six hours.
+
+Supabase Edge Function triggers are intentionally fail-closed. If they are used, set both the outbound webhook values and the inbound trigger secret:
+
+```bash
+supabase secrets set PYTHON_PIPELINE_WEBHOOK_URL
+supabase secrets set PYTHON_PIPELINE_WEBHOOK_SECRET
+supabase secrets set PYTHON_PIPELINE_TRIGGER_SECRET
+```
 
 GitHub CLI access currently needs re-authentication before pushing under `yudduy`.
 

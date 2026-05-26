@@ -113,15 +113,25 @@ def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
     )
 
     assert len(rows["provisions"]) == 6
+    assert len(rows["scored_deltas"]) == 1
     assert len(rows["policy_events"]) == 1
     assert len(rows["market_snapshots"]) == 1
+    assert len(rows["source_documents"]) == 2
+    assert len(rows["evidence_items"]) == 2
+    assert len(rows["source_links"]) >= 3
     assert len(rows["forecasts"]) == 1
     assert len(rows["trade_proposals"]) == 1
     assert rows["pipeline_runs"][0]["metadata"]["forecasts"] == 1
     assert rows["pipeline_runs"][0]["metadata"]["trade_proposals"] == 1
+    assert rows["scored_deltas"][0]["week"] == "2025-W23"
+    assert rows["scored_deltas"][0]["doc_id"] == "federal_register:45v-guidance"
     assert rows["forecasts"][0]["run_id"] == FIXED_RUN_ID
     assert rows["forecasts"][0]["provision"] == "45V"
     assert rows["trade_proposals"][0]["approval_status"] == "pending_human_approval"
+    assert (
+        rows["source_documents"][0]["source_doc_id"] == "federal_register:45v-guidance"
+    )
+    assert rows["evidence_items"][0]["evidence_id"].startswith("evidence:")
     assert rows["pci_weekly"][0]["week"] == "2022-W33"
 
     row_45v = [
@@ -148,10 +158,13 @@ def test_weekly_live_rows_baseline_only_has_no_fake_forecasts(tmp_path: Path) ->
 
     assert len(rows["provisions"]) == 6
     assert rows["policy_events"] == []
+    assert rows["scored_deltas"] == []
     assert rows["market_snapshots"] == []
     assert rows["forecasts"] == []
     assert rows["trade_proposals"] == []
     assert rows["pipeline_runs"][0]["metadata"]["policy_events"] == 0
+    assert rows["source_documents"] == []
+    assert rows["evidence_items"] == []
 
 
 def test_weekly_live_can_publish_market_scan_without_fake_forecasts(
@@ -171,6 +184,9 @@ def test_weekly_live_can_publish_market_scan_without_fake_forecasts(
     )
 
     assert len(rows["market_snapshots"]) == 1
+    assert rows["scored_deltas"] == []
+    assert len(rows["source_documents"]) == 1
+    assert len(rows["evidence_items"]) == 1
     assert rows["forecasts"] == []
     assert rows["trade_proposals"] == []
     assert rows["pipeline_runs"][0]["metadata"]["signals"] == 0
@@ -209,12 +225,31 @@ def test_write_supabase_rows_uses_upserts_for_current_state_tables(
     write_supabase_rows(rows, client=client)  # type: ignore[arg-type]
 
     assert ("upsert", "provisions", 6, "code") in client.calls
+    assert ("upsert", "scored_deltas", 1, "week,doc_id,provision") in client.calls
     assert any(
         call == ("upsert", "pci_weekly", len(rows["pci_weekly"]), "provision,week")
         for call in client.calls
     )
     assert ("upsert", "policy_events", 1, "event_id") in client.calls
     assert ("insert", "forecasts", 1, None) in client.calls
+    assert (
+        "upsert",
+        "source_documents",
+        len(rows["source_documents"]),
+        "source_doc_id",
+    ) in client.calls
+    assert (
+        "upsert",
+        "evidence_items",
+        len(rows["evidence_items"]),
+        "evidence_id",
+    ) in client.calls
+    assert (
+        "upsert",
+        "source_links",
+        len(rows["source_links"]),
+        "link_id",
+    ) in client.calls
     assert ("insert", "trade_proposals", 1, None) in client.calls
 
 
