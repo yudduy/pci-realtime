@@ -15,6 +15,19 @@ const openForecasts = []
 const tradeProposals = []
 const marketSnapshots = []
 const policyEvents = []
+const provisionTimelines = currentPci.flatMap((policy) => [
+  timeline(policy, "2022-W33", "2022-08-15", policy.baseline_pci),
+  timeline(policy, "2026-W21", "2026-05-18", policy.pci),
+])
+const forecastPerformance = [
+  {
+    forecast_count: 0,
+    resolved_count: 0,
+    model_brier_score: null,
+    market_brier_score: null,
+    pci_brier_score: null,
+  },
+]
 
 const pipelineRuns = [
   {
@@ -48,6 +61,8 @@ const views = {
   v_market_snapshots: marketSnapshots,
   v_policy_events: policyEvents,
   v_pipeline_status: pipelineRuns,
+  v_provision_timelines: provisionTimelines,
+  v_forecast_performance: forecastPerformance,
 }
 
 function provision(code, name, pci, specificity, durability, enforceability, obbbaPostPci) {
@@ -70,6 +85,24 @@ function provision(code, name, pci, specificity, durability, enforceability, obb
     obbba_post_pci: obbbaPostPci,
     obbba_summary: "Paper OBBBA stress-test anchor.",
     updated_at: now,
+  }
+}
+
+function timeline(policy, week, weekStart, pci) {
+  return {
+    provision: policy.code,
+    name: policy.name,
+    week,
+    week_start: weekStart,
+    pci,
+    specificity: policy.specificity,
+    durability: policy.durability,
+    enforceability: policy.enforceability,
+    n_docs: 0,
+    delta_this_week: 0,
+    data_origin: policy.data_origin,
+    source_event_ids: [],
+    provenance_status: "complete",
   }
 }
 
