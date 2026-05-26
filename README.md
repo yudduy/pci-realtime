@@ -211,15 +211,17 @@ export SUPABASE_PROJECT_REF=<project-ref>
 
 For a new Supabase project, set `SUPABASE_ORG_ID` and `SUPABASE_DB_PASSWORD`; the script creates the project and prints the project ref to use on the next run.
 
-Provision the public research-style site on GitHub Pages:
+Provision the public research-style site on Vercel:
 
 ```bash
-gh variable set NEXT_PUBLIC_SUPABASE_URL --body "https://<project-ref>.supabase.co"
-gh secret set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-gh workflow run github-pages.yml
+cd apps/web
+vercel link --project pcindex
+vercel env add NEXT_PUBLIC_SUPABASE_URL production
+vercel env add NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY production
+vercel --prod
 ```
 
-The Pages build statically exports `apps/web` and reads the public Supabase views from the browser, so the site stays static while the backend updates the data on its weekly and daily schedules.
+The Vercel app reads the public Supabase views from the browser, so the landing page and registry stay current while the backend updates the data on its weekly and daily schedules.
 
 Set these GitHub repository secrets for the production workflows:
 
