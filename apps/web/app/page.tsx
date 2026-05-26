@@ -2,10 +2,12 @@ import Link from "next/link"
 import { ActivityList } from "@/components/market/activity-list"
 import { formatDateTime, formatScore } from "@/components/market/format"
 import { MarketCard } from "@/components/market/market-card"
+import { MarketCoveragePanel } from "@/components/market/market-coverage"
 import { PolicyTrend } from "@/components/market/policy-trend"
 import { SourceHealthStrip } from "@/components/market/source-health"
 import { SiteHeader } from "@/components/layout/site-header"
 import { buildPolicyMarkets, latestCompletedRun } from "@/lib/market-model"
+import { buildMarketCoverage } from "@/lib/market-coverage"
 import {
   getRegistryData,
 } from "@/lib/data"
@@ -21,6 +23,7 @@ export default async function Home() {
     ? data.currentPci.reduce((sum, policy) => sum + Number(policy.pci ?? policy.baseline_pci), 0) /
       data.currentPci.length
     : null
+  const coverage = buildMarketCoverage(data)
 
   return (
     <main className="tracker-page">
@@ -53,14 +56,15 @@ export default async function Home() {
           <div className="hero-kpis">
             <Kpi label="Avg PCI" value={formatScore(averagePci)} />
             <Kpi label="Open forecasts" value={String(data.openForecasts.length)} />
-            <Kpi label="Matched markets" value={String(data.marketSnapshots.length)} />
-            <Kpi label="Candidates" value={String(data.marketDiscoveryCandidates.length)} />
+            <Kpi label="Eligible matches" value={String(coverage.matched)} />
+            <Kpi label="Near-misses" value={String(coverage.candidates)} />
             <Kpi label="Last update" value={formatDateTime(run?.completed_at ?? run?.started_at)} />
           </div>
         </div>
       </section>
 
       <SourceHealthStrip sources={data.sourceHealth} />
+      <MarketCoveragePanel data={data} compact />
 
       <section className="tracker-grid-section">
         <div className="section-heading">

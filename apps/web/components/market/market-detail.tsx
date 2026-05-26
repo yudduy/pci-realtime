@@ -9,6 +9,7 @@ import {
   formatPercent,
   formatScore,
 } from "@/components/market/format"
+import { MarketCoveragePanel } from "@/components/market/market-coverage"
 import { PolicyTrend } from "@/components/market/policy-trend"
 
 export function MarketDetail({
@@ -74,6 +75,10 @@ export function MarketDetail({
           <Fact label="Close" value={formatDate(market.closeTime)} />
         </div>
       </section>
+
+      {market.kind === "policy" && (
+        <MarketCoveragePanel data={data} selectedProvision={market.provision} compact />
+      )}
 
       {market.policy && (
         <section className="detail-section">
@@ -154,7 +159,13 @@ export function MarketDetail({
             <li>{citations.length ? "Fetched public source documents" : "Waiting for cited public sources"}</li>
             <li>{relatedEvents.length ? "Extracted policy evidence" : "No scored policy move yet"}</li>
             <li>{market.policy || market.forecast ? "Updated PCI dimensions" : "PCI link pending"}</li>
-            <li>{market.market || market.forecast ? "Matched public market data" : "No clean public market match"}</li>
+            <li>
+              {market.market || market.forecast
+                ? "Matched public market data"
+                : data.marketDiscoveryCandidates.length
+                  ? "No eligible market after public venue scan"
+                  : "Public market scan pending"}
+            </li>
             <li>{market.forecast ? "Published model odds" : "Forecast pending"}</li>
             <li>{proposals.length ? "Proposal gate recorded" : "No public execution path"}</li>
           </ol>

@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/layout/site-header"
 import { ActivityList } from "@/components/market/activity-list"
 import { formatDateTime, formatScore } from "@/components/market/format"
 import { MarketCard } from "@/components/market/market-card"
+import { MarketCoveragePanel } from "@/components/market/market-coverage"
 import { MarketDetail } from "@/components/market/market-detail"
 import { MarketTable } from "@/components/market/market-table"
 import { PolicyTrend } from "@/components/market/policy-trend"
@@ -16,6 +17,7 @@ import {
   type PolicyMarket,
   type PolicyMarketKind,
 } from "@/lib/market-model"
+import { buildMarketCoverage } from "@/lib/market-coverage"
 import {
   type RegistryData,
 } from "@/lib/data"
@@ -49,6 +51,7 @@ export function RegistryDashboard({ data }: { data: RegistryData }) {
     ? data.currentPci.reduce((sum, policy) => sum + Number(policy.pci ?? policy.baseline_pci), 0) /
       data.currentPci.length
     : null
+  const coverage = buildMarketCoverage(data)
 
   const filters = buildFilters(markets)
 
@@ -77,12 +80,14 @@ export function RegistryDashboard({ data }: { data: RegistryData }) {
         <section className="dashboard-kpis">
           <Kpi label="Avg PCI" value={formatScore(averagePci)} />
           <Kpi label="Policy questions" value={String(data.currentPci.length)} />
-          <Kpi label="Matched markets" value={String(data.marketSnapshots.length)} />
-          <Kpi label="Candidates" value={String(data.marketDiscoveryCandidates.length)} />
+          <Kpi label="Markets scanned" value={formatCount(coverage.scanned)} />
+          <Kpi label="Eligible matches" value={String(coverage.matched)} />
+          <Kpi label="Near-misses" value={String(coverage.candidates)} />
           <Kpi label="Open forecasts" value={String(data.openForecasts.length)} />
         </section>
 
         <SourceHealthStrip sources={data.sourceHealth} />
+        <MarketCoveragePanel data={data} />
 
         <section className="dashboard-controls">
           <label className="tracker-search">
@@ -154,6 +159,10 @@ function Kpi({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   )
+}
+
+function formatCount(value: number) {
+  return value.toLocaleString("en-US")
 }
 
 function filterMarkets(markets: PolicyMarket[], activeFilter: BrowseFilter, query: string) {

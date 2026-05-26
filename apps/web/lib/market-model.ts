@@ -135,7 +135,9 @@ export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
       lane: copy.lane,
       title: copy.question,
       subtitle: copy.formalName,
-      status: "Waiting for a clean public market",
+      status: data.marketDiscoveryCandidates.length
+        ? "No eligible public market"
+        : "Market scan pending",
       primaryLabel: "PCI",
       primaryValue: policy.pci ?? policy.baseline_pci,
       secondaryLabel: "Stress",
