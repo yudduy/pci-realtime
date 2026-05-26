@@ -1,3 +1,4 @@
+import Image from "next/image"
 import Link from "next/link"
 
 const navItems = [
@@ -15,7 +16,15 @@ export function SiteHeader() {
     <header className="site-header">
       <div className="site-header-inner">
         <Link href="/" className="site-brand" aria-label="PCIndex home">
-          <span className="site-mark">PCI</span>
+          <Image
+            className="site-logo"
+            src="/pcindex-logo.svg"
+            alt=""
+            width={58}
+            height={32}
+            priority
+            aria-hidden="true"
+          />
           <span>PCIndex</span>
         </Link>
         <nav className="site-nav" aria-label="Primary navigation">
