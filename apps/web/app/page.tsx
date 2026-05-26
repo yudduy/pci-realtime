@@ -4,10 +4,9 @@ import { formatDateTime, formatScore } from "@/components/market/format"
 import { MarketCard } from "@/components/market/market-card"
 import { PolicyTrend } from "@/components/market/policy-trend"
 import { SiteHeader } from "@/components/layout/site-header"
+import { buildPolicyMarkets, latestCompletedRun } from "@/lib/market-model"
 import {
-  buildPolicyMarkets,
   getRegistryData,
-  latestCompletedRun,
 } from "@/lib/data"
 
 export const dynamic = "force-dynamic"
@@ -48,7 +47,7 @@ export default async function Home() {
         <div className="hero-status">
           <div className="live-chip">
             <span className={data.connected && !data.viewErrors.length ? "live-dot" : "live-dot muted"} />
-            {data.connected && !data.viewErrors.length ? "Live Supabase views" : "Offline preview"}
+            {data.connected && !data.viewErrors.length ? "Live policy data" : "Offline preview"}
           </div>
           <div className="hero-kpis">
             <Kpi label="Avg PCI" value={formatScore(averagePci)} />

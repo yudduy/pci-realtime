@@ -1,4 +1,5 @@
-import type { PolicyMarket, RegistryData } from "@/lib/data"
+import type { RegistryData } from "@/lib/data"
+import type { PolicyMarket } from "@/lib/market-model"
 import {
   formatCents,
   formatCompactMoney,

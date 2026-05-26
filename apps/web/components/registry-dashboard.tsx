@@ -14,6 +14,8 @@ import {
   latestCompletedRun,
   type PolicyMarket,
   type PolicyMarketKind,
+} from "@/lib/market-model"
+import {
   type RegistryData,
 } from "@/lib/data"
 

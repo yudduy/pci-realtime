@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import type { PolicyMarket } from "@/lib/data"
+import type { PolicyMarket } from "@/lib/market-model"
 import {
   formatCents,
   formatCompactMoney,

@@ -1,6 +1,6 @@
 "use client"
 
-import type { PolicyMarket } from "@/lib/data"
+import type { PolicyMarket } from "@/lib/market-model"
 import {
   formatCents,
   formatCompactMoney,
