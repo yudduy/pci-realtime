@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from pci_realtime.ingest.federal_register import (
     FEDERAL_REGISTER_API_FIELDS,
@@ -129,6 +131,9 @@ def test_normalize_document_falls_back_to_api_text_when_html_is_blocked() -> Non
 
 
 def test_known_documents_are_captured_from_federal_register() -> None:
+    if os.getenv("PCI_RUN_NETWORK_TESTS") != "1":
+        pytest.skip("Federal Register live API fixture check is opt-in.")
+
     fixture_path = (
         Path(__file__).resolve().parents[1]
         / "data"
