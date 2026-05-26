@@ -202,16 +202,30 @@ async function fetchView<T>(
   if (!config) return { rows: [], error: null }
 
   try {
-    const response = await fetch(`${config.url}/rest/v1/${view}?${query}`, {
-      headers: {
-        apikey: config.key,
-        authorization: `Bearer ${config.key}`,
-      },
-      cache: "no-store",
-    })
+    const pageSize = 1000
+    const rows: T[] = []
+    let start = 0
 
-    if (!response.ok) return { rows: [], error: `${view}: ${response.status}` }
-    return { rows: (await response.json()) as T[], error: null }
+    while (true) {
+      const end = start + pageSize - 1
+      const response = await fetch(`${config.url}/rest/v1/${view}?${query}`, {
+        headers: {
+          apikey: config.key,
+          authorization: `Bearer ${config.key}`,
+          range: `${start}-${end}`,
+          "range-unit": "items",
+        },
+        cache: "no-store",
+      })
+
+      if (!response.ok) return { rows: [], error: `${view}: ${response.status}` }
+
+      const pageRows = (await response.json()) as T[]
+      rows.push(...pageRows)
+
+      if (pageRows.length < pageSize) return { rows, error: null }
+      start += pageSize
+    }
   } catch (error) {
     return { rows: [], error: `${view}: ${errorMessage(error)}` }
   }
@@ -248,14 +262,14 @@ export async function getRegistryData(): Promise<RegistryData> {
   ] = await Promise.all([
     fetchView<CurrentPci>("v_current_pci", "select=*&order=code.asc"),
     fetchView<Forecast>("v_open_forecasts", "select=*&order=created_at.desc"),
-    fetchView<ResolvedForecast>("v_resolved_forecasts", "select=*&order=resolved_at.desc&limit=8"),
+    fetchView<ResolvedForecast>("v_resolved_forecasts", "select=*&order=resolved_at.desc"),
     fetchView<TradeProposal>("v_trade_proposals", "select=*&order=created_at.desc"),
-    fetchView<MarketSnapshot>("v_market_snapshots", "select=*&order=generated_at.desc&limit=12"),
-    fetchView<PolicyEvent>("v_policy_events", "select=*&order=created_at.desc&limit=10"),
+    fetchView<MarketSnapshot>("v_market_snapshots", "select=*&order=generated_at.desc"),
+    fetchView<PolicyEvent>("v_policy_events", "select=*&order=created_at.desc"),
     fetchView<PipelineRun>("v_pipeline_status", "select=*&limit=5"),
     fetchView<ProvisionTimeline>(
       "v_provision_timelines",
-      "select=*&order=provision.asc,week_start.asc&limit=240",
+      "select=*&order=provision.asc,week_start.asc",
     ),
     fetchView<ForecastPerformance>("v_forecast_performance", "select=*&limit=1"),
   ])

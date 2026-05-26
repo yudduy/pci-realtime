@@ -9,7 +9,9 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: "45 14 * * *"
+    # Cheap outcome/market refresh. The heavier policy ingest and model scoring
+    # remain in production-registry-pipeline on a weekly cadence.
+    - cron: "15 */6 * * *"
 
 concurrency:
   group: production-registry-refresh
