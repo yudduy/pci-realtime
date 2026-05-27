@@ -1,0 +1,163 @@
+provisions:
+  "45V":
+    aliases:
+      - section 45v
+      - 45v
+      - clean hydrogen production credit
+      - hydrogen production tax credit
+      - clean hydrogen credit
+    statutes:
+      - 26 USC 45V
+      - Internal Revenue Code section 45V
+    agencies:
+      - Treasury
+      - IRS
+      - Department of Energy
+      - DOE
+    dockets:
+      - REG-117631-23
+      - clean hydrogen final rule
+    litigation:
+      - 45V challenge
+      - clean hydrogen tax credit lawsuit
+      - injunction hydrogen credit
+    implementation:
+      - hydrogen hub funding
+      - lifecycle greenhouse gas emissions
+      - electrolytic hydrogen guidance
+  "45X":
+    aliases:
+      - section 45x
+      - 45x
+      - advanced manufacturing production credit
+      - manufacturing production credit
+      - domestic clean energy manufacturing
+    statutes:
+      - 26 USC 45X
+      - Internal Revenue Code section 45X
+    agencies:
+      - Treasury
+      - IRS
+      - Department of Energy
+      - DOE
+    dockets:
+      - advanced manufacturing final rule
+      - 45X final regulations
+    litigation:
+      - 45X challenge
+      - advanced manufacturing credit lawsuit
+    implementation:
+      - eligible components
+      - battery components
+      - solar components
+      - wind components
+      - critical minerals
+  "45Q":
+    aliases:
+      - section 45q
+      - 45q
+      - carbon oxide sequestration credit
+      - carbon capture credit
+      - carbon capture tax credit
+      - ccus
+    statutes:
+      - 26 USC 45Q
+      - Internal Revenue Code section 45Q
+    agencies:
+      - Treasury
+      - IRS
+      - Environmental Protection Agency
+      - EPA
+      - Department of Energy
+      - DOE
+    dockets:
+      - 45Q regulations
+      - carbon oxide sequestration guidance
+    litigation:
+      - 45Q challenge
+      - carbon capture credit lawsuit
+    implementation:
+      - secure geological storage
+      - direct air capture
+      - carbon utilization
+      - lifecycle analysis
+  "30D":
+    aliases:
+      - section 30d
+      - 30d
+      - clean vehicle credit
+      - clean vehicle tax credit
+      - electric vehicle credit
+      - ev credit
+    statutes:
+      - 26 USC 30D
+      - Internal Revenue Code section 30D
+    agencies:
+      - Treasury
+      - IRS
+      - Department of Energy
+      - DOE
+      - Environmental Protection Agency
+      - EPA
+    dockets:
+      - clean vehicle credits
+      - 30D final regulations
+    litigation:
+      - 30D challenge
+      - clean vehicle credit lawsuit
+      - EV tax credit injunction
+    implementation:
+      - battery component requirements
+      - critical mineral requirements
+      - foreign entity of concern
+      - seller report
+  "50141":
+    aliases:
+      - section 50141
+      - 50141
+      - loan programs office funding
+      - lpo funding
+      - energy loan programs
+    statutes:
+      - IRA section 50141
+      - Inflation Reduction Act section 50141
+    agencies:
+      - Department of Energy
+      - DOE
+      - Loan Programs Office
+      - LPO
+    dockets:
+      - loan programs office guidance
+    litigation:
+      - loan programs office challenge
+      - DOE loan guarantee lawsuit
+    implementation:
+      - loan guarantee
+      - title 17 clean energy financing
+      - conditional commitment
+      - project financing
+  "50144":
+    aliases:
+      - section 50144
+      - 50144
+      - energy infrastructure reinvestment
+      - eir program
+      - reinvestment financing
+    statutes:
+      - IRA section 50144
+      - Inflation Reduction Act section 50144
+    agencies:
+      - Department of Energy
+      - DOE
+      - Loan Programs Office
+      - LPO
+    dockets:
+      - energy infrastructure reinvestment guidance
+    litigation:
+      - energy infrastructure reinvestment lawsuit
+      - EIR challenge
+    implementation:
+      - retooling energy infrastructure
+      - retired energy infrastructure
+      - greenhouse gas reduction
+      - loan authority

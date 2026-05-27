@@ -202,6 +202,7 @@ The baseline anchor is immutable repo data in `data/baseline/pci_baseline.csv`. 
 `src/pci_realtime/ingest/`
 
 - `base.py`: shared Schema A enforcement, date parsing, sessions, HTML cleanup, provision keyword inference, parquet writing.
+- `request_cache.py`: replayable HTTP cache for official-source ingest, with sanitized request keys and rate-limit metadata.
 - `federal_register.py`: Federal Register API search/body normalization with allowed agency filtering.
 - `treasury.py`: Treasury and IRS guidance page crawling.
 - `congress.py`: Congress.gov legislative ingest with optional ProPublica fallback.
@@ -215,6 +216,13 @@ The baseline anchor is immutable repo data in `data/baseline/pci_baseline.csv`. 
 - `cache.py`: stable JSON cache keys for screening/scoring.
 - `prompts.py`: JSON schemas and prompt builders.
 - `calibrate.py`: calibration set expansion and RMSE reporting. It blocks until verified Yikai-scored rows exist.
+- `extraction.py`: shadow evidence extraction over retrieved chunks. Current default is deterministic exact-span audit evidence; it does not drive PCI scoring.
+
+`src/pci_realtime/retrieval/`
+
+- `queries.py`: loads `config/provision_queries.yml` query ontology for the six tracked provisions.
+- `chunks.py`: deterministic chunking for public source documents.
+- `search.py`: pure-Python BM25/alias retrieval used by evidence audit mode.
 
 `src/pci_realtime/pci/builder.py`
 
@@ -335,9 +343,12 @@ Web:
 The evidence layer turns raw public docs and public market snapshots into:
 
 - `source_documents`: normalized public document/market source metadata.
+- `document_chunks`: private service-role chunks derived from source documents for replayable retrieval.
 - `evidence_items`: snippets or rationale tied to provisions and dimensions.
 - `source_links`: trace links to policy events, forecasts, and market snapshots.
 - `source_health`: per-source success/disabled/failed state with row counts and errors.
+
+`weekly_live` defaults to `--evidence-mode audit`. Audit mode caches official-source requests in `data/cache/source_requests`, records cache metrics in source-health details, builds chunks/retrieval candidates, and appends shadow evidence rows with `raw_public_metadata.chunk_id`. Use `--evidence-mode off` only for debugging or parity checks. Audit evidence is not a scoring input yet.
 
 `daily_refresh` also builds public context rows from EIA, FRED, CourtListener, RegInfo/OIRA, and USAspending. Missing optional keys and source failures should be represented through source-health rows rather than breaking the whole refresh when the source is non-critical.
 

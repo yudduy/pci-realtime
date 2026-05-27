@@ -4,9 +4,12 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import requests
 
+from pci_realtime.ingest.request_cache import CachedSession
 from pci_realtime.pipeline.weekly_live import (
     build_weekly_live_rows,
+    run_official_ingest,
     run_weekly_live,
     write_supabase_rows,
 )
@@ -118,12 +121,20 @@ def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
     assert len(rows["market_snapshots"]) == 1
     assert len(rows["market_discovery_candidates"]) == 1
     assert len(rows["source_documents"]) == 2
-    assert len(rows["evidence_items"]) == 2
+    assert len(rows["document_chunks"]) >= 1
+    assert len(rows["evidence_items"]) >= 3
     assert len(rows["source_links"]) >= 3
     assert len(rows["forecasts"]) == 1
     assert len(rows["trade_proposals"]) == 1
     assert rows["pipeline_runs"][0]["metadata"]["forecasts"] == 1
     assert rows["pipeline_runs"][0]["metadata"]["trade_proposals"] == 1
+    assert rows["pipeline_runs"][0]["metadata"]["evidence_engine"]["mode"] == "audit"
+    assert (
+        rows["pipeline_runs"][0]["metadata"]["evidence_engine"][
+            "extracted_evidence_count"
+        ]
+        >= 1
+    )
     assert rows["scored_deltas"][0]["week"] == "2025-W23"
     assert rows["scored_deltas"][0]["doc_id"] == "federal_register:45v-guidance"
     assert rows["forecasts"][0]["run_id"] == FIXED_RUN_ID
@@ -134,6 +145,12 @@ def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
         rows["source_documents"][0]["source_doc_id"] == "federal_register:45v-guidance"
     )
     assert rows["evidence_items"][0]["evidence_id"].startswith("evidence:")
+    chunk_evidence = [
+        row
+        for row in rows["evidence_items"]
+        if row["evidence_id"].startswith("evidence:chunk:")
+    ][0]
+    assert chunk_evidence["raw_public_metadata"]["chunk_id"].startswith("chunk:")
     assert rows["pci_weekly"][0]["week"] == "2022-W33"
 
     row_45v = [
@@ -167,6 +184,7 @@ def test_weekly_live_rows_baseline_only_has_no_fake_forecasts(tmp_path: Path) ->
     assert rows["trade_proposals"] == []
     assert rows["pipeline_runs"][0]["metadata"]["policy_events"] == 0
     assert rows["source_documents"] == []
+    assert rows["document_chunks"] == []
     assert rows["evidence_items"] == []
 
 
@@ -190,6 +208,7 @@ def test_weekly_live_can_publish_market_scan_without_fake_forecasts(
     assert len(rows["market_discovery_candidates"]) == 1
     assert rows["scored_deltas"] == []
     assert len(rows["source_documents"]) == 1
+    assert rows["document_chunks"] == []
     assert len(rows["evidence_items"]) == 1
     assert rows["forecasts"] == []
     assert rows["trade_proposals"] == []
@@ -250,6 +269,12 @@ def test_write_supabase_rows_uses_upserts_for_current_state_tables(
     ) in client.calls
     assert (
         "upsert",
+        "document_chunks",
+        len(rows["document_chunks"]),
+        "chunk_id",
+    ) in client.calls
+    assert (
+        "upsert",
         "evidence_items",
         len(rows["evidence_items"]),
         "evidence_id",
@@ -294,3 +319,65 @@ def test_weekly_live_dry_run_writes_payload_without_supabase(
     assert result.counts["forecasts"] == 1
     assert result.counts["trade_proposals"] == 1
     assert output_path.exists()
+
+
+def test_official_ingest_request_cache_hits_on_second_run(
+    tmp_path: Path, monkeypatch
+) -> None:
+    def fake_request(
+        self: requests.Session,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> requests.Response:
+        del self, method, url, kwargs
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b'{"ok": true}'
+        response.url = "https://api.example.test/source"
+        return response
+
+    def fake_run_single_ingest_source(**kwargs: Any) -> Path:
+        session = kwargs["session"]
+        source = kwargs["source"]
+        raw_root = kwargs["raw_root"]
+        session.get("https://api.example.test/source", params={"api_key": "secret"})
+        output_dir = raw_root / source
+        output_dir.mkdir(parents=True, exist_ok=True)
+        path = output_dir / f"{source}_2026-W01.parquet"
+        pd.DataFrame([{"doc_id": f"{source}:1"}]).to_parquet(path, index=False)
+        return path
+
+    def cached_session_factory(**kwargs: Any) -> CachedSession:
+        return CachedSession(
+            source=kwargs["source"],
+            cache_root=tmp_path / "source_requests",
+        )
+
+    monkeypatch.setattr(requests.Session, "request", fake_request)
+    monkeypatch.setattr(
+        "pci_realtime.pipeline.weekly_live._run_single_ingest_source",
+        fake_run_single_ingest_source,
+    )
+    monkeypatch.setattr(
+        "pci_realtime.pipeline.weekly_live.CachedSession",
+        cached_session_factory,
+    )
+
+    first = run_official_ingest(
+        start_date=pd.Timestamp("2026-01-05").date(),
+        end_date=pd.Timestamp("2026-01-11").date(),
+        raw_root=tmp_path / "raw",
+        fetch_bodies=True,
+        sources=("federal_register",),
+    )
+    second = run_official_ingest(
+        start_date=pd.Timestamp("2026-01-05").date(),
+        end_date=pd.Timestamp("2026-01-11").date(),
+        raw_root=tmp_path / "raw",
+        fetch_bodies=True,
+        sources=("federal_register",),
+    )
+
+    assert first[0]["details"]["request_cache"]["cache_hits"] == 0
+    assert second[0]["details"]["request_cache"]["cache_hits"] == 1

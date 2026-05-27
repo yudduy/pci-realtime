@@ -50,11 +50,11 @@ from pci_realtime.forecast_registry.store import (
 )
 from pci_realtime.ingest.base import parse_date
 from pci_realtime.ingest.congress import (
+    CongressIngestor,
     PROPUBLICA_KEY_ENV,
-    run_window as ingest_congress,
 )
-from pci_realtime.ingest.federal_register import run_window as ingest_federal_register
-from pci_realtime.ingest.omb import run_window as ingest_omb
+from pci_realtime.ingest.federal_register import FederalRegisterIngestor
+from pci_realtime.ingest.omb import OmbIngestor
 from pci_realtime.ingest.public_sources import (
     CONGRESS_GOV_KEY_ENV,
     REGULATIONS_GOV_KEY_ENV,
@@ -62,13 +62,18 @@ from pci_realtime.ingest.public_sources import (
     RegulationsGovIngestor,
     USASpendingIngestor,
 )
-from pci_realtime.ingest.treasury import run_window as ingest_treasury
+from pci_realtime.ingest.request_cache import CachedSession
+from pci_realtime.ingest.treasury import TreasuryIngestor
 from pci_realtime.pci.builder import (
     BASELINE_WEEK,
     build_weekly_index,
     load_scored_deltas,
     parse_iso_week,
 )
+from pci_realtime.retrieval.chunks import chunks_from_raw_docs, document_chunk_rows
+from pci_realtime.retrieval.queries import load_provision_query_packs
+from pci_realtime.retrieval.search import retrieve_for_provisions
+from pci_realtime.scoring.extraction import ShadowEvidenceExtractor
 from pci_realtime.scoring.scorer import SCHEMA_B_COLUMNS, run_week as score_week
 
 
@@ -337,6 +342,50 @@ def _weekly_table_rows(
     return rows
 
 
+def _build_evidence_engine_rows(
+    raw_docs: dict[str, dict[str, Any]],
+    *,
+    retrieval_top_k: int,
+    extraction_top_k: int,
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    chunks = chunks_from_raw_docs(raw_docs)
+    query_packs = load_provision_query_packs()
+    retrieval_results = retrieve_for_provisions(
+        chunks, query_packs, top_k=retrieval_top_k
+    )
+    extractor = ShadowEvidenceExtractor()
+    extraction = extractor.extract(retrieval_results, top_k=extraction_top_k)
+    retrieval_counts = {
+        provision: len(results)
+        for provision, results in sorted(retrieval_results.items())
+    }
+    source_yield: dict[str, int] = {}
+    for row in extraction.rows:
+        doc = raw_docs.get(str(row.get("source_doc_id") or ""), {})
+        source = str(doc.get("source") or "unknown")
+        source_yield[source] = source_yield.get(source, 0) + 1
+    metrics = {
+        "mode": "audit",
+        "chunks_created": len(chunks),
+        "retrieval_top_k": retrieval_top_k,
+        "extraction_top_k": extraction_top_k,
+        "retrieval_candidates": sum(retrieval_counts.values()),
+        "retrieval_counts": retrieval_counts,
+        "extracted_evidence_count": len(extraction.rows),
+        "no_evidence_count": extraction.metrics["no_evidence_count"],
+        "extraction_cache_hit_rate": extraction.metrics["cache_hit_rate"],
+        "source_yield": source_yield,
+        "extractor_version": extraction.metrics["extractor_version"],
+    }
+    return (
+        {
+            "document_chunks": document_chunk_rows(chunks),
+            "evidence_items": extraction.rows,
+        },
+        metrics,
+    )
+
+
 def build_weekly_live_rows(
     *,
     week: str,
@@ -350,6 +399,9 @@ def build_weekly_live_rows(
     run_id: str | None = None,
     ingest_sources: tuple[str, ...] = DEFAULT_INGEST_SOURCES,
     source_health: list[dict[str, Any]] | None = None,
+    evidence_mode: str = "audit",
+    retrieval_top_k: int = 20,
+    extraction_top_k: int = 10,
 ) -> dict[str, list[dict[str, Any]]]:
     run_id = run_id or str(uuid.uuid4())
     local_scored = _filter_scored_through_week(
@@ -363,6 +415,20 @@ def build_weekly_live_rows(
     scored_for_pci = _combine_scored_delta_frames(historical_scored, local_scored)
     scored_events = scored_for_pci
     raw_docs = _load_raw_documents(raw_root)
+    evidence_rows_by_table: dict[str, list[dict[str, Any]]] = {
+        "document_chunks": [],
+        "evidence_items": [],
+    }
+    evidence_engine_metrics: dict[str, Any] = {"mode": evidence_mode}
+    if evidence_mode == "audit":
+        evidence_rows_by_table, evidence_engine_metrics = _build_evidence_engine_rows(
+            raw_docs,
+            retrieval_top_k=retrieval_top_k,
+            extraction_top_k=extraction_top_k,
+        )
+    elif evidence_mode != "off":
+        msg = f"Unsupported evidence mode: {evidence_mode}"
+        raise ValueError(msg)
     policy_events = _policy_events_from_scored(scored_events, raw_docs=raw_docs)
     signal_events = [
         event
@@ -459,6 +525,7 @@ def build_weekly_live_rows(
                 "trade_proposals": len(trade_proposals),
                 "abstentions": len(abstentions),
                 "metrics": metrics,
+                "evidence_engine": evidence_engine_metrics,
             },
         }
     ]
@@ -475,9 +542,11 @@ def build_weekly_live_rows(
             *source_document_rows_from_raw_docs(raw_docs),
             *source_document_rows_from_markets(markets),
         ],
+        "document_chunks": evidence_rows_by_table["document_chunks"],
         "evidence_items": [
             *evidence_rows_from_policy_events(policy_events),
             *evidence_rows_from_market_snapshots(markets),
+            *evidence_rows_by_table["evidence_items"],
         ],
         "source_links": [
             *source_links_from_policy_events(policy_events),
@@ -503,6 +572,8 @@ def run_official_ingest(
     raw_root: Path,
     fetch_bodies: bool,
     sources: tuple[str, ...] = DEFAULT_INGEST_SOURCES,
+    use_request_cache: bool = True,
+    cache_client: SupabaseRestClient | None = None,
 ) -> list[dict[str, Any]]:
     health_rows: list[dict[str, Any]] = []
     successful_core_sources: set[str] = set()
@@ -538,6 +609,11 @@ def run_official_ingest(
             )
             continue
         started = time.monotonic()
+        session = (
+            CachedSession(source=source, supabase_client=cache_client)
+            if use_request_cache
+            else None
+        )
         try:
             path = _run_single_ingest_source(
                 source=source,
@@ -545,9 +621,11 @@ def run_official_ingest(
                 end_date=end_date,
                 raw_root=raw_root,
                 fetch_bodies=fetch_bodies,
+                session=session,
             )
             row_count = _parquet_row_count(path)
             latency_ms = int((time.monotonic() - started) * 1000)
+            cache_details = session.stats.to_metadata() if session is not None else {}
             health_rows.append(
                 source_health_row(
                     source=source,
@@ -557,6 +635,7 @@ def run_official_ingest(
                     details={
                         "window_start": start_date.isoformat(),
                         "window_end": end_date.isoformat(),
+                        "request_cache": cache_details,
                     },
                 )
             )
@@ -574,6 +653,11 @@ def run_official_ingest(
                     latency_ms=latency_ms,
                     error_class=type(exc).__name__,
                     error_summary=str(exc),
+                    details={
+                        "request_cache": session.stats.to_metadata()
+                        if session is not None
+                        else {}
+                    },
                 )
             )
 
@@ -599,60 +683,59 @@ def _run_single_ingest_source(
     end_date: date,
     raw_root: Path,
     fetch_bodies: bool,
+    session: CachedSession | None = None,
 ) -> Path:
     if source == "federal_register":
-        return ingest_federal_register(
+        return FederalRegisterIngestor(session=session).run_window(
             start_date=start_date,
             end_date=end_date,
             output_dir=raw_root / "federal_register",
             fetch_bodies=fetch_bodies,
         )
     if source == "treasury":
-        return ingest_treasury(
+        return TreasuryIngestor(source="treasury", session=session).run_window(
             start_date=start_date,
             end_date=end_date,
             output_dir=raw_root / "treasury",
             fetch_bodies=fetch_bodies,
-            source="treasury",
         )
     if source == "irs":
-        return ingest_treasury(
+        return TreasuryIngestor(source="irs", session=session).run_window(
             start_date=start_date,
             end_date=end_date,
             output_dir=raw_root / "irs",
             fetch_bodies=fetch_bodies,
-            source="irs",
         )
     if source == "omb":
-        return ingest_omb(
+        return OmbIngestor(session=session).run_window(
             start_date=start_date,
             end_date=end_date,
             output_dir=raw_root / "omb",
             fetch_bodies=fetch_bodies,
         )
     if source == "congress":
-        return ingest_congress(
+        return CongressIngestor(session=session).run_window(
             start_date=start_date,
             end_date=end_date,
             output_dir=raw_root / "congress",
             fetch_bodies=fetch_bodies,
         )
     if source == "regulations_gov":
-        return RegulationsGovIngestor().run_window(
+        return RegulationsGovIngestor(session=session).run_window(
             start_date=start_date,
             end_date=end_date,
             output_dir=raw_root / "regulations_gov",
             fetch_bodies=fetch_bodies,
         )
     if source == "reginfo":
-        return RegInfoIngestor().run_window(
+        return RegInfoIngestor(session=session).run_window(
             start_date=start_date,
             end_date=end_date,
             output_dir=raw_root / "reginfo",
             fetch_bodies=fetch_bodies,
         )
     if source == "usaspending":
-        return USASpendingIngestor().run_window(
+        return USASpendingIngestor(session=session).run_window(
             start_date=start_date,
             end_date=end_date,
             output_dir=raw_root / "usaspending",
@@ -685,6 +768,9 @@ def run_weekly_live(
     ingest_sources: tuple[str, ...] = DEFAULT_INGEST_SOURCES,
     dry_run: bool = False,
     output_path: Path | None = None,
+    evidence_mode: str = "audit",
+    retrieval_top_k: int = 20,
+    extraction_top_k: int = 10,
 ) -> WeeklyLiveResult:
     week = _iso_week_from_date(start_date)
     run_id = str(uuid.uuid4())
@@ -699,6 +785,8 @@ def run_weekly_live(
             raw_root=raw_root,
             fetch_bodies=fetch_bodies,
             sources=ingest_sources,
+            use_request_cache=evidence_mode != "off",
+            cache_client=client,
         )
         or []
     )
@@ -722,6 +810,9 @@ def run_weekly_live(
         run_id=run_id,
         ingest_sources=ingest_sources,
         source_health=source_health,
+        evidence_mode=evidence_mode,
+        retrieval_top_k=retrieval_top_k,
+        extraction_top_k=extraction_top_k,
     )
     counts = {table: len(rows) for table, rows in rows_by_table.items()}
     if output_path is not None:
@@ -758,6 +849,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--output-path")
+    parser.add_argument(
+        "--evidence-mode",
+        choices=("audit", "off"),
+        default="audit",
+        help="Build replayable evidence audit rows without changing PCI scoring.",
+    )
+    parser.add_argument("--retrieval-top-k", type=int, default=20)
+    parser.add_argument("--extraction-top-k", type=int, default=10)
     return parser
 
 
@@ -780,6 +879,9 @@ def main() -> None:
         ingest_sources=tuple(args.ingest_source or DEFAULT_INGEST_SOURCES),
         dry_run=args.dry_run,
         output_path=Path(args.output_path) if args.output_path else None,
+        evidence_mode=args.evidence_mode,
+        retrieval_top_k=args.retrieval_top_k,
+        extraction_top_k=args.extraction_top_k,
     )
     LOGGER.info("Weekly live run %s counts: %s", result.run_id, result.counts)
 

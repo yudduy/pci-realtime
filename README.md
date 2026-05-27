@@ -131,6 +131,8 @@ python -m pci_realtime.pipeline.weekly_live \
   --fetch-polymarket
 ```
 
+The weekly loop defaults to `--evidence-mode audit`. Audit mode caches official-source HTTP responses under `data/cache/source_requests`, chunks ingested source documents, runs provision-aware deterministic retrieval, and stores shadow evidence rows plus `pipeline_runs.metadata.evidence_engine`. It does not change PCI scores. Use `--evidence-mode off` to disable the audit layer for one-off debugging.
+
 Run only the public market discovery/audit loop:
 
 ```bash
@@ -192,7 +194,7 @@ The backend keeps three file-level contracts for tests and offline runs:
 | Scored PCI deltas | `pci_realtime.scoring.scorer` | weekly PCI builder | `data/processed/scored/scored_<YYYY-WW>.parquet` |
 | Weekly PCI series | `pci_realtime.pci.builder` | registry loop and export jobs | `data/processed/pci_weekly.parquet` |
 
-The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `market_discovery_candidates`, `forecasts`, `trade_proposals`, `forecast_outcomes`, `pipeline_runs`, `source_documents`, `evidence_items`, `source_links`, and `source_health`.
+The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `market_discovery_candidates`, `forecasts`, `trade_proposals`, `forecast_outcomes`, `pipeline_runs`, `source_documents`, `document_chunks`, `evidence_items`, `source_links`, and `source_health`. `source_request_cache` is private service-role state for replay and rate-limit auditing.
 
 ## Capability Status
 

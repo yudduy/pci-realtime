@@ -417,6 +417,11 @@ def write_supabase_rows(
         on_conflict="source_doc_id",
     )
     client.upsert_rows(
+        "document_chunks",
+        rows_by_table.get("document_chunks", []),
+        on_conflict="chunk_id",
+    )
+    client.upsert_rows(
         "evidence_items",
         rows_by_table.get("evidence_items", []),
         on_conflict="evidence_id",
