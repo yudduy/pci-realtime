@@ -16,10 +16,10 @@ export function PolicyTrend({
   const first = points[0]
 
   return (
-    <section className="trend-panel" aria-label="Policy credibility trend">
+    <section className="trend-panel" aria-label="Policy score trend">
       <div className="trend-panel-head">
         <div>
-          <p>Policy Credibility Index</p>
+          <p>Policy score</p>
           <h2>{provision ? `${provision} trend` : "Live policy trend"}</h2>
         </div>
         <div className="trend-score">
@@ -27,7 +27,7 @@ export function PolicyTrend({
           <small>{latest ? formatDate(latest.date) : "No data"}</small>
         </div>
       </div>
-      <svg viewBox="0 0 640 180" role="img" aria-label="PCI trend chart">
+      <svg viewBox="0 0 640 180" role="img" aria-label={`Policy score trend chart with ${points.length} weekly data points`}>
         <defs>
           <linearGradient id="trendFill" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#2563eb" stopOpacity="0.24" />
@@ -49,6 +49,28 @@ export function PolicyTrend({
           {latest ? formatDate(latest.date) : ""}
         </text>
       </svg>
+      {points.length > 0 && (
+        <details className="trend-table-toggle">
+          <summary>View chart values as a table</summary>
+          <table className="trend-table">
+            <caption className="sr-only">Weekly policy score values</caption>
+            <thead>
+              <tr>
+                <th scope="col">Week start</th>
+                <th scope="col">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {points.map((point) => (
+                <tr key={`${point.date}-${point.value}`}>
+                  <td>{formatDate(point.date)}</td>
+                  <td>{formatScore(point.value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
     </section>
   )
 }

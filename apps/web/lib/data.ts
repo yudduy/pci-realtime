@@ -206,6 +206,7 @@ export type EvidenceItem = {
   url: string | null
   published_at: string | null
   fetched_at: string | null
+  raw_public_metadata?: Record<string, unknown>
 }
 
 export type SourceLink = {

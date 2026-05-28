@@ -2,7 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 
 const navItems = [
-  { label: "Tracker", href: "/dashboard" },
+  { label: "Markets", href: "/markets" },
   { label: "About", href: "/about" },
   { label: "Code", href: "https://github.com/yudduy/pci-realtime" },
   {

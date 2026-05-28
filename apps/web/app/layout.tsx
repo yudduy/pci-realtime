@@ -4,10 +4,10 @@ import "./globals.css"
 export const metadata: Metadata = {
   metadataBase: new URL("https://pcindex.vercel.app"),
   title: "PCIndex",
-  description: "Live policy-market tracker for IRA credibility and public market forecasts.",
+  description: "Track IRA climate policy updates, public market coverage, and model estimates.",
   openGraph: {
     title: "PCIndex",
-    description: "Live policy-market tracker for IRA credibility and public market forecasts.",
+    description: "Track IRA climate policy updates, public market coverage, and model estimates.",
     url: "https://pcindex.vercel.app",
     siteName: "PCIndex",
     type: "website",

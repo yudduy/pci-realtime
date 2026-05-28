@@ -3,9 +3,8 @@ import { expect, test } from "@playwright/test"
 test("registry renders seeded policy state", async ({ page }) => {
   await page.goto("/")
 
-  await expect(page.getByRole("heading", { name: "Live odds for climate policy credibility." })).toBeVisible()
-  await expect(page.getByText("Policy Credibility Index", { exact: true }).first()).toBeVisible()
-  await expect(page.getByRole("link", { name: "Open tracker" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Policy credibility, market-by-market." })).toBeVisible()
+  await expect(page.getByText("PCIndex", { exact: true }).first()).toBeVisible()
   expect(await page.content()).not.toMatch(/supabase/i)
 
   await page.goto("/about")
@@ -16,15 +15,11 @@ test("registry renders seeded policy state", async ({ page }) => {
   ).toBeVisible()
   expect(await page.content()).not.toMatch(/supabase/i)
 
-  await page.goto("/dashboard")
-
-  await expect(page.getByRole("heading", { name: "IRA credibility markets" })).toBeVisible()
-  await expect(page.getByText("Policy Market Tracker")).toBeVisible()
-  await expect(page.getByText("Will hydrogen credits stay stable?").first()).toBeVisible()
-  await expect(page.getByText("Will factory credits stay stable?").first()).toBeVisible()
+  await page.goto("/markets/45V")
+  await expect(page.getByRole("heading", { name: "Will clean hydrogen credits remain in place?" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: /Evidence/ })).toBeVisible()
   expect(await page.content()).not.toMatch(/supabase/i)
 
-  await expect(page.getByText("Pipeline")).toHaveCount(0)
   await expect(page.getByText("Demo")).toHaveCount(0)
   await expect(page.getByText("Monitor")).toHaveCount(0)
   await expect(page.getByText("Sports")).toHaveCount(0)

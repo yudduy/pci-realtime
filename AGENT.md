@@ -2,7 +2,9 @@
 
 Repository orientation for agents working on `pci-realtime`.
 
-Last repo survey: 2026-05-26.
+Last repo survey: 2026-05-28.
+
+See `CLAUDE.md` for the short-form orientation. This file is the deep reference.
 
 ## Purpose
 
@@ -40,7 +42,9 @@ official policy documents
 |-- src/pci_realtime/
 |   |-- config.py
 |   |-- ingest/
+|   |-- filter/
 |   |-- scoring/
+|   |-- retrieval/
 |   |-- pci/
 |   |-- forecast_registry/
 |   `-- pipeline/
@@ -313,10 +317,14 @@ Key files:
 
 - `apps/web/lib/data.ts`: typed public-view fetcher. Reads only public/publishable Supabase keys and paginates REST view results.
 - `apps/web/lib/market-model.ts`: merges forecasts, market snapshots, policy rows, resolved rows, and source counts into UI-ready `PolicyMarket` rows.
+- `apps/web/lib/market-coverage.ts`: derives provision/market coverage summaries for the dashboard KPIs.
 - `apps/web/lib/policy-copy.ts`: policy-specific display copy.
+- `apps/web/lib/provenance.ts`: evidence/source-link provenance helpers used by the provenance UI surface.
 - `apps/web/components/registry-dashboard.tsx`: dashboard filters, search, KPIs, cards/table/detail.
 - `apps/web/components/market/*`: market cards, tables, details, activity, source health, policy trends, formatting.
+- `apps/web/components/provenance/*`: evidence + source-link presentation components.
 - `apps/web/tests/e2e/mock-supabase.mjs`: local mock Supabase REST server for Playwright.
+- `apps/web/playwright.live.config.ts`: alternate Playwright config that runs against a real Supabase instance (via `npm run test:e2e:live`).
 
 Do not expose the word `supabase` in rendered public pages; e2e tests check for that. The UI copy should stay product-facing rather than implementation-facing.
 
@@ -372,6 +380,14 @@ GitHub workflows:
 - `.github/workflows/production-registry-pipeline.yml`: scheduled Monday finalized weekly loop plus weekday rolling live ingest.
 - `.github/workflows/production-market-discovery.yml`: scheduled six-hour public market scan and candidate audit.
 - `.github/workflows/production-registry-refresh.yml`: scheduled six-hour daily refresh.
+- `.github/workflows/production-smoke.yml`: scheduled six-hour smoke check against `https://pcindex.vercel.app` and the public Supabase views (driven by `scripts/smoke_production.py`).
+
+Scripts in `scripts/`:
+
+- `run_registry.sh`: local all-in-one run (ingest, score, build, serve web).
+- `provision_supabase.sh`: provisions/links the Supabase project; applies migrations.
+- `provision_vercel.sh`: provisions the Vercel project for `apps/web` and sets public env vars.
+- `smoke_production.py`: production smoke for the canonical URL and public views.
 
 Supabase functions:
 

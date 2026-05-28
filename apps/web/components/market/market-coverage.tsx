@@ -32,21 +32,21 @@ export function MarketCoveragePanel({
     <section className={compact ? "market-coverage-panel compact" : "market-coverage-panel"}>
       <div className="coverage-head">
         <div>
-          <p>Market Discovery Audit</p>
+          <p>Market Search</p>
           <h2>
             {coverage.matched
-              ? `${coverage.matched} eligible public ${coverage.matched === 1 ? "market" : "markets"}`
-              : "No eligible public market found"}
+              ? `${coverage.matched} usable public ${coverage.matched === 1 ? "market" : "markets"}`
+              : "No usable public market found"}
           </h2>
         </div>
         <span>{formatDateTime(coverage.latestAt)}</span>
       </div>
 
       <div className="coverage-metrics">
-        <CoverageMetric label="Scanned" value={formatCount(coverage.scanned)} />
-        <CoverageMetric label="Near-misses" value={formatCount(coverage.candidates)} />
-        <CoverageMetric label="Eligible" value={formatCount(coverage.matched)} />
-        <CoverageMetric label="Top blocker" value={topBlocker} />
+        <CoverageMetric label="Checked" value={formatCount(coverage.scanned)} />
+        <CoverageMetric label="Rejected" value={formatCount(coverage.candidates)} />
+        <CoverageMetric label="Usable" value={formatCount(coverage.matched)} />
+        <CoverageMetric label="Main reason" value={topBlocker} />
       </div>
 
       <div className="coverage-body">
@@ -55,7 +55,7 @@ export function MarketCoveragePanel({
             <div key={venue.source} className="coverage-venue">
               <strong>{venue.name}</strong>
               <span>
-                {formatCount(venue.scanned)} scanned / {formatCount(venue.published)} eligible
+                {formatCount(venue.scanned)} checked / {formatCount(venue.published)} usable
               </span>
               <small>{venue.rateLimited ? `${venue.rateLimited} rate limits` : "No rate limits"}</small>
             </div>
@@ -64,8 +64,8 @@ export function MarketCoveragePanel({
 
         <div className="coverage-candidates">
           <div className="coverage-subhead">
-            <strong>{selectedProvision ? `${selectedProvision} near-misses` : "Closest near-misses"}</strong>
-            {fallbackNotice && <span>No direct candidate mentioned this provision.</span>}
+            <strong>{selectedProvision ? `${selectedProvision} rejected candidates` : "Closest rejected candidates"}</strong>
+            {fallbackNotice && <span>No rejected market mentioned this policy directly.</span>}
           </div>
           {shownCandidates.length ? (
             <div className="coverage-candidate-list">
@@ -74,7 +74,7 @@ export function MarketCoveragePanel({
               ))}
             </div>
           ) : (
-            <p className="coverage-empty">No stored near-miss rows for this scan.</p>
+            <p className="coverage-empty">No rejected market rows stored for this search.</p>
           )}
         </div>
       </div>
@@ -104,7 +104,7 @@ function CandidateRow({ candidate }: { candidate: MarketDiscoveryCandidate }) {
       <div className="coverage-reasons">
         {(candidate.rejection_reasons.length ? candidate.rejection_reasons : ["eligible_snapshot"]).map(
           (reason) => (
-            <small key={reason}>{reason === "eligible_snapshot" ? "Eligible snapshot" : rejectionLabel(reason)}</small>
+            <small key={reason}>{reason === "eligible_snapshot" ? "Usable market" : rejectionLabel(reason)}</small>
           ),
         )}
       </div>

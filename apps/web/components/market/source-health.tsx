@@ -16,8 +16,8 @@ export function SourceHealthStrip({ sources }: { sources: SourceHealth[] }) {
               {source.status === "success"
                 ? `Updated ${formatDateTime(source.last_success_at)}`
                 : source.status === "disabled"
-                  ? "Waiting for access"
-                  : "Needs attention"}
+                  ? "Source access disabled"
+                  : "Source scan stale"}
             </span>
           </div>
         </div>

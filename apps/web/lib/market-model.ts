@@ -136,9 +136,9 @@ export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
       title: copy.question,
       subtitle: copy.formalName,
       status: data.marketDiscoveryCandidates.length
-        ? "No eligible public market"
-        : "Market scan pending",
-      primaryLabel: "PCI",
+        ? "No usable public market"
+        : "Market search pending",
+      primaryLabel: "Score",
       primaryValue: policy.pci ?? policy.baseline_pci,
       secondaryLabel: "Stress",
       secondaryValue: policy.obbba_post_pci,
@@ -220,7 +220,7 @@ function countSources(data: RegistryData) {
 }
 
 function edgeStatus(value: number | null | undefined) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "No edge"
+  if (value === null || value === undefined || Number.isNaN(value)) return "No model gap"
   const sign = value >= 0 ? "+" : ""
-  return `${sign}${Math.round(value * 100)} pts edge`
+  return `${sign}${Math.round(value * 100)} pts model gap`
 }

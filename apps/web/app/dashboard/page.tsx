@@ -1,9 +1,5 @@
-import { RegistryDashboard } from "@/components/registry-dashboard"
-import { getRegistryData } from "@/lib/data"
+import { redirect } from "next/navigation"
 
-export const dynamic = "force-dynamic"
-
-export default async function DashboardPage() {
-  const data = await getRegistryData()
-  return <RegistryDashboard data={data} />
+export default function DashboardPage() {
+  redirect("/")
 }

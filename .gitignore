@@ -48,3 +48,12 @@ SI_Appendix.pdf
 .idea/
 .vercel
 .env*.local
+
+# temp research notes
+RESEARCH.md
+
+# review round-by-round audit artifacts (process, not standards)
+apps/web/.standards/review-round-*.md
+
+# ralph-loop local session state
+.claude/ralph-loop.*.local.md
