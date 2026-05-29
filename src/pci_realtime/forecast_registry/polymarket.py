@@ -19,12 +19,25 @@ from pci_realtime.forecast_registry.discovery import (
 from pci_realtime.forecast_registry.engine import clamp_probability
 from pci_realtime.forecast_registry.kalshi import load_queries, parse_float
 from pci_realtime.forecast_registry.policy import (
+    PROVISION_EXPOSURES,
     is_policy_relevant_text,
 )
 
 
 LOGGER = logging.getLogger(__name__)
 POLYMARKET_GAMMA_BASE_URL = "https://gamma-api.polymarket.com"
+POLYMARKET_SEARCH_STOP_TERMS = {
+    "tax credit",
+    "tax credits",
+    "production credit",
+    "treasury",
+    "irs",
+    "department of energy",
+    "doe",
+    "ev",
+    "battery",
+    "solar",
+}
 
 
 def utc_now_iso() -> str:
@@ -84,6 +97,24 @@ class PolymarketClient:
         )
         return [item for item in payload if isinstance(item, dict)]
 
+    def get_market_by_slug(self, slug: str) -> dict[str, Any] | None:
+        payload = self._get_json(
+            "/markets",
+            params={
+                "slug": slug,
+                "limit": 1,
+            },
+        )
+        if isinstance(payload, list):
+            rows = [item for item in payload if isinstance(item, dict)]
+            return rows[0] if rows else None
+        if isinstance(payload, dict):
+            rows = payload.get("markets") or payload.get("data") or []
+            if isinstance(rows, list):
+                rows = [item for item in rows if isinstance(item, dict)]
+                return rows[0] if rows else None
+        return None
+
     def get_events(
         self,
         *,
@@ -107,6 +138,86 @@ class PolymarketClient:
         )
         return [item for item in payload if isinstance(item, dict)]
 
+    def public_search(
+        self,
+        *,
+        query: str,
+        limit_per_type: int = 10,
+        page: int = 1,
+        events_status: str = "active",
+        keep_closed_markets: int = 0,
+    ) -> dict[str, Any]:
+        payload = self._get_json(
+            "/public-search",
+            params={
+                "q": query,
+                "events_status": events_status,
+                "limit_per_type": limit_per_type,
+                "page": page,
+                "search_profiles": "false",
+                "search_tags": "true",
+                "keep_closed_markets": keep_closed_markets,
+            },
+        )
+        return payload if isinstance(payload, dict) else {}
+
+    def get_events_keyset(
+        self,
+        *,
+        limit: int = 500,
+        after_cursor: str | None = None,
+        closed: bool = False,
+        order: str = "volume",
+        ascending: bool = False,
+        title_search: str | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "limit": limit,
+            "closed": str(closed).lower(),
+            "order": order,
+            "ascending": str(ascending).lower(),
+        }
+        if after_cursor:
+            params["after_cursor"] = after_cursor
+        if title_search:
+            params["title_search"] = title_search
+        payload = self._get_json("/events/keyset", params=params)
+        return payload if isinstance(payload, dict) else {"events": []}
+
+    def get_markets_keyset(
+        self,
+        *,
+        limit: int = 100,
+        after_cursor: str | None = None,
+        closed: bool = False,
+        order: str = "volume_num",
+        ascending: bool = False,
+        include_tag: bool = True,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "limit": limit,
+            "closed": str(closed).lower(),
+            "order": order,
+            "ascending": str(ascending).lower(),
+            "include_tag": str(include_tag).lower(),
+        }
+        if after_cursor:
+            params["after_cursor"] = after_cursor
+        payload = self._get_json("/markets/keyset", params=params)
+        return payload if isinstance(payload, dict) else {"markets": []}
+
+    def get_tags(self) -> list[dict[str, Any]]:
+        payload = self._get_json("/tags")
+        if isinstance(payload, list):
+            return [item for item in payload if isinstance(item, dict)]
+        return [item for item in payload.get("tags", []) if isinstance(item, dict)]
+
+    def get_series(self) -> list[dict[str, Any]]:
+        payload = self._get_json("/series", params={"closed": "false"})
+        if isinstance(payload, list):
+            return [item for item in payload if isinstance(item, dict)]
+        return [item for item in payload.get("series", []) if isinstance(item, dict)]
+
 
 def _market_text(market: dict[str, Any]) -> str:
     return " ".join(
@@ -119,6 +230,8 @@ def _market_text(market: dict[str, Any]) -> str:
             "slug",
             "eventSlug",
             "eventTitle",
+            "_discovery_sources",
+            "_discovery_search_query",
         ]
     )
 
@@ -139,8 +252,41 @@ def _markets_from_event(event: dict[str, Any]) -> list[dict[str, Any]]:
         row.setdefault("closed", event.get("closed"))
         row.setdefault("startDate", event.get("startDate"))
         row.setdefault("endDate", event.get("endDate"))
+        row.setdefault("_discovery_sources", event.get("_discovery_sources"))
+        row.setdefault(
+            "_discovery_search_provisions", event.get("_discovery_search_provisions")
+        )
+        row.setdefault("_discovery_search_query", event.get("_discovery_search_query"))
         rows.append(row)
     return rows
+
+
+def _items_from_payload(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    values = payload.get(key)
+    if values is None:
+        values = payload.get("data")
+    if not isinstance(values, list):
+        return []
+    return [item for item in values if isinstance(item, dict)]
+
+
+def _next_cursor(payload: dict[str, Any]) -> str | None:
+    cursor = payload.get("next_cursor") or payload.get("nextCursor")
+    return str(cursor) if cursor else None
+
+
+def _search_terms_by_provision() -> dict[str, set[str]]:
+    terms: dict[str, set[str]] = {}
+    for provision, exposure in PROVISION_EXPOSURES.items():
+        values = {provision, *exposure.market_keywords}
+        for value in values:
+            normalized = value.strip().lower()
+            if not normalized or normalized in POLYMARKET_SEARCH_STOP_TERMS:
+                continue
+            if len(normalized) <= 2:
+                continue
+            terms.setdefault(normalized, set()).add(provision)
+    return terms
 
 
 def _outcome_price(market: dict[str, Any], index: int) -> float | None:
@@ -214,6 +360,9 @@ def parse_polymarket_snapshot(
             "condition_id": market.get("conditionId"),
             "slug": market.get("slug"),
             "event_slug": market.get("eventSlug"),
+            "discovery_sources": market.get("_discovery_sources") or [],
+            "search_query": market.get("_discovery_search_query"),
+            "search_provisions": market.get("_discovery_search_provisions") or [],
         },
     }
 
@@ -246,10 +395,12 @@ def fetch_polymarket_snapshot_scan(
     base_url: str = POLYMARKET_GAMMA_BASE_URL,
     generated_at: str | None = None,
     limit: int = 1000,
+    market_limit: int | None = None,
     page_limit: int = 100,
     run_id: str | None = None,
     include_all_candidates: bool = False,
     request_interval_seconds: float = 0.0,
+    include_public_search: bool = True,
 ) -> MarketScanResult:
     queries = load_queries(query_file)
     keywords = tuple(keyword for query in queries for keyword in query.keywords)
@@ -258,7 +409,7 @@ def fetch_polymarket_snapshot_scan(
     client = PolymarketClient(
         base_url=base_url, request_interval_seconds=request_interval_seconds
     )
-    raw_markets: list[dict[str, Any]] = []
+    raw_market_map: dict[str, dict[str, Any]] = {}
     stats: dict[str, Any] = {
         "scanned": 0,
         "published": 0,
@@ -268,44 +419,138 @@ def fetch_polymarket_snapshot_scan(
         "rejected_not_policy_relevant": 0,
         "event_pages": 0,
         "market_fallback_pages": 0,
+        "market_keyset_pages": 0,
+        "public_search_requests": 0,
+        "title_search_pages": 0,
         "requests": 0,
         "rate_limited": 0,
         "retries": 0,
     }
+
+    def add_raw_market(
+        market: dict[str, Any],
+        *,
+        source: str,
+        search_query: str | None = None,
+        search_provisions: set[str] | None = None,
+    ) -> None:
+        ticker = str(market.get("slug") or market.get("id") or "")
+        if not ticker:
+            return
+        row = dict(market)
+        sources = set(row.get("_discovery_sources") or [])
+        sources.add(source)
+        if ticker in raw_market_map:
+            existing = raw_market_map[ticker]
+            sources.update(existing.get("_discovery_sources") or [])
+            for key, value in row.items():
+                if existing.get(key) in (None, "", []) and value not in (None, "", []):
+                    existing[key] = value
+            row = existing
+        row["_discovery_sources"] = sorted(sources)
+        if search_query:
+            row["_discovery_search_query"] = search_query
+        provisions = set(row.get("_discovery_search_provisions") or [])
+        provisions.update(search_provisions or set())
+        row["_discovery_search_provisions"] = sorted(provisions)
+        raw_market_map[ticker] = row
+
     try:
         max_events = max(0, limit)
-        offset = 0
-        while offset < max_events:
-            batch_limit = min(page_limit, max_events - offset)
-            events = client.get_events(limit=batch_limit, offset=offset)
+        cursor: str | None = None
+        seen_events = 0
+        while seen_events < max_events:
+            batch_limit = min(500, max(1, max_events - seen_events))
+            payload = client.get_events_keyset(limit=batch_limit, after_cursor=cursor)
             stats["event_pages"] += 1
+            events = _items_from_payload(payload, "events")
             if not events:
                 break
             for event in events:
-                raw_markets.extend(_markets_from_event(event))
-            if len(events) < batch_limit:
+                event = {
+                    **event,
+                    "_discovery_sources": ["polymarket_events_keyset"],
+                }
+                for market in _markets_from_event(event):
+                    add_raw_market(market, source="polymarket_events_keyset")
+            seen_events += len(events)
+            cursor = _next_cursor(payload)
+            if not cursor or len(events) < batch_limit:
                 break
-            offset += batch_limit
-        if not raw_markets:
-            offset = 0
-            while offset < max_events:
-                batch_limit = min(page_limit, max_events - offset)
-                markets = client.get_markets(limit=batch_limit, offset=offset)
-                stats["market_fallback_pages"] += 1
-                if not markets:
-                    break
-                raw_markets.extend(markets)
-                if len(markets) < batch_limit:
-                    break
-                offset += batch_limit
+
+        max_markets = max(0, market_limit if market_limit is not None else limit)
+        cursor = None
+        seen_markets = 0
+        while seen_markets < max_markets:
+            batch_limit = min(100, max(1, max_markets - seen_markets))
+            payload = client.get_markets_keyset(limit=batch_limit, after_cursor=cursor)
+            stats["market_keyset_pages"] += 1
+            markets = _items_from_payload(payload, "markets")
+            if not markets:
+                break
+            for market in markets:
+                add_raw_market(market, source="polymarket_markets_keyset")
+            seen_markets += len(markets)
+            cursor = _next_cursor(payload)
+            if not cursor or len(markets) < batch_limit:
+                break
+
+        if include_public_search:
+            for search_query, provisions in sorted(
+                _search_terms_by_provision().items()
+            ):
+                payload = client.public_search(query=search_query, limit_per_type=10)
+                stats["public_search_requests"] += 1
+                for event in _items_from_payload(payload, "events"):
+                    event = {
+                        **event,
+                        "_discovery_sources": ["polymarket_public_search"],
+                        "_discovery_search_query": search_query,
+                        "_discovery_search_provisions": sorted(provisions),
+                    }
+                    for market in _markets_from_event(event):
+                        add_raw_market(
+                            market,
+                            source="polymarket_public_search",
+                            search_query=search_query,
+                            search_provisions=provisions,
+                        )
+                for market in _items_from_payload(payload, "markets"):
+                    add_raw_market(
+                        market,
+                        source="polymarket_public_search",
+                        search_query=search_query,
+                        search_provisions=provisions,
+                    )
+
+                title_payload = client.get_events_keyset(
+                    limit=10, title_search=search_query
+                )
+                stats["title_search_pages"] += 1
+                for event in _items_from_payload(title_payload, "events"):
+                    event = {
+                        **event,
+                        "_discovery_sources": ["polymarket_title_search"],
+                        "_discovery_search_query": search_query,
+                        "_discovery_search_provisions": sorted(provisions),
+                    }
+                    for market in _markets_from_event(event):
+                        add_raw_market(
+                            market,
+                            source="polymarket_title_search",
+                            search_query=search_query,
+                            search_provisions=provisions,
+                        )
     finally:
         stats["requests"] = client.request_count
         stats["rate_limited"] = client.rate_limited_count
         stats["retries"] = client.retry_count
         client.close()
 
+    raw_markets = list(raw_market_map.values())
     snapshots: list[dict[str, Any]] = []
     candidates: list[dict[str, Any]] = []
+    inventory: list[dict[str, Any]] = []
     seen: set[str] = set()
     for market in raw_markets:
         stats["scanned"] += 1
@@ -315,6 +560,8 @@ def fetch_polymarket_snapshot_scan(
             stats["rejected_duplicate"] += 1
             continue
         seen.add(ticker)
+        inventory_snapshot = parse_polymarket_snapshot(market, generated_at=generated)
+        inventory.append(inventory_snapshot)
         passes_query = any_keyword_match(text, keywords)
         if not passes_query:
             stats["rejected_query_keywords"] += 1
@@ -348,4 +595,5 @@ def fetch_polymarket_snapshot_scan(
         snapshots=sorted(snapshots, key=lambda row: row["ticker"]),
         candidates=sorted(candidates, key=lambda row: (row["venue"], row["ticker"])),
         stats=stats,
+        inventory=sorted(inventory, key=lambda row: row["ticker"]),
     )

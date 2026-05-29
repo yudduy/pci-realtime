@@ -23,6 +23,8 @@ export type MarketCoverageSummary = {
   scanned: number
   matched: number
   candidates: number
+  assessed: number
+  adjacent: number
   latestAt: string | null
   venues: MarketVenueCoverage[]
   rejectionCounts: { reason: string; label: string; count: number }[]
@@ -51,6 +53,8 @@ export function buildMarketCoverage(data: RegistryData): MarketCoverageSummary {
     scanned: sum(venues.map((venue) => venue.scanned)),
     matched: data.marketSnapshots.length,
     candidates: data.marketDiscoveryCandidates.length,
+    assessed: data.marketIntelligence.length,
+    adjacent: data.marketIntelligence.filter((row) => !row.eligible_for_forecast).length,
     latestAt: latestDate([candidateLatest, venueLatest].filter((value): value is string => Boolean(value))),
     venues,
     rejectionCounts: [...rejectionMap.entries()]

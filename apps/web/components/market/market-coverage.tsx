@@ -44,9 +44,9 @@ export function MarketCoveragePanel({
 
       <div className="coverage-metrics">
         <CoverageMetric label="Checked" value={formatCount(coverage.scanned)} />
-        <CoverageMetric label="Rejected" value={formatCount(coverage.candidates)} />
+        <CoverageMetric label="Assessed" value={formatCount(coverage.assessed)} />
         <CoverageMetric label="Usable" value={formatCount(coverage.matched)} />
-        <CoverageMetric label="Main reason" value={topBlocker} />
+        <CoverageMetric label="Adjacent" value={formatCount(coverage.adjacent)} />
       </div>
 
       <div className="coverage-body">
@@ -65,7 +65,7 @@ export function MarketCoveragePanel({
         <div className="coverage-candidates">
           <div className="coverage-subhead">
             <strong>{selectedProvision ? `${selectedProvision} rejected candidates` : "Closest rejected candidates"}</strong>
-            {fallbackNotice && <span>No rejected market mentioned this policy directly.</span>}
+            <span>{fallbackNotice ? "No rejected market mentioned this policy directly." : topBlocker}</span>
           </div>
           {shownCandidates.length ? (
             <div className="coverage-candidate-list">

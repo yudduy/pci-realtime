@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
 
@@ -74,6 +74,7 @@ class MarketScanResult:
     snapshots: list[dict[str, Any]]
     candidates: list[dict[str, Any]]
     stats: dict[str, Any]
+    inventory: list[dict[str, Any]] = field(default_factory=list)
 
 
 def market_text(market: dict[str, Any]) -> str:

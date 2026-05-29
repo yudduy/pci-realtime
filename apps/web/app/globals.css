@@ -2834,6 +2834,11 @@ input {
   border-color: #f8e0b6;
 }
 
+.sub-market-row.assessed {
+  background: #f8fbff;
+  border-color: #cfe0ff;
+}
+
 .sub-market-row-head {
   display: flex;
   align-items: flex-start;
@@ -2855,6 +2860,17 @@ input {
   color: #6b7280;
   font-size: 12px;
   font-weight: 700;
+}
+
+.sub-market-tier {
+  display: inline-flex;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #1f6feb;
+  font-size: 11px;
+  font-weight: 850;
+  padding: 4px 8px;
 }
 
 .sub-market-pricing {
@@ -2937,6 +2953,13 @@ input {
   color: #b45309;
   font-size: 11px;
   font-weight: 800;
+}
+
+.sub-market-rationale {
+  margin: 10px 0 0;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .sub-market-source {
@@ -3495,4 +3518,3 @@ input {
     padding-left: 0;
   }
 }
-

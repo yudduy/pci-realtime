@@ -5,6 +5,7 @@ import { buildMarketProvenance, type MarketProvenance } from "@/lib/provenance"
 import type {
   CurrentPci,
   Forecast,
+  MarketIntelligence,
   MarketDiscoveryCandidate,
   MarketSnapshot,
   PolicyEvent,
@@ -28,6 +29,7 @@ export type ProvisionView = {
   events: PolicyEvent[]
   eligibleMarkets: MarketSnapshot[]
   nearMissMarkets: MarketDiscoveryCandidate[]
+  intelligenceMarkets: MarketIntelligence[]
   openForecasts: Forecast[]
   resolvedForecasts: ResolvedForecast[]
   provenance: MarketProvenance
@@ -51,7 +53,10 @@ export type SubMarketRow = {
   policyRelevant: boolean
   resolutionClear: boolean
   url: string | null
-  source: "snapshot" | "candidate"
+  source: "snapshot" | "candidate" | "assessment"
+  tier: string | null
+  assessmentConfidence: number | null
+  rationale: string | null
   rejectionReasons: string[]
 }
 
@@ -101,11 +106,18 @@ export function getProvisionView(data: RegistryData, code: string): ProvisionVie
   const coverage = buildMarketCoverage(data)
   const scopedCandidates = candidatesForProvision(data.marketDiscoveryCandidates, code)
   const nearMissMarkets = scopedCandidates.filter((candidate) => !candidate.eligible_snapshot)
+  const intelligenceMarkets = data.marketIntelligence
+    .filter((row) => row.provision === code)
+    .sort((a, b) => Number(b.eligible_for_forecast) - Number(a.eligible_for_forecast) || b.confidence - a.confidence)
   const openForecasts = data.openForecasts.filter((forecast) => forecast.provision === code)
   const resolvedForecasts = data.resolvedForecasts.filter((forecast) => forecast.provision === code)
   const timelines = data.provisionTimelines.filter((row) => row.provision === code)
 
   const provenance = buildMarketProvenance(pciMarket, data)
+
+  const eligibleKeys = new Set(
+    eligibleMarkets.map((snapshot) => `${snapshot.venue}:${snapshot.ticker}`),
+  )
 
   const marketSubrows: SubMarketRow[] = [
     ...eligibleMarkets.map<SubMarketRow>((snapshot) => ({
@@ -127,8 +139,39 @@ export function getProvisionView(data: RegistryData, code: string): ProvisionVie
       resolutionClear: Boolean(snapshot.resolution_text),
       url: null,
       source: "snapshot",
+      tier: "direct_policy",
+      assessmentConfidence: null,
+      rationale: null,
       rejectionReasons: [],
     })),
+    ...intelligenceMarkets
+      .filter((row) => !eligibleKeys.has(`${row.venue}:${row.ticker}`))
+      .map<SubMarketRow>((row) => ({
+        id: `assessment:${row.assessment_id}`,
+        marketKey: `${row.venue}:${row.ticker}`,
+        title: row.title ?? row.ticker,
+        venue: row.venue,
+        ticker: row.ticker,
+        status: row.relevance_class.replaceAll("_", " "),
+        yes: row.yes_ask ?? row.market_probability,
+        no:
+          row.yes_bid === null || row.yes_bid === undefined
+            ? null
+            : 1 - row.yes_bid,
+        volume: row.volume,
+        liquidity: row.liquidity_dollars,
+        closeTime: row.close_time,
+        policyRelevant: row.relevance_class !== "unrelated",
+        resolutionClear: row.resolution_fit === "clear",
+        url: row.market_url,
+        source: "assessment",
+        tier: row.relevance_class,
+        assessmentConfidence: row.confidence,
+        rationale: row.rationale,
+        rejectionReasons: row.eligible_for_forecast
+          ? []
+          : [row.relevance_class, `resolution_${row.resolution_fit}`],
+      })),
     ...nearMissMarkets.map<SubMarketRow>((candidate) => ({
       id: `candidate:${candidate.candidate_id}`,
       marketKey: `${candidate.venue}:${candidate.ticker}`,
@@ -145,6 +188,9 @@ export function getProvisionView(data: RegistryData, code: string): ProvisionVie
       resolutionClear: candidate.resolution_clear,
       url: candidate.market_url,
       source: "candidate",
+      tier: null,
+      assessmentConfidence: null,
+      rationale: null,
       rejectionReasons: candidate.rejection_reasons,
     })),
   ]
@@ -168,6 +214,7 @@ export function getProvisionView(data: RegistryData, code: string): ProvisionVie
     events,
     eligibleMarkets,
     nearMissMarkets,
+    intelligenceMarkets,
     openForecasts,
     resolvedForecasts,
     provenance,

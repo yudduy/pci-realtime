@@ -6,6 +6,9 @@ from pci_realtime.forecast_registry.discovery import (
     MarketScanResult,
     market_candidate_row,
 )
+from pci_realtime.forecast_registry.market_intelligence import (
+    HeuristicMarketAssessmentClient,
+)
 from pci_realtime.pipeline.market_discovery import (
     build_market_discovery_rows,
     write_market_discovery_rows,
@@ -14,6 +17,7 @@ from pci_realtime.pipeline.market_discovery import (
 
 FIXED_RUN_ID = "00000000-0000-0000-0000-000000000001"
 FIXED_NOW = "2026-05-26T12:00:00+00:00"
+ASSESSOR = HeuristicMarketAssessmentClient()
 
 
 def _policy_market() -> dict[str, Any]:
@@ -62,7 +66,10 @@ def test_market_discovery_rows_record_candidate_audit(monkeypatch) -> None:
     )
 
     rows = build_market_discovery_rows(
-        run_id=FIXED_RUN_ID, fetch_kalshi=True, fetch_polymarket=False
+        run_id=FIXED_RUN_ID,
+        fetch_kalshi=True,
+        fetch_polymarket=False,
+        assessment_client=ASSESSOR,
     )
 
     assert rows["pipeline_runs"][0]["run_type"] == "market_discovery"

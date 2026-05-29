@@ -22,14 +22,23 @@ export function SubMarketList({ rows }: { rows: SubMarketRow[] }) {
 
 function SubMarketRowItem({ row }: { row: SubMarketRow }) {
   const eligible = row.source === "snapshot"
+  const assessed = row.source === "assessment"
   return (
-    <li className={`sub-market-row ${eligible ? "eligible" : "near-miss"}`}>
+    <li className={`sub-market-row ${eligible ? "eligible" : assessed ? "assessed" : "near-miss"}`}>
       <div className="sub-market-row-head">
         <div className="sub-market-title">
           <strong>{row.title}</strong>
           <span>
             {row.venue.toUpperCase()} · {row.ticker}
           </span>
+          {row.tier && (
+            <small className="sub-market-tier">
+              {humanizeReason(row.tier)}
+              {row.assessmentConfidence !== null
+                ? ` · ${Math.round(row.assessmentConfidence * 100)}%`
+                : ""}
+            </small>
+          )}
         </div>
         <div className="sub-market-pricing" aria-label="Market pricing">
           {row.yes !== null ? (
@@ -59,6 +68,8 @@ function SubMarketRowItem({ row }: { row: SubMarketRow }) {
           ))}
         </ul>
       )}
+
+      {row.rationale && <p className="sub-market-rationale">{row.rationale}</p>}
 
       {row.url && (
         <a href={row.url} className="sub-market-source" rel="noopener noreferrer">

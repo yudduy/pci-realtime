@@ -190,6 +190,12 @@ def score_signal_market_match(
     confidence = min(
         0.95, 0.25 + overlap_score + policy_bonus + provision_bonus + channel_bonus
     )
+    assessment = (market.get("raw_public_metadata") or {}).get("assessment") or {}
+    if assessment.get("provision") == provision and assessment.get(
+        "eligible_for_forecast"
+    ):
+        confidence = max(confidence, float(assessment.get("confidence") or 0.0))
+        matched_terms.append("market_assessment")
     return round(confidence, 4), matched_terms
 
 

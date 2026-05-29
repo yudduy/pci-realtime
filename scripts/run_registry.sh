@@ -71,7 +71,8 @@ SUPABASE_SERVICE_ROLE_KEY="$SECRET_KEY" \
     --start-date "$START_DATE" \
     --end-date "$END_DATE" \
     --confirm-cost \
-    --fetch-markets
+    --fetch-markets \
+    --fetch-polymarket
 
 if [[ "$RUN_DAILY_REFRESH" == "true" ]]; then
   SUPABASE_URL="$API_URL" \

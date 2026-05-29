@@ -218,6 +218,42 @@ const marketDiscoveryCandidates = [
   },
 ]
 
+const marketIntelligence = [
+  intelligence({
+    code: "45V",
+    venue: "kalshi",
+    ticker: "KXIRA-45VREPEAL-YES",
+    title: "Will Congress repeal or terminate the 45V clean hydrogen tax credit?",
+    relevance: "direct_policy",
+    fit: "clear",
+    confidence: 0.78,
+    eligible: true,
+    rationale: "Resolution directly covers Section 45V repeal or termination.",
+  }),
+  intelligence({
+    code: "30D",
+    venue: "polymarket",
+    ticker: "tesla-robovan-orders",
+    title: "Will Tesla open orders for the Robovan before 2027?",
+    relevance: "sector_proxy",
+    fit: "partial",
+    confidence: 0.44,
+    eligible: false,
+    rationale: "EV demand proxy, not a resolution on the 30D consumer credit.",
+  }),
+  intelligence({
+    code: "50141",
+    venue: "kalshi",
+    ticker: "KXLPO2026-CONT",
+    title: "Will Congress reauthorize the DOE Loan Programs Office in 2026?",
+    relevance: "implementation_proxy",
+    fit: "ambiguous",
+    confidence: 0.58,
+    eligible: false,
+    rationale: "Related to LPO authority, but resolution text is not clear enough for forecast publication.",
+  }),
+]
+
 const policyEvents = [
   policyEvent({
     code: "45V",
@@ -459,6 +495,7 @@ const views = {
   v_trade_proposals: tradeProposals,
   v_market_snapshots: marketSnapshots,
   v_market_discovery_candidates: marketDiscoveryCandidates,
+  v_market_intelligence: marketIntelligence,
   v_policy_events: policyEvents,
   v_pipeline_status: pipelineRuns,
   v_provision_timelines: provisionTimelines,
@@ -552,6 +589,43 @@ function snapshot({ code, venue, ticker, title, yesAsk, yesBid, volume, liquidit
     policy_relevant: true,
     resolution_text: resolution,
     query_name: `provision:${code}`,
+  }
+}
+
+function intelligence({ code, venue, ticker, title, relevance, fit, confidence, eligible, rationale }) {
+  return {
+    assessment_id: `${venue}:${ticker}:${code}`,
+    assessed_at: now,
+    venue,
+    ticker,
+    provision: code,
+    provision_name: currentPci.find((p) => p.code === code)?.name ?? code,
+    relevance_class: relevance,
+    resolution_fit: fit,
+    orientation: relevance === "sector_proxy" ? "demand_proxy" : "continuity",
+    confidence,
+    evidence_span: title,
+    rationale,
+    eligible_for_forecast: eligible,
+    model_provider: "offline",
+    model_name: "market_assessment_heuristic_v1",
+    prompt_version: "market-assessment-v1",
+    cached: false,
+    title,
+    market_url: `https://example.com/${ticker}`,
+    status: "active",
+    close_time: "2026-12-31T23:59:59.000Z",
+    market_probability: 0.5,
+    yes_bid: 0.48,
+    yes_ask: 0.52,
+    bid_ask_spread: 0.04,
+    liquidity_dollars: 12_500,
+    volume: 24_000,
+    volume_24h: 200,
+    resolution_text: title,
+    first_seen_at: ago(8),
+    last_seen_at: now,
+    raw_public_metadata: {},
   }
 }
 

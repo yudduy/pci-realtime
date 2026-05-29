@@ -20,6 +20,10 @@ from pci_realtime.forecast_registry.kalshi import (
     parse_market_snapshot,
     read_jsonl,
 )
+from pci_realtime.forecast_registry.polymarket import (
+    PolymarketClient,
+    parse_polymarket_snapshot,
+)
 from pci_realtime.forecast_registry.store import (
     SupabaseRestClient,
     market_to_row,
@@ -57,7 +61,11 @@ def _fetch_current_market_snapshots(
     base_url: str,
 ) -> list[dict[str, Any]]:
     tickers = sorted(
-        {str(forecast.get("market_ticker") or "") for forecast in forecasts}
+        {
+            str(forecast.get("market_ticker") or "")
+            for forecast in forecasts
+            if str(forecast.get("venue") or "kalshi") == "kalshi"
+        }
     )
     tickers = [ticker for ticker in tickers if ticker]
     generated_at = utc_now_iso()
@@ -81,6 +89,24 @@ def _fetch_current_market_snapshots(
             )
     finally:
         client.close()
+    polymarket_slugs = sorted(
+        {
+            str(forecast.get("market_ticker") or "")
+            for forecast in forecasts
+            if str(forecast.get("venue") or "") == "polymarket"
+        }
+    )
+    poly_client = PolymarketClient()
+    try:
+        for slug in polymarket_slugs:
+            market = poly_client.get_market_by_slug(slug)
+            if market is None:
+                continue
+            snapshots.append(
+                parse_polymarket_snapshot(market, generated_at=generated_at)
+            )
+    finally:
+        poly_client.close()
     return snapshots
 
 
@@ -124,6 +150,27 @@ def _run_supabase_daily_refresh(
         outcomes=list(outcomes_for_metrics.values()),
         abstentions=[],
     )
+    source_health = [
+        source_health_row(
+            source="kalshi",
+            status="success",
+            row_count=sum(1 for market in markets if market.get("venue") == "kalshi"),
+            details={"refresh": "market snapshots and outcomes"},
+        )
+    ]
+    polymarket_row_count = sum(
+        1 for market in markets if market.get("venue") == "polymarket"
+    )
+    if polymarket_row_count:
+        source_health.append(
+            source_health_row(
+                source="polymarket",
+                status="success",
+                row_count=polymarket_row_count,
+                details={"refresh": "market snapshots"},
+            )
+        )
+
     rows_by_table = {
         "pipeline_runs": [
             {
@@ -141,14 +188,7 @@ def _run_supabase_daily_refresh(
         ],
         "market_snapshots": [market_to_row(market) for market in markets],
         "forecast_outcomes": [outcome_to_row(outcome) for outcome in outcomes],
-        "source_health": [
-            source_health_row(
-                source="kalshi",
-                status="success",
-                row_count=len(markets),
-                details={"refresh": "market snapshots and outcomes"},
-            )
-        ],
+        "source_health": source_health,
     }
     context_rows = (
         context_fetcher() if context_fetcher is not None else build_context_rows()

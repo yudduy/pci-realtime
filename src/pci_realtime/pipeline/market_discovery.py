@@ -14,10 +14,19 @@ from pci_realtime.forecast_registry.evidence import (
     source_health_row,
     source_links_from_market_snapshots,
 )
+from pci_realtime.forecast_registry.engine import utc_now_iso
 from pci_realtime.forecast_registry.kalshi import fetch_market_snapshot_scan
+from pci_realtime.forecast_registry.market_intelligence import (
+    MarketAssessmentClient,
+    build_market_assessment_rows,
+    eligible_snapshots_from_assessments,
+    market_inventory_rows,
+)
 from pci_realtime.forecast_registry.polymarket import fetch_polymarket_snapshot_scan
 from pci_realtime.forecast_registry.store import (
     SupabaseRestClient,
+    market_assessment_to_row,
+    market_inventory_to_row,
     market_to_row,
     write_json,
 )
@@ -62,12 +71,16 @@ def build_market_discovery_rows(
     query_file: Path = DEFAULT_QUERY_FILE,
     fetch_kalshi: bool = True,
     fetch_polymarket: bool = True,
+    kalshi_limit: int | None = None,
     polymarket_limit: int = 1000,
+    polymarket_market_limit: int | None = None,
     include_all_candidates: bool = False,
     request_interval_seconds: float = 0.0,
+    assessment_client: MarketAssessmentClient | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     run_id = run_id or str(uuid.uuid4())
-    snapshots: list[dict[str, Any]] = []
+    provider_snapshots: list[dict[str, Any]] = []
+    inventory_markets: list[dict[str, Any]] = []
     candidates: list[dict[str, Any]] = []
     source_health: list[dict[str, Any]] = []
     scans: dict[str, dict[str, Any]] = {}
@@ -82,8 +95,10 @@ def build_market_discovery_rows(
                 run_id=run_id,
                 include_all_candidates=include_all_candidates,
                 request_interval_seconds=request_interval_seconds,
+                limit_override=kalshi_limit,
             )
-            snapshots.extend(scan.snapshots)
+            provider_snapshots.extend(scan.snapshots)
+            inventory_markets.extend(scan.inventory or scan.snapshots)
             candidates.extend(scan.candidates)
             scans["kalshi"] = scan.stats
             source_health.append(
@@ -114,10 +129,12 @@ def build_market_discovery_rows(
                 query_file=query_file,
                 run_id=run_id,
                 limit=polymarket_limit,
+                market_limit=polymarket_market_limit,
                 include_all_candidates=include_all_candidates,
                 request_interval_seconds=request_interval_seconds,
             )
-            snapshots.extend(scan.snapshots)
+            provider_snapshots.extend(scan.snapshots)
+            inventory_markets.extend(scan.inventory or scan.snapshots)
             candidates.extend(scan.candidates)
             scans["polymarket"] = scan.stats
             source_health.append(
@@ -151,6 +168,24 @@ def build_market_discovery_rows(
     ]
     success_count = len(scans)
     status = "success" if success_count == len(requested) else "failed"
+    generated_at = (
+        inventory_markets[0].get("generated_at") if inventory_markets else None
+    ) or utc_now_iso()
+    assessments, assessment_stats = build_market_assessment_rows(
+        markets=inventory_markets or provider_snapshots,
+        candidates=candidates,
+        run_id=run_id,
+        generated_at=str(generated_at),
+        client=assessment_client,
+    )
+    snapshots = eligible_snapshots_from_assessments(
+        inventory_markets or provider_snapshots, assessments
+    )
+    inventory_rows = market_inventory_rows(
+        inventory_markets or provider_snapshots,
+        run_id=run_id,
+        generated_at=str(generated_at),
+    )
     metadata = {
         "requested_venues": requested,
         "successful_venues": sorted(scans),
@@ -158,10 +193,14 @@ def build_market_discovery_rows(
         "scan": _combine_stats(scans),
         "provider_limit_references": PROVIDER_LIMIT_REFERENCES,
         "markets": len(snapshots),
+        "market_inventory": len(inventory_rows),
         "market_discovery_candidates": len(candidates),
+        "market_assessments": len(assessments),
         "eligible_candidates": sum(
             1 for row in candidates if row.get("eligible_snapshot")
         ),
+        "eligible_assessments": assessment_stats["eligible_for_forecast"],
+        "assessment": assessment_stats,
         "include_all_candidates": include_all_candidates,
         "elapsed_ms": round((time.monotonic() - started) * 1000),
         "absence_claim": (
@@ -182,6 +221,8 @@ def build_market_discovery_rows(
             }
         ],
         "market_snapshots": [market_to_row(market) for market in snapshots],
+        "market_inventory": [market_inventory_to_row(row) for row in inventory_rows],
+        "market_assessments": [market_assessment_to_row(row) for row in assessments],
         "market_discovery_candidates": candidates,
         "source_documents": source_document_rows_from_markets(snapshots),
         "evidence_items": evidence_rows_from_market_snapshots(snapshots),
@@ -196,6 +237,16 @@ def write_market_discovery_rows(
     client: SupabaseRestClient,
 ) -> None:
     client.insert_rows("pipeline_runs", rows_by_table["pipeline_runs"])
+    client.upsert_rows(
+        "market_inventory",
+        rows_by_table.get("market_inventory", []),
+        on_conflict="venue,ticker",
+    )
+    client.upsert_rows(
+        "market_assessments",
+        rows_by_table.get("market_assessments", []),
+        on_conflict="assessment_id",
+    )
     client.insert_rows("market_snapshots", rows_by_table["market_snapshots"])
     client.upsert_rows(
         "market_discovery_candidates",
@@ -229,7 +280,9 @@ def run_market_discovery(
     query_file: Path = DEFAULT_QUERY_FILE,
     fetch_kalshi: bool = True,
     fetch_polymarket: bool = True,
+    kalshi_limit: int | None = None,
     polymarket_limit: int = 1000,
+    polymarket_market_limit: int | None = None,
     include_all_candidates: bool = False,
     request_interval_seconds: float = 0.0,
     dry_run: bool = False,
@@ -242,7 +295,9 @@ def run_market_discovery(
         query_file=query_file,
         fetch_kalshi=fetch_kalshi,
         fetch_polymarket=fetch_polymarket,
+        kalshi_limit=kalshi_limit,
         polymarket_limit=polymarket_limit,
+        polymarket_market_limit=polymarket_market_limit,
         include_all_candidates=include_all_candidates,
         request_interval_seconds=request_interval_seconds,
     )
@@ -270,7 +325,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--query-file", default=str(DEFAULT_QUERY_FILE))
     parser.add_argument("--no-kalshi", action="store_true")
     parser.add_argument("--no-polymarket", action="store_true")
+    parser.add_argument("--kalshi-limit", type=int)
     parser.add_argument("--polymarket-limit", type=int, default=1000)
+    parser.add_argument("--polymarket-market-limit", type=int)
     parser.add_argument("--include-all-candidates", action="store_true")
     parser.add_argument("--request-interval-seconds", type=float, default=0.0)
     parser.add_argument("--dry-run", action="store_true")
@@ -285,7 +342,9 @@ def main() -> None:
         query_file=Path(args.query_file),
         fetch_kalshi=not args.no_kalshi,
         fetch_polymarket=not args.no_polymarket,
+        kalshi_limit=args.kalshi_limit,
         polymarket_limit=args.polymarket_limit,
+        polymarket_market_limit=args.polymarket_market_limit,
         include_all_candidates=args.include_all_candidates,
         request_interval_seconds=args.request_interval_seconds,
         dry_run=args.dry_run,

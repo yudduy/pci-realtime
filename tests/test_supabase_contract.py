@@ -20,13 +20,19 @@ def test_public_views_filter_policy_relevant_clear_public_forecasts() -> None:
     assert "add column if not exists raw_public_metadata" in sql
     assert "create table if not exists scored_deltas" in sql
     assert "create table if not exists market_discovery_candidates" in sql
+    assert "create table if not exists market_inventory" in sql
+    assert "create table if not exists market_assessments" in sql
     assert "'market_discovery'" in sql
     assert "grant all on scored_deltas to service_role" in sql
     assert "grant all on market_discovery_candidates to service_role" in sql
+    assert "grant all on market_inventory to service_role" in sql
+    assert "grant all on market_assessments to service_role" in sql
     assert "grant all on source_request_cache to service_role" in sql
     assert "grant all on document_chunks to service_role" in sql
     assert "grant select on source_request_cache" not in sql
     assert "grant select on document_chunks" not in sql
     assert "view v_evidence_items" in sql
     assert "view v_market_discovery_candidates" in sql
+    assert "view v_market_intelligence" in sql
+    assert "grant select on v_market_intelligence" in sql
     assert "grant select on v_source_health" in sql

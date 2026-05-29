@@ -7,6 +7,9 @@ import pandas as pd
 import requests
 
 from pci_realtime.ingest.request_cache import CachedSession
+from pci_realtime.forecast_registry.market_intelligence import (
+    HeuristicMarketAssessmentClient,
+)
 from pci_realtime.pipeline.weekly_live import (
     build_weekly_live_rows,
     run_official_ingest,
@@ -16,6 +19,7 @@ from pci_realtime.pipeline.weekly_live import (
 
 
 FIXED_RUN_ID = "00000000-0000-0000-0000-000000000001"
+ASSESSOR = HeuristicMarketAssessmentClient()
 
 
 def _raw_doc_row() -> dict[str, Any]:
@@ -113,12 +117,15 @@ def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
         scored_dir=scored_dir,
         market_fixture_path=market_path,
         run_id=FIXED_RUN_ID,
+        assessment_client=ASSESSOR,
     )
 
     assert len(rows["provisions"]) == 6
     assert len(rows["scored_deltas"]) == 1
     assert len(rows["policy_events"]) == 1
     assert len(rows["market_snapshots"]) == 1
+    assert len(rows["market_inventory"]) == 1
+    assert len(rows["market_assessments"]) == 1
     assert len(rows["market_discovery_candidates"]) == 1
     assert len(rows["source_documents"]) == 2
     assert len(rows["document_chunks"]) >= 1
@@ -128,6 +135,8 @@ def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
     assert len(rows["trade_proposals"]) == 1
     assert rows["pipeline_runs"][0]["metadata"]["forecasts"] == 1
     assert rows["pipeline_runs"][0]["metadata"]["trade_proposals"] == 1
+    assert rows["pipeline_runs"][0]["metadata"]["market_assessments"] == 1
+    assert rows["pipeline_runs"][0]["metadata"]["eligible_assessments"] == 1
     assert rows["pipeline_runs"][0]["metadata"]["evidence_engine"]["mode"] == "audit"
     assert (
         rows["pipeline_runs"][0]["metadata"]["evidence_engine"][
@@ -141,6 +150,7 @@ def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
     assert rows["forecasts"][0]["provision"] == "45V"
     assert rows["trade_proposals"][0]["approval_status"] == "pending_human_approval"
     assert rows["market_discovery_candidates"][0]["eligible_snapshot"] is True
+    assert rows["market_assessments"][0]["eligible_for_forecast"] is True
     assert (
         rows["source_documents"][0]["source_doc_id"] == "federal_register:45v-guidance"
     )
@@ -173,12 +183,15 @@ def test_weekly_live_rows_baseline_only_has_no_fake_forecasts(tmp_path: Path) ->
         raw_root=tmp_path / "raw",
         scored_dir=tmp_path / "scored",
         run_id=FIXED_RUN_ID,
+        assessment_client=ASSESSOR,
     )
 
     assert len(rows["provisions"]) == 6
     assert rows["policy_events"] == []
     assert rows["scored_deltas"] == []
     assert rows["market_snapshots"] == []
+    assert rows["market_inventory"] == []
+    assert rows["market_assessments"] == []
     assert rows["market_discovery_candidates"] == []
     assert rows["forecasts"] == []
     assert rows["trade_proposals"] == []
@@ -202,9 +215,12 @@ def test_weekly_live_can_publish_market_scan_without_fake_forecasts(
         scored_dir=tmp_path / "scored",
         market_fixture_path=market_path,
         run_id=FIXED_RUN_ID,
+        assessment_client=ASSESSOR,
     )
 
     assert len(rows["market_snapshots"]) == 1
+    assert len(rows["market_inventory"]) == 1
+    assert len(rows["market_assessments"]) == 1
     assert len(rows["market_discovery_candidates"]) == 1
     assert rows["scored_deltas"] == []
     assert len(rows["source_documents"]) == 1
@@ -242,6 +258,7 @@ def test_write_supabase_rows_uses_upserts_for_current_state_tables(
         scored_dir=scored_dir,
         market_fixture_path=market_path,
         run_id=FIXED_RUN_ID,
+        assessment_client=ASSESSOR,
     )
     client = RecordingSupabaseClient()
 
@@ -255,6 +272,18 @@ def test_write_supabase_rows_uses_upserts_for_current_state_tables(
     )
     assert ("upsert", "policy_events", 1, "event_id") in client.calls
     assert ("insert", "forecasts", 1, None) in client.calls
+    assert (
+        "upsert",
+        "market_inventory",
+        len(rows["market_inventory"]),
+        "venue,ticker",
+    ) in client.calls
+    assert (
+        "upsert",
+        "market_assessments",
+        len(rows["market_assessments"]),
+        "assessment_id",
+    ) in client.calls
     assert (
         "upsert",
         "market_discovery_candidates",
@@ -314,6 +343,7 @@ def test_weekly_live_dry_run_writes_payload_without_supabase(
         market_fixture_path=market_path,
         dry_run=True,
         output_path=output_path,
+        assessment_client=ASSESSOR,
     )
 
     assert result.counts["forecasts"] == 1

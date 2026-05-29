@@ -38,6 +38,7 @@ export function ProvisionRightRail({ view }: { view: ProvisionView }) {
       <section className="provision-rail-block">
         <p className="provision-rail-eyebrow">Market eligibility</p>
         <RailFact label="Eligible markets" value={String(view.eligibleMarkets.length)} />
+        <RailFact label="Assessed markets" value={String(view.intelligenceMarkets.length)} />
         <RailFact label="Near-miss" value={String(view.nearMissMarkets.length)} />
         <RailFact
           label="Open forecasts"

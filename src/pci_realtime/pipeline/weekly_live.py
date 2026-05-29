@@ -37,11 +37,19 @@ from pci_realtime.forecast_registry.kalshi import (
     fetch_market_snapshot_scan,
     snapshots_from_fixture,
 )
+from pci_realtime.forecast_registry.market_intelligence import (
+    MarketAssessmentClient,
+    build_market_assessment_rows,
+    eligible_snapshots_from_assessments,
+    market_inventory_rows,
+)
 from pci_realtime.forecast_registry.polymarket import fetch_polymarket_snapshot_scan
 from pci_realtime.forecast_registry.store import (
     SupabaseRestClient,
     build_seed_rows,
     forecast_to_row,
+    market_assessment_to_row,
+    market_inventory_to_row,
     market_to_row,
     scored_delta_to_row,
     trade_proposal_to_row,
@@ -402,6 +410,7 @@ def build_weekly_live_rows(
     evidence_mode: str = "audit",
     retrieval_top_k: int = 20,
     extraction_top_k: int = 10,
+    assessment_client: MarketAssessmentClient | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     run_id = run_id or str(uuid.uuid4())
     local_scored = _filter_scored_through_week(
@@ -455,6 +464,7 @@ def build_weekly_live_rows(
         "by_venue": {},
     }
     market_candidates: list[dict[str, Any]] = []
+    market_inventory: list[dict[str, Any]] = []
     market_generated_at = utc_now_iso()
 
     def merge_market_scan(venue: str, stats: dict[str, Any]) -> None:
@@ -465,6 +475,7 @@ def build_weekly_live_rows(
 
     if market_fixture_path is not None:
         markets = snapshots_from_fixture(market_fixture_path, audit=market_scan)
+        market_inventory = list(markets)
         market_candidates = [
             market_candidate_row(
                 market,
@@ -482,7 +493,8 @@ def build_weekly_live_rows(
             run_id=run_id,
             generated_at=market_generated_at,
         )
-        markets = list(kalshi_scan.snapshots)
+        market_inventory.extend(kalshi_scan.inventory or kalshi_scan.snapshots)
+        markets = []
         market_candidates.extend(kalshi_scan.candidates)
         merge_market_scan("kalshi", kalshi_scan.stats)
         if fetch_polymarket:
@@ -491,11 +503,29 @@ def build_weekly_live_rows(
                 run_id=run_id,
                 generated_at=market_generated_at,
             )
-            markets.extend(polymarket_scan.snapshots)
+            market_inventory.extend(
+                polymarket_scan.inventory or polymarket_scan.snapshots
+            )
             market_candidates.extend(polymarket_scan.candidates)
             merge_market_scan("polymarket", polymarket_scan.stats)
     else:
         markets = []
+
+    market_assessments, assessment_stats = build_market_assessment_rows(
+        markets=market_inventory or markets,
+        candidates=market_candidates,
+        run_id=run_id,
+        generated_at=market_generated_at,
+        client=assessment_client,
+    )
+    markets = eligible_snapshots_from_assessments(
+        market_inventory or markets, market_assessments
+    )
+    inventory_rows = market_inventory_rows(
+        market_inventory or markets,
+        run_id=run_id,
+        generated_at=market_generated_at,
+    )
 
     matches = match_signals_to_markets(signals, markets)
     forecasts = build_forecasts(signals=signals, markets=markets, matches=matches)
@@ -519,7 +549,11 @@ def build_weekly_live_rows(
                 "policy_events": len(policy_events),
                 "signals": len(signals),
                 "markets": len(markets),
+                "market_inventory": len(inventory_rows),
+                "market_assessments": len(market_assessments),
+                "eligible_assessments": assessment_stats["eligible_for_forecast"],
                 "market_scan": market_scan,
+                "market_assessment": assessment_stats,
                 "matches": len(matches),
                 "forecasts": len(forecasts),
                 "trade_proposals": len(trade_proposals),
@@ -537,6 +571,10 @@ def build_weekly_live_rows(
         "pci_weekly": weekly_rows,
         "policy_events": _policy_event_table_rows(policy_events),
         "market_snapshots": [market_to_row(market) for market in markets],
+        "market_inventory": [market_inventory_to_row(row) for row in inventory_rows],
+        "market_assessments": [
+            market_assessment_to_row(row) for row in market_assessments
+        ],
         "market_discovery_candidates": market_candidates,
         "source_documents": [
             *source_document_rows_from_raw_docs(raw_docs),
@@ -771,6 +809,7 @@ def run_weekly_live(
     evidence_mode: str = "audit",
     retrieval_top_k: int = 20,
     extraction_top_k: int = 10,
+    assessment_client: MarketAssessmentClient | None = None,
 ) -> WeeklyLiveResult:
     week = _iso_week_from_date(start_date)
     run_id = str(uuid.uuid4())
@@ -813,6 +852,7 @@ def run_weekly_live(
         evidence_mode=evidence_mode,
         retrieval_top_k=retrieval_top_k,
         extraction_top_k=extraction_top_k,
+        assessment_client=assessment_client,
     )
     counts = {table: len(rows) for table, rows in rows_by_table.items()}
     if output_path is not None:

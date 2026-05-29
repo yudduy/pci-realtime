@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from pci_realtime.forecast_registry.polymarket import parse_polymarket_snapshot
+from pci_realtime.forecast_registry.polymarket import (
+    PolymarketClient,
+    parse_polymarket_snapshot,
+)
 from pci_realtime.ingest.public_sources import (
     CourtListenerClient,
     EIAClient,
@@ -168,6 +171,37 @@ def test_polymarket_snapshot_is_display_only_market_data() -> None:
     assert snapshot["venue"] == "polymarket"
     assert snapshot["policy_relevant"] is True
     assert snapshot["market_probability"] == 0.42
+
+
+class FakePolymarketClient(PolymarketClient):
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any] | None]] = []
+
+    def _get_json(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
+        self.calls.append((path, params))
+        if path == "/public-search":
+            return {"events": [], "markets": []}
+        if path == "/events/keyset":
+            return {"events": [{"slug": "event", "markets": []}], "next_cursor": None}
+        if path == "/markets/keyset":
+            return {"markets": [{"slug": "market"}], "next_cursor": None}
+        if path == "/tags":
+            return [{"label": "climate"}]
+        if path == "/series":
+            return {"series": [{"slug": "us-annual-inflation"}]}
+        return {}
+
+
+def test_polymarket_client_exposes_search_and_keyset_helpers() -> None:
+    client = FakePolymarketClient()
+
+    assert client.public_search(query="45V") == {"events": [], "markets": []}
+    assert client.get_events_keyset(title_search="45V")["events"][0]["slug"] == "event"
+    assert client.get_markets_keyset()["markets"][0]["slug"] == "market"
+    assert client.get_tags()[0]["label"] == "climate"
+    assert client.get_series()[0]["slug"] == "us-annual-inflation"
+    assert client.calls[0][0] == "/public-search"
+    assert client.calls[1][1]["title_search"] == "45V"
 
 
 def test_fred_client_disables_without_key(monkeypatch) -> None:

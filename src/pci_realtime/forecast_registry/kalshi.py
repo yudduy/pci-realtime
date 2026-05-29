@@ -409,6 +409,7 @@ def fetch_market_snapshot_scan(
     run_id: str | None = None,
     include_all_candidates: bool = False,
     request_interval_seconds: float = 0.0,
+    limit_override: int | None = None,
 ) -> MarketScanResult:
     client = KalshiClient(
         base_url=base_url, request_interval_seconds=request_interval_seconds
@@ -418,6 +419,7 @@ def fetch_market_snapshot_scan(
     seen: set[str] = set()
     snapshots: list[dict[str, Any]] = []
     candidates: list[dict[str, Any]] = []
+    inventory: list[dict[str, Any]] = []
     stats = {
         "scanned": 0,
         "published": 0,
@@ -433,7 +435,7 @@ def fetch_market_snapshot_scan(
         for query in load_queries(query_file):
             markets = client.get_markets(
                 status=query.status,
-                limit=query.limit,
+                limit=limit_override or query.limit,
                 series_ticker=query.series_ticker,
                 event_ticker=query.event_ticker,
                 tickers=query.tickers,
@@ -444,6 +446,13 @@ def fetch_market_snapshot_scan(
                 if not ticker or ticker in seen:
                     stats["rejected_duplicate"] += 1
                     continue
+                inventory_snapshot = parse_market_snapshot(
+                    market,
+                    query_name=query.name,
+                    orderbook=None,
+                    generated_at=generated,
+                )
+                inventory.append(inventory_snapshot)
                 passes_query = _passes_query_keywords(market, query.keywords)
                 if not passes_query:
                     stats["rejected_query_keywords"] += 1
@@ -494,6 +503,7 @@ def fetch_market_snapshot_scan(
         snapshots=sorted(snapshots, key=lambda row: row["ticker"]),
         candidates=sorted(candidates, key=lambda row: (row["venue"], row["ticker"])),
         stats=stats,
+        inventory=sorted(inventory, key=lambda row: row["ticker"]),
     )
 
 

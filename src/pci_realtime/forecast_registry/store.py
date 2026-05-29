@@ -264,6 +264,57 @@ def market_to_row(market: dict[str, Any]) -> dict[str, Any]:
     return json_clean(row)
 
 
+def market_inventory_to_row(row: dict[str, Any]) -> dict[str, Any]:
+    allowed = {
+        "venue",
+        "ticker",
+        "latest_run_id",
+        "last_seen_at",
+        "title",
+        "market_url",
+        "status",
+        "close_time",
+        "market_probability",
+        "yes_bid",
+        "yes_ask",
+        "bid_ask_spread",
+        "liquidity_dollars",
+        "volume",
+        "volume_24h",
+        "open_interest",
+        "resolution_text",
+        "source_payload_hash",
+        "raw_public_metadata",
+    }
+    return json_clean({key: value for key, value in row.items() if key in allowed})
+
+
+def market_assessment_to_row(row: dict[str, Any]) -> dict[str, Any]:
+    allowed = {
+        "assessment_id",
+        "schema_version",
+        "assessed_at",
+        "latest_run_id",
+        "venue",
+        "ticker",
+        "provision",
+        "source_text_hash",
+        "relevance_class",
+        "resolution_fit",
+        "orientation",
+        "confidence",
+        "evidence_span",
+        "rationale",
+        "eligible_for_forecast",
+        "model_provider",
+        "model_name",
+        "prompt_version",
+        "cached",
+        "raw_public_metadata",
+    }
+    return json_clean({key: value for key, value in row.items() if key in allowed})
+
+
 def forecast_to_row(
     forecast: dict[str, Any], *, run_id: str | None = None
 ) -> dict[str, Any]:
@@ -405,6 +456,16 @@ def write_supabase_rows(
         on_conflict="event_id",
     )
     client.insert_rows("pipeline_runs", rows_by_table["pipeline_runs"])
+    client.upsert_rows(
+        "market_inventory",
+        rows_by_table.get("market_inventory", []),
+        on_conflict="venue,ticker",
+    )
+    client.upsert_rows(
+        "market_assessments",
+        rows_by_table.get("market_assessments", []),
+        on_conflict="assessment_id",
+    )
     client.insert_rows("market_snapshots", rows_by_table["market_snapshots"])
     client.upsert_rows(
         "market_discovery_candidates",
