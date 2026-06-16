@@ -1,14 +1,14 @@
 import { createServer } from "node:http"
 
-const now = "2026-05-24T08:00:00.000Z"
+const now = "2026-06-15T08:00:00.000Z"
 
 const currentPci = [
-  provision("30D", "Clean Vehicle Credit", 4.0, 4, 4, 4, 3.0),
-  provision("45Q", "Carbon Oxide Sequestration Credit", 4.33, 5, 4, 4, 4.33),
-  provision("45V", "Clean Hydrogen Production Credit", 4.33, 5, 4, 4, 3.33),
-  provision("45X", "Advanced Manufacturing Production Credit", 4.67, 5, 4, 5, 3.67),
-  provision("50141", "Loan Programs Office Funding", 3.0, 3, 3, 3, 2.33),
-  provision("50144", "Energy Infrastructure Reinvestment", 3.33, 4, 3, 3, 2.0),
+  policyUnit("30D", "Clean Vehicle Credit", 4.0, 4, 4, 4),
+  policyUnit("45Q", "Carbon Oxide Sequestration Credit", 4.33, 5, 4, 4),
+  policyUnit("45V", "Clean Hydrogen Production Credit", 4.33, 5, 4, 4),
+  policyUnit("45X", "Advanced Manufacturing Production Credit", 4.67, 5, 4, 5),
+  policyUnit("50141", "Loan Programs Office Funding", 3.0, 3, 3, 3),
+  policyUnit("50144", "Energy Infrastructure Reinvestment", 3.33, 4, 3, 3),
 ]
 
 const openForecasts = []
@@ -130,14 +130,46 @@ const evidenceItems = [
     confidence: 0.82,
     extractor_version: "test",
     created_at: now,
+    citation_quote: "Treasury guidance narrows eligibility for the clean hydrogen credit.",
+    citation_section: "Eligibility",
+    citation_page: null,
+    citation_url_fragment: null,
+    claim_hash: "claim-hash-45v",
+    submitted_by_agent_run_id: "agent-run:test-45v",
+    extraction_confidence: 0.82,
+    raw_public_metadata: {},
     source: "federal_register",
     source_name: "Federal Register",
     source_type: "official_text",
     source_title: "Clean hydrogen production credit guidance",
     agency: "Treasury Department",
     url: "https://www.federalregister.gov/documents/example",
+    canonical_url: "https://www.federalregister.gov/documents/example",
     published_at: now,
     fetched_at: now,
+  },
+]
+
+const sourceDocuments = [
+  {
+    source_doc_id: "federal_register:45v-guidance",
+    source: "federal_register",
+    source_name: "Federal Register",
+    source_type: "official_text",
+    external_id: "45v-guidance",
+    title: "Clean hydrogen production credit guidance",
+    agency: "Treasury Department",
+    url: "https://www.federalregister.gov/documents/example",
+    canonical_url: "https://www.federalregister.gov/documents/example",
+    published_at: now,
+    fetched_at: now,
+    first_seen_at: now,
+    last_seen_at: now,
+    submitted_by_agent_run_id: "agent-run:test-45v",
+    text_excerpt: "Treasury guidance narrows eligibility for the clean hydrogen credit.",
+    raw_public_metadata: {
+      citation_section: "Eligibility",
+    },
   },
 ]
 
@@ -201,6 +233,30 @@ const sourceHealth = [
   },
 ]
 
+const agentEvidenceSubmissions = [
+  {
+    submission_id: "submission:test-45v",
+    agent_run_id: "agent-run:test-45v",
+    provision: "45V",
+    provision_name: "Clean Hydrogen Production Credit",
+    source_doc_id: "federal_register:45v-guidance",
+    evidence_id: "evidence:2026-W21:federal_register:45v-guidance:45V",
+    event_id: "2026-W21:federal_register:45v-guidance:45V",
+    canonical_url: "https://www.federalregister.gov/documents/example",
+    source_title: "Clean hydrogen production credit guidance",
+    claim_hash: "claim-hash-45v",
+    status: "promoted",
+    rejection_reason: null,
+    promotion_result: {
+      week: "2026-W21",
+      pci_delta: -0.33,
+    },
+    submitted_at: now,
+    promoted_at: now,
+    raw_public_metadata: {},
+  },
+]
+
 const views = {
   v_current_pci: currentPci,
   v_open_forecasts: openForecasts,
@@ -213,11 +269,13 @@ const views = {
   v_provision_timelines: provisionTimelines,
   v_forecast_performance: forecastPerformance,
   v_evidence_items: evidenceItems,
+  v_source_documents: sourceDocuments,
   v_source_links: sourceLinks,
   v_source_health: sourceHealth,
+  v_agent_evidence_submissions: agentEvidenceSubmissions,
 }
 
-function provision(code, name, pci, specificity, durability, enforceability, obbbaPostPci) {
+function policyUnit(code, name, pci, specificity, durability, enforceability) {
   return {
     code,
     name,
@@ -233,9 +291,6 @@ function provision(code, name, pci, specificity, durability, enforceability, obb
     delta_this_week: 0,
     data_origin: "paper_anchor",
     baseline_pci: pci,
-    obbba_delta_pci: obbbaPostPci - pci,
-    obbba_post_pci: obbbaPostPci,
-    obbba_summary: "Paper OBBBA stress-test anchor.",
     updated_at: now,
   }
 }

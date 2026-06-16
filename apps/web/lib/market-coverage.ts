@@ -63,12 +63,12 @@ export function buildMarketCoverage(data: RegistryData): MarketCoverageSummary {
   }
 }
 
-export function candidatesForProvision(
+export function candidatesForPolicy(
   candidates: MarketDiscoveryCandidate[],
-  provision: string | null | undefined,
+  policyCode: string | null | undefined,
 ) {
-  if (!provision) return candidates
-  return candidates.filter((candidate) => candidate.matched_provisions.includes(provision))
+  if (!policyCode) return candidates
+  return candidates.filter((candidate) => candidate.matched_provisions.includes(policyCode))
 }
 
 export function rejectionLabel(reason: string) {

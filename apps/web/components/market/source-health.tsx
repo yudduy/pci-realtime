@@ -1,9 +1,24 @@
 import type { SourceHealth } from "@/lib/data"
 import { formatDateTime } from "@/components/market/format"
+import { SOURCE_PORTFOLIO } from "@/lib/policy-copy"
 
 export function SourceHealthStrip({ sources }: { sources: SourceHealth[] }) {
   const visible = sources.slice(0, 5)
-  if (!visible.length) return null
+  if (!visible.length) {
+    return (
+      <section className="source-strip" aria-label="Mapped policy sources">
+        {SOURCE_PORTFOLIO.slice(0, 5).map((source) => (
+          <div key={source.name} className="source-strip-item">
+            <span className="source-dot mapped" />
+            <div>
+              <strong>{source.name}</strong>
+              <span>{source.scope}</span>
+            </div>
+          </div>
+        ))}
+      </section>
+    )
+  }
 
   return (
     <section className="source-strip" aria-label="Source updates">

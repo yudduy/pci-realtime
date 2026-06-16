@@ -1,0 +1,278 @@
+[
+  {
+    "provision": "45V",
+    "source": {
+      "url": "https://home.treasury.gov/news/press-releases/jy2768",
+      "title": "Treasury final rules for clean hydrogen production tax credit",
+      "source_name": "U.S. Department of the Treasury",
+      "published_at": "2025-01-03"
+    },
+    "citation": {
+      "quote": "final rules for the section 45V Clean Hydrogen Production Tax Credit established by the Inflation Reduction Act.",
+      "section": "Press release"
+    },
+    "claim": "Treasury and IRS released final rules for section 45V on January 3, 2025, clarifying eligibility and lifecycle-emissions implementation.",
+    "idempotency_key": "45v-final-rules-2025-01-03"
+  },
+  {
+    "provision": "45Q",
+    "source": {
+      "url": "https://www.irs.gov/newsroom/treasury-irs-provide-safe-harbor-for-taxpayers-claiming-the-carbon-capture-credit",
+      "title": "IRS safe harbor for carbon capture credit",
+      "source_name": "Internal Revenue Service",
+      "published_at": "2025-12-19"
+    },
+    "citation": {
+      "quote": "provides a safe harbor for determining eligibility for and the amount of the credit",
+      "section": "Safe harbor"
+    },
+    "claim": "IRS Notice 2026-01 provides a section 45Q safe harbor for determining eligibility and credit amount for 2025 secure geological storage.",
+    "idempotency_key": "45q-notice-2026-01-safe-harbor-2025"
+  },
+  {
+    "provision": "45X",
+    "source": {
+      "url": "https://home.treasury.gov/news/press-releases/jy2671",
+      "title": "Treasury final rules for Advanced Manufacturing Production Credit",
+      "source_name": "U.S. Department of the Treasury",
+      "published_at": "2024-10-24"
+    },
+    "citation": {
+      "quote": "final rules for the Advanced Manufacturing Production Credit (Section 45X of the Internal Revenue Code)",
+      "section": "Press release"
+    },
+    "claim": "Treasury and IRS released final rules for section 45X on October 24, 2024, giving manufacturers rule-level clarity for eligible components and critical minerals.",
+    "idempotency_key": "45x-final-rules-2024-10-24"
+  },
+  {
+    "provision": "30D",
+    "source": {
+      "url": "https://www.irs.gov/newsroom/faqs-for-modification-of-sections-25c-25d-25e-30c-30d-45l-45w-and-179d-under-public-law-119-21-139-stat-72-july-4-2025-commonly-known-as-the-one-big-beautiful-bill-obbb",
+      "title": "IRS FAQ on section 30D termination under Public Law 119-21",
+      "source_name": "Internal Revenue Service",
+      "published_at": "2025-08-21"
+    },
+    "citation": {
+      "quote": "The credit will not be allowed for any vehicle acquired after September 30, 2025.",
+      "section": "FAQ 1"
+    },
+    "claim": "IRS states the section 30D new clean vehicle credit is unavailable for vehicles acquired after September 30, 2025.",
+    "idempotency_key": "30d-termination-after-2025-09-30"
+  },
+  {
+    "provision": "50141",
+    "source": {
+      "url": "https://www.govinfo.gov/content/pkg/PLAW-117publ169/pdf/PLAW-117publ169.pdf",
+      "title": "Public Law 117-169",
+      "source_name": "GovInfo",
+      "published_at": "2022-08-16"
+    },
+    "citation": {
+      "quote": "up to a total principal amount of $40,000,000,000, to remain available through September 30, 2026.",
+      "section": "Sec. 50141(a)",
+      "page": "226",
+      "url_fragment": "#page=226"
+    },
+    "claim": "IRA section 50141 added up to $40 billion in section 1703 loan-guarantee commitment authority through September 30, 2026.",
+    "idempotency_key": "ira-50141-govinfo-sec50141a-40b-authority"
+  },
+  {
+    "provision": "50141",
+    "source": {
+      "url": "https://www.energy.gov/sites/default/files/2023-03/IRA%20Title%20XVII%20Solicitation%20Supplement%20-%2003.10.2023.pdf",
+      "title": "IRA Title XVII Solicitation Supplement",
+      "source_name": "Department of Energy Loan Programs Office",
+      "published_at": "2023-03-10"
+    },
+    "citation": {
+      "quote": "The IRA Funding will be available to be used for all eligible projects under the Solicitations.",
+      "section": "Implementation",
+      "page": "2",
+      "url_fragment": "#page=2"
+    },
+    "claim": "DOE LPO states that section 50141 IRA funding is available across eligible section 1703 solicitation projects.",
+    "idempotency_key": "ira-50141-doe-lpo-supplement-all-eligible-solicitations"
+  },
+  {
+    "provision": "50144",
+    "source": {
+      "url": "https://www.govinfo.gov/content/pkg/PLAW-117publ169/pdf/PLAW-117publ169.pdf",
+      "title": "Public Law 117-169",
+      "source_name": "GovInfo",
+      "published_at": "2022-08-16"
+    },
+    "citation": {
+      "quote": "$5,000,000,000, to remain available through September 30, 2026,",
+      "section": "Sec. 50144(a)",
+      "page": "227",
+      "url_fragment": "#page=227"
+    },
+    "claim": "IRA section 50144 appropriated $5 billion through September 30, 2026 for Energy Infrastructure Reinvestment financing.",
+    "idempotency_key": "ira-50144-govinfo-sec50144a-5b-appropriation"
+  },
+  {
+    "provision": "50144",
+    "source": {
+      "url": "https://www.energy.gov/edf/articles/lpos-energy-infrastructure-reinvestment-1706-program",
+      "title": "LPO Energy Infrastructure Reinvestment 1706 Program",
+      "source_name": "Department of Energy Loan Programs Office",
+      "published_at": "2023-11-28"
+    },
+    "citation": {
+      "quote": "retool, repower, repurpose, or replace energy infrastructure that has ceased operations",
+      "section": "Program overview"
+    },
+    "claim": "DOE LPO states that EIR financing can support projects that retool, repower, repurpose, or replace energy infrastructure that has ceased operations.",
+    "idempotency_key": "ira-50144-doe-lpo-eir-ceased-operations-eligibility"
+  },
+  {
+    "provision": "30D",
+    "source": {
+      "url": "https://www.irs.gov/credits-deductions/credits-for-new-clean-vehicles-purchased-in-2023-or-after",
+      "title": "Credits for new clean vehicles purchased in 2023 or after",
+      "source_name": "Internal Revenue Service",
+      "published_at": "2026-03-12"
+    },
+    "citation": {
+      "quote": "To claim the credit, file Form 8936, Clean Vehicle Credits",
+      "section": "How to claim the credit"
+    },
+    "claim": "IRS currently instructs taxpayers claiming the section 30D new clean vehicle credit to file Form 8936 with the vehicle VIN.",
+    "idempotency_key": "ira-30d-irs-2026-03-12-form-8936"
+  },
+  {
+    "provision": "45Q",
+    "source": {
+      "url": "https://www.irs.gov/forms-pubs/about-form-8933",
+      "title": "About Form 8933, Carbon Oxide Sequestration Credit",
+      "source_name": "Internal Revenue Service",
+      "published_at": "2026-03-30"
+    },
+    "citation": {
+      "quote": "Use Form 8933 to claim the section 45Q carbon oxide sequestration credit.",
+      "section": "About Form 8933"
+    },
+    "claim": "IRS currently directs taxpayers to claim the section 45Q carbon oxide sequestration credit on Form 8933.",
+    "idempotency_key": "ira-45q-irs-2026-03-30-form-8933"
+  },
+  {
+    "provision": "45V",
+    "source": {
+      "url": "https://www.irs.gov/forms-pubs/about-form-7210",
+      "title": "About Form 7210, Clean Hydrogen Production Credit",
+      "source_name": "Internal Revenue Service",
+      "published_at": "2026-02-20"
+    },
+    "citation": {
+      "quote": "Use Form 7210 to claim the section 45V credit for the production of qualified clean hydrogen",
+      "section": "About Form 7210"
+    },
+    "claim": "IRS currently directs taxpayers to claim the section 45V clean hydrogen production credit on Form 7210.",
+    "idempotency_key": "ira-45v-irs-2026-02-20-form-7210"
+  },
+  {
+    "provision": "45X",
+    "source": {
+      "url": "https://www.irs.gov/credits-deductions/advanced-manufacturing-production-credit",
+      "title": "Advanced Manufacturing Production Credit",
+      "source_name": "Internal Revenue Service",
+      "published_at": "2026-02-14"
+    },
+    "citation": {
+      "quote": "Advanced Manufacturing Production Credit, Correction",
+      "section": "Final regulations"
+    },
+    "claim": "IRS currently links section 45X taxpayers to final regulations and corrections for the Advanced Manufacturing Production Credit.",
+    "idempotency_key": "ira-45x-irs-2026-02-14-final-regulations-links"
+  },
+  {
+    "provision": "50141",
+    "source": {
+      "url": "https://www.energy.gov/edf/inflation-reduction-act-2022",
+      "title": "Inflation Reduction Act of 2022",
+      "source_name": "Department of Energy",
+      "published_at": "2023-09-22"
+    },
+    "citation": {
+      "quote": "These expanded activities include projects involving critical minerals processing, manufacturing, and recycling",
+      "section": "Innovative Energy, Innovative Supply Chain, and State Energy Financing Institution Authority"
+    },
+    "claim": "DOE states IRA-backed section 1703 implementation reaches BIL-expanded critical-minerals projects and State Energy Financing Institution-backed projects.",
+    "idempotency_key": "ira-50141-doe-ira-page-expanded-1703-sefi-critical-minerals"
+  },
+  {
+    "provision": "50141",
+    "source": {
+      "url": "https://www.energy.gov/edf/articles/stating-loan-authority-how-credit-subsidy-and-program-design-relate-available-loan",
+      "title": "Stating Loan Authority: How Credit Subsidy and Program Design Relate to Available Loan Authority",
+      "source_name": "Department of Energy",
+      "published_at": "2026-06-10"
+    },
+    "citation": {
+      "quote": "$40 billion of this amount was authorized by the IRA and will expire on September 30, 2026 if uncommitted or unspent.",
+      "section": "How LPO determines available loan authority by program"
+    },
+    "claim": "DOE currently states the IRA-backed portion of section 1703 loan authority expires on September 30, 2026 if it is not committed or spent.",
+    "idempotency_key": "ira-50141-doe-loan-authority-expire-uncommitted-2026"
+  },
+  {
+    "provision": "50144",
+    "source": {
+      "url": "https://www.energy.gov/edf/title-17-frequently-asked-questions",
+      "title": "Title 17 Frequently Asked Questions",
+      "source_name": "Department of Energy",
+      "published_at": "2026-06-10"
+    },
+    "citation": {
+      "quote": "The scope of a project receiving EIR project financing may include remediation of environmental damage associated with Energy Infrastructure.",
+      "section": "What types of projects can Energy Infrastructure Reinvestment financing support?"
+    },
+    "claim": "DOE states section 1706 Energy Infrastructure Reinvestment financing may include remediation of environmental damage associated with eligible energy infrastructure.",
+    "idempotency_key": "ira-50144-doe-faq-eir-remediation-scope"
+  },
+  {
+    "provision": "50144",
+    "source": {
+      "url": "https://www.federalregister.gov/documents/2023/05/30/2023-11104/loan-guarantees-for-clean-energy-projects",
+      "title": "Loan Guarantees for Clean Energy Projects",
+      "source_name": "Federal Register",
+      "published_at": "2023-05-30"
+    },
+    "citation": {
+      "quote": "environmental remediation costs constitute eligible Project Costs for Energy Infrastructure Reinvestment Projects",
+      "section": "Project costs"
+    },
+    "claim": "DOE's Title XVII interim final rule states environmental remediation costs are eligible project costs for Energy Infrastructure Reinvestment projects.",
+    "idempotency_key": "ira-50144-fr-eir-remediation-eligible-project-costs"
+  },
+  {
+    "provision": "50141",
+    "source": {
+      "url": "https://www.federalregister.gov/documents/2023/05/30/2023-11104/loan-guarantees-for-clean-energy-projects",
+      "title": "Loan Guarantees for Clean Energy Projects",
+      "source_name": "Federal Register",
+      "published_at": "2023-05-30"
+    },
+    "citation": {
+      "quote": "loan guarantees under sections 1703 and 1706 made available under the IRA are available through September 30, 2026.",
+      "section": "Inflation Reduction Act"
+    },
+    "claim": "DOE states IRA-backed section 1703 loan authority and related credit-subsidy appropriations are available through September 30, 2026.",
+    "idempotency_key": "ira-50141-fr-1703-availability-through-2026"
+  },
+  {
+    "provision": "50144",
+    "source": {
+      "url": "https://www.federalregister.gov/documents/2023/05/30/2023-11104/loan-guarantees-for-clean-energy-projects",
+      "title": "Loan Guarantees for Clean Energy Projects",
+      "source_name": "Federal Register",
+      "published_at": "2023-05-30"
+    },
+    "citation": {
+      "quote": "loan guarantees under sections 1703 and 1706 made available under the IRA are available through September 30, 2026.",
+      "section": "Inflation Reduction Act"
+    },
+    "claim": "DOE states IRA-backed section 1706 loan authority and related credit-subsidy appropriations are available through September 30, 2026.",
+    "idempotency_key": "ira-50144-fr-1706-availability-through-2026"
+  }
+]

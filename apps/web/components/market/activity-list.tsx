@@ -1,5 +1,5 @@
 import type { PolicyEvent, ResolvedForecast } from "@/lib/data"
-import { formatDate, formatPercent } from "@/components/market/format"
+import { deltaToneClass, formatDate, formatDelta, formatPercent } from "@/components/market/format"
 import { policyCopy } from "@/lib/policy-copy"
 
 export function ActivityList({
@@ -14,7 +14,8 @@ export function ActivityList({
       id: `event:${event.event_id}`,
       title: event.title ?? event.agency ?? "Official policy update",
       meta: `${policyCopy(event.provision, event.provision_name).name} / ${formatDate(event.created_at)}`,
-      value: event.pci_delta === 0 ? "flat" : `${event.pci_delta > 0 ? "+" : ""}${event.pci_delta.toFixed(2)} PCI`,
+      value: formatDelta(event.pci_delta),
+      valueClassName: deltaToneClass(event.pci_delta),
       href: event.url,
       source: event.agency ?? event.doc_source ?? "Official source",
     })),
@@ -23,6 +24,7 @@ export function ActivityList({
       title: outcome.market_title ?? outcome.market_ticker,
       meta: `Resolved / ${formatDate(outcome.resolved_at)}`,
       value: formatPercent(outcome.settlement_value),
+      valueClassName: undefined,
       href: null,
       source: outcome.venue,
     })),
@@ -44,7 +46,7 @@ export function ActivityList({
                   <span>{item.meta}</span>
                   <small>{item.source}</small>
                 </div>
-                <em>{item.value}</em>
+                <em className={item.valueClassName}>{item.value}</em>
               </>
             )
 
@@ -63,7 +65,7 @@ export function ActivityList({
             )
           })
         ) : (
-          <div className="activity-empty">No scored policy moves or resolved forecasts yet.</div>
+          <div className="activity-empty">Policy movement appears here as source citations update the registry.</div>
         )}
       </div>
     </section>

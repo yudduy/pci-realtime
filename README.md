@@ -148,6 +148,92 @@ Refresh market outcomes and performance metadata from Supabase:
 python -m pci_realtime.pipeline.daily_refresh --supabase
 ```
 
+## Agent MCP Evidence Intake
+
+For the copy-paste setup guide, see [`MCP.md`](MCP.md). The public web app also
+serves a human setup page at `/connect` and an agent documentation index at
+`/llms.txt`, following the same discovery pattern used by hosted MCP
+documentation sites.
+
+The JSON fixture in `data/fixtures/agent_evidence_seed.json` is only a bootstrap
+seed. The intended live path is for a research agent to call the PCIndex MCP
+server, submit a public citation, and let the service dedupe, score, trace, and
+write the registry rows.
+
+Before using MCP writes, apply `supabase/migrations/005_agent_evidence_intake.sql`
+to the hosted Supabase project. The write tools require server-side credentials:
+
+```bash
+export SUPABASE_URL="https://<project>.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="<service-role-key>"
+export OPENAI_API_KEY="<scoring-key>"
+```
+
+If migration `005` has not been applied yet, use
+`scripts/provision_agent_evidence.py --core-registry` only as a temporary
+compatibility bridge. It writes the public registry rows but does not preserve
+the governed `agent_runs` and `evidence_submissions` audit trail.
+
+Run the MCP server over stdio:
+
+```bash
+uv run --extra dev python -m pci_realtime.mcp_server
+```
+
+Example MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "pcindex": {
+      "command": "uv",
+      "args": ["run", "--extra", "dev", "python", "-m", "pci_realtime.mcp_server"],
+      "cwd": "/path/to/pci-realtime",
+      "env": {
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_SERVICE_ROLE_KEY": "${SUPABASE_SERVICE_ROLE_KEY}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Expected agent loop:
+
+1. Call `status` and stop if `write_configured` is false.
+2. Call `list_policies` and map evidence only to the six tracked codes.
+3. Search official sources, then call `submit_policy_evidence` with a public URL,
+   source title, short quote anchor, claim, and deterministic idempotency key.
+4. Call `get_evidence_trace` to verify the evidence, source link, and event row.
+5. Call `policy_dossier` or `current_pci` to confirm the score surface updated.
+
+Example tool payload:
+
+```json
+{
+  "provision": "45V",
+  "source": {
+    "url": "https://www.irs.gov/credits-deductions/clean-hydrogen-production-credit",
+    "title": "Clean hydrogen production credit",
+    "source_name": "Internal Revenue Service",
+    "published_at": "2025-12-31"
+  },
+  "citation": {
+    "quote": "provides a production credit for each kilogram of qualified clean hydrogen",
+    "section": "Overview"
+  },
+  "claim": "IRS current guidance confirms the section 45V credit remains tied to qualified clean hydrogen production, emissions intensity, and wage/apprenticeship compliance.",
+  "idempotency_key": "irs-clean-hydrogen-credit-page-2025-12-31",
+  "agent_name": "policy-research-agent",
+  "question": "Does current IRS guidance change the 45V credibility state?"
+}
+```
+
+Use `ingest_source_url` only when the agent cannot reliably extract a citation
+anchor itself. Prefer `submit_policy_evidence` because it forces the agent to
+name the exact quote that supports the claim.
+
 Start the Supabase-backed registry and web app from one command:
 
 ```bash

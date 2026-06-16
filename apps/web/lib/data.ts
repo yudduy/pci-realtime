@@ -13,9 +13,6 @@ export type CurrentPci = {
   delta_this_week: number | null
   data_origin: string | null
   baseline_pci: number
-  obbba_delta_pci?: number
-  obbba_post_pci: number
-  obbba_summary: string
   updated_at: string | null
 }
 
@@ -198,14 +195,42 @@ export type EvidenceItem = {
   confidence: number | null
   extractor_version: string | null
   created_at: string
+  citation_quote?: string | null
+  citation_section?: string | null
+  citation_page?: string | null
+  citation_url_fragment?: string | null
+  claim_hash?: string | null
+  submitted_by_agent_run_id?: string | null
+  extraction_confidence?: number | null
+  raw_public_metadata?: Record<string, unknown>
   source: string | null
   source_name: string | null
   source_type: string | null
   source_title: string | null
   agency: string | null
   url: string | null
+  canonical_url?: string | null
   published_at: string | null
   fetched_at: string | null
+}
+
+export type SourceDocument = {
+  source_doc_id: string
+  source: string
+  source_name: string
+  source_type: string
+  external_id: string | null
+  title: string
+  agency: string | null
+  url: string | null
+  canonical_url?: string | null
+  published_at: string | null
+  fetched_at: string | null
+  first_seen_at?: string | null
+  last_seen_at?: string | null
+  submitted_by_agent_run_id?: string | null
+  text_excerpt: string | null
+  raw_public_metadata: Record<string, unknown>
 }
 
 export type SourceLink = {
@@ -230,6 +255,25 @@ export type SourceHealth = {
   details: Record<string, unknown>
 }
 
+export type AgentEvidenceSubmission = {
+  submission_id: string
+  agent_run_id: string | null
+  provision: string
+  provision_name: string | null
+  source_doc_id: string | null
+  evidence_id: string | null
+  event_id: string | null
+  canonical_url: string | null
+  source_title: string | null
+  claim_hash: string | null
+  status: string
+  rejection_reason: string | null
+  promotion_result: Record<string, unknown>
+  submitted_at: string
+  promoted_at: string | null
+  raw_public_metadata: Record<string, unknown>
+}
+
 export type RegistryData = {
   currentPci: CurrentPci[]
   openForecasts: Forecast[]
@@ -242,8 +286,10 @@ export type RegistryData = {
   provisionTimelines: ProvisionTimeline[]
   forecastPerformance: ForecastPerformance | null
   evidenceItems: EvidenceItem[]
+  sourceDocuments: SourceDocument[]
   sourceLinks: SourceLink[]
   sourceHealth: SourceHealth[]
+  agentEvidenceSubmissions: AgentEvidenceSubmission[]
   connected: boolean
   viewErrors: string[]
 }
@@ -314,8 +360,10 @@ export function emptyRegistryData(viewErrors: string[] = []): RegistryData {
     provisionTimelines: [],
     forecastPerformance: null,
     evidenceItems: [],
+    sourceDocuments: [],
     sourceLinks: [],
     sourceHealth: [],
+    agentEvidenceSubmissions: [],
     connected: false,
     viewErrors,
   }
@@ -323,6 +371,8 @@ export function emptyRegistryData(viewErrors: string[] = []): RegistryData {
 
 export async function getRegistryData(): Promise<RegistryData> {
   const config = registryConfig()
+  if (!config) return emptyRegistryData(["Supabase registry config is not set."])
+
   const [
     currentPciResult,
     openForecastsResult,
@@ -335,8 +385,10 @@ export async function getRegistryData(): Promise<RegistryData> {
     provisionTimelinesResult,
     forecastPerformanceResult,
     evidenceItemsResult,
+    sourceDocumentsResult,
     sourceLinksResult,
     sourceHealthResult,
+    agentEvidenceSubmissionsResult,
   ] = await Promise.all([
     fetchView<CurrentPci>("v_current_pci", "select=*&order=code.asc"),
     fetchView<Forecast>("v_open_forecasts", "select=*&order=created_at.desc"),
@@ -355,8 +407,13 @@ export async function getRegistryData(): Promise<RegistryData> {
     ),
     fetchView<ForecastPerformance>("v_forecast_performance", "select=*&limit=1"),
     fetchView<EvidenceItem>("v_evidence_items", "select=*&order=created_at.desc"),
+    fetchView<SourceDocument>("v_source_documents", "select=*&order=fetched_at.desc"),
     fetchView<SourceLink>("v_source_links", "select=*&order=created_at.desc"),
     fetchView<SourceHealth>("v_source_health", "select=*"),
+    fetchView<AgentEvidenceSubmission>(
+      "v_agent_evidence_submissions",
+      "select=*&order=submitted_at.desc",
+    ),
   ])
   const viewErrors = [
     currentPciResult.error,
@@ -370,8 +427,10 @@ export async function getRegistryData(): Promise<RegistryData> {
     provisionTimelinesResult.error,
     forecastPerformanceResult.error,
     evidenceItemsResult.error,
+    sourceDocumentsResult.error,
     sourceLinksResult.error,
     sourceHealthResult.error,
+    agentEvidenceSubmissionsResult.error,
   ].filter((error): error is string => Boolean(error))
 
   const currentPci = currentPciResult.rows
@@ -388,8 +447,10 @@ export async function getRegistryData(): Promise<RegistryData> {
   const provisionTimelines = provisionTimelinesResult.rows
   const forecastPerformance = forecastPerformanceResult.rows[0] ?? null
   const evidenceItems = evidenceItemsResult.rows
+  const sourceDocuments = sourceDocumentsResult.rows
   const sourceLinks = sourceLinksResult.rows
   const sourceHealth = sourceHealthResult.rows
+  const agentEvidenceSubmissions = agentEvidenceSubmissionsResult.rows
 
   return {
     currentPci,
@@ -403,8 +464,10 @@ export async function getRegistryData(): Promise<RegistryData> {
     provisionTimelines,
     forecastPerformance,
     evidenceItems,
+    sourceDocuments,
     sourceLinks,
     sourceHealth,
+    agentEvidenceSubmissions,
     connected: Boolean(config),
     viewErrors,
   }

@@ -13,21 +13,17 @@ const paperFacts = [
   ["7,271", "climate technology companies"],
   ["132,826", "firm-quarter observations"],
   ["22", "quarters from Q1 2020 to Q2 2025"],
-  ["6", "IRA provisions tracked live"],
+  ["6", "IRA policy units in terminal"],
 ]
 
 const findings = [
   "IRA exposure increased venture entry where incentives directly matched firm technologies.",
   "Investors reacted to statutory specificity, durability, and enforceability, not only subsidy size.",
-  "The OBBBA stress window depressed activity in credibility-dependent sectors.",
+  "A live credibility surface needs normalized provisions, source freshness, and method trace.",
 ]
 
 function score(value: number) {
   return value.toFixed(value % 1 === 0 ? 0 : 2)
-}
-
-function delta(policy: (typeof POLICIES)[number]) {
-  return policy.stress - policy.baseline
 }
 
 function pct(value: number) {
@@ -65,7 +61,7 @@ export default function AboutPage() {
             SI Appendix
           </a>
           <Link className="academic-pill-link" href="/dashboard">
-            Tracker
+            Terminal
           </Link>
           <a className="academic-pill-link" href="https://github.com/yudduy/pci-realtime">
             Code
@@ -89,9 +85,9 @@ export default function AboutPage() {
       <section className="academic-section">
         <h2>Paper anchors</h2>
         <p>
-          The live tracker keeps the paper&apos;s six load-bearing IRA provisions
+          The live terminal keeps the paper&apos;s six load-bearing IRA policy units
           intact, then updates only from official policy documents and public
-          market data.
+          source citations.
         </p>
         <div className="academic-facts" aria-label="Paper facts">
           {paperFacts.map(([value, label]) => (
@@ -108,38 +104,41 @@ export default function AboutPage() {
           <div className="academic-figure-header">
             <div>
               <p className="academic-figure-label">Figure 1</p>
-              <h2 id="pci-figure-title">Policy credibility by IRA provision</h2>
+              <h2 id="pci-figure-title">Policy credibility by unit</h2>
             </div>
             <Link className="academic-outline-link" href="/dashboard">
-              Open tracker
+              Open terminal
             </Link>
           </div>
 
           <div className="pci-table" role="table" aria-label="Policy credibility scores">
             <div className="pci-row pci-head" role="row">
-              <div role="columnheader">Provision</div>
+              <div role="columnheader">Policy unit</div>
               <div role="columnheader">Plain name</div>
               <div role="columnheader">Baseline PCI</div>
-              <div role="columnheader">OBBBA stress</div>
-              <div role="columnheader">Move</div>
+              <div role="columnheader">Specificity</div>
+              <div role="columnheader">Durability</div>
+              <div role="columnheader">Enforceability</div>
             </div>
             {POLICIES.map((policy) => {
-              const move = delta(policy)
               return (
                 <div className="pci-row" role="row" key={policy.code}>
-                  <div role="cell" className="pci-code">{policy.code}</div>
-                  <div role="cell">
+                  <div role="cell" className="pci-code" data-label="Policy unit">{policy.code}</div>
+                  <div role="cell" data-label="Policy name">
                     <strong>{policy.name}</strong>
                     <span>{policy.formalName}</span>
                   </div>
-                  <div role="cell">
+                  <div role="cell" data-label="Baseline PCI">
                     <ScoreBar value={policy.baseline} />
                   </div>
-                  <div role="cell">
-                    <ScoreBar value={policy.stress} muted />
+                  <div role="cell" data-label="Specificity">
+                    <ScoreBar value={policy.specificity} />
                   </div>
-                  <div role="cell" className={move < 0 ? "pci-move-down" : "pci-move-flat"}>
-                    {move === 0 ? "flat" : move.toFixed(2)}
+                  <div role="cell" data-label="Durability">
+                    <ScoreBar value={policy.durability} />
+                  </div>
+                  <div role="cell" data-label="Enforceability">
+                    <ScoreBar value={policy.enforceability} />
                   </div>
                 </div>
               )
@@ -148,19 +147,18 @@ export default function AboutPage() {
 
           <p className="academic-caption">
             PCI is the simple average of specificity, durability, and
-            enforceability. The operational tracker keeps the names readable
-            while preserving the paper&apos;s research anchors.
+            enforceability. The terminal state is driven by current evidence,
+            source citations, and source refresh timing.
           </p>
         </div>
       </section>
 
       <section className="academic-section">
-        <h2>What the tracker adds</h2>
+        <h2>What the terminal adds</h2>
         <p>
-          The paper explains the empirical result. The tracker turns the same
+          The paper explains the empirical result. The terminal turns the same
           PCI logic into a weekly production loop: official documents, PCI
-          updates, public market matches, forecasts, gated trade proposals, and
-          resolved outcomes.
+          updates, source citations, and source freshness.
         </p>
         <div className="results-grid">
           {findings.map((finding) => (

@@ -126,6 +126,7 @@ export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
 
   const policies = data.currentPci.map((policy): PolicyMarket => {
     const copy = policyCopy(policy.code, policy.name)
+    const eventCount = data.policyEvents.filter((event) => event.provision === policy.code).length
 
     return {
       id: `policy:${policy.code}`,
@@ -135,13 +136,11 @@ export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
       lane: copy.lane,
       title: copy.question,
       subtitle: copy.formalName,
-      status: data.marketDiscoveryCandidates.length
-        ? "No eligible public market"
-        : "Market scan pending",
+      status: "Current PCI",
       primaryLabel: "PCI",
       primaryValue: policy.pci ?? policy.baseline_pci,
-      secondaryLabel: "Stress",
-      secondaryValue: policy.obbba_post_pci,
+      secondaryLabel: "Events",
+      secondaryValue: eventCount,
       edge: null,
       confidence: null,
       volume: null,
@@ -150,7 +149,7 @@ export function buildPolicyMarkets(data: RegistryData): PolicyMarket[] {
       updatedAt: policy.updated_at,
       ticker: policy.code,
       venue: "pci",
-      sourceCount: data.policyEvents.filter((event) => event.provision === policy.code).length,
+      sourceCount: eventCount,
       searchText: [
         policy.code,
         policy.name,

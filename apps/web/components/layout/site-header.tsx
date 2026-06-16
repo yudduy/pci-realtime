@@ -2,8 +2,9 @@ import Image from "next/image"
 import Link from "next/link"
 
 const navItems = [
-  { label: "Tracker", href: "/dashboard" },
+  { label: "Terminal", href: "/dashboard" },
   { label: "About", href: "/about" },
+  { label: "Connect", href: "/connect" },
   { label: "Code", href: "https://github.com/yudduy/pci-realtime" },
   {
     label: "Paper",

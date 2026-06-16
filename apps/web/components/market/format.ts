@@ -13,6 +13,20 @@ export function formatScore(value: number | null | undefined) {
   return value.toFixed(value % 1 === 0 ? 0 : 2)
 }
 
+export function formatDelta(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value) || value === 0) {
+    return "--"
+  }
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}`
+}
+
+export function deltaToneClass(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value) || value === 0) {
+    return "delta-value delta-neutral"
+  }
+  return value > 0 ? "delta-value delta-positive" : "delta-value delta-negative"
+}
+
 export function formatMoney(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value)) return "-"
   return `$${Math.round(value).toLocaleString("en-US")}`
@@ -34,7 +48,7 @@ export function formatDate(value: string | null | undefined) {
 }
 
 export function formatDateTime(value: string | null | undefined) {
-  if (!value) return "No completed run"
+  if (!value) return "-"
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",

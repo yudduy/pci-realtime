@@ -5,8 +5,8 @@ from typing import Any, Mapping
 from pci_realtime.config import TRACKED_PROVISIONS
 
 
-SCREENING_PROMPT_VERSION = "screening-v1.0.0"
-SCORING_PROMPT_VERSION = "scoring-v1.0.0"
+SCREENING_PROMPT_VERSION = "screening-v1.1.0"
+SCORING_PROMPT_VERSION = "scoring-v1.1.1"
 
 
 SCREENING_JSON_SCHEMA: dict[str, Any] = {
@@ -50,11 +50,13 @@ SCORING_JSON_SCHEMA: dict[str, Any] = {
 SCREENING_SYSTEM_PROMPT = """You are screening federal policy documents for the Policy Credibility Index realtime monitor.
 
 Classify whether the document has substantive implications for one or more tracked Inflation Reduction Act provisions. Return:
-- relevant: the document can affect specificity, durability, or enforceability for at least one tracked provision.
+- relevant: the document affects, clarifies, implements, constrains, funds, litigates, administers, reports on, or otherwise provides useful evidence for at least one tracked provision. A document can be relevant even when the expected PCI delta is 0.0.
 - irrelevant: the document mentions climate, IRA, or agencies but has no substantive connection to tracked provisions.
-- ambiguous: the document might matter, but the affected provision or credibility effect cannot be determined from the text.
+- ambiguous: the document might matter, but no tracked provision can be mapped from the title, metadata, or text.
 
-Never infer a provision that is not supported by the document text. Ambiguous classifications will be skipped downstream."""
+Prefer retaining policy evidence over dropping it. If a tracked provision is named, described by section number, or clearly implicated by program mechanics, classify it as relevant and let scoring assign zero deltas when the document is context-only.
+
+Never infer a provision that is not supported by the document text. Ambiguous classifications are reserved for documents that cannot be mapped to a tracked provision."""
 
 
 SCORING_SYSTEM_PROMPT = """You score document-level deltas for the Policy Credibility Index realtime monitor.
@@ -94,7 +96,10 @@ def build_screening_user_prompt(document: Mapping[str, Any]) -> str:
 
 def build_scoring_user_prompt(document: Mapping[str, Any], provision: str) -> str:
     return (
-        f"Score this document for provision {provision} only. "
-        "Return the provision field exactly as requested.\n\n"
+        f"Score this document for provision {provision} only. Return the JSON "
+        f"provision field exactly as {provision}. Do not substitute a related "
+        "tracked provision, even when the source also mentions adjacent IRA "
+        "sections. If the mapped provision is context-only, return zero deltas "
+        "for that same requested provision.\n\n"
         f"{compact_document(document)}"
     )
