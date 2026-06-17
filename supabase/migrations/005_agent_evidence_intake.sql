@@ -117,6 +117,9 @@ from evidence_submissions s
 join provisions p on p.code = s.provision
 order by s.submitted_at desc;
 
+drop view if exists v_evidence_items;
+drop view if exists v_source_documents;
+
 create or replace view v_source_documents as
 select
   d.source_doc_id,

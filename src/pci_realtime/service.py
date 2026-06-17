@@ -43,11 +43,17 @@ def status() -> dict[str, Any]:
     """Return registry reachability without raising."""
     read_client = _read_client()
     write_client = _write_client()
+    write_credentials_configured = write_client is not None
+    agent_intake_configured = (
+        _agent_intake_configured(write_client) if write_client is not None else False
+    )
     if read_client is None:
         return {
             "reachable": False,
             "registry_configured": False,
-            "write_configured": write_client is not None,
+            "write_credentials_configured": write_credentials_configured,
+            "agent_intake_configured": agent_intake_configured,
+            "write_configured": False,
             "source": "baseline",
         }
     try:
@@ -56,13 +62,17 @@ def status() -> dict[str, Any]:
         return {
             "reachable": False,
             "registry_configured": True,
-            "write_configured": write_client is not None,
+            "write_credentials_configured": write_credentials_configured,
+            "agent_intake_configured": agent_intake_configured,
+            "write_configured": False,
             "error": {"code": exc.code, "message": exc.message},
         }
     return {
         "reachable": True,
         "registry_configured": True,
-        "write_configured": write_client is not None,
+        "write_credentials_configured": write_credentials_configured,
+        "agent_intake_configured": agent_intake_configured,
+        "write_configured": write_credentials_configured and agent_intake_configured,
         "source": "registry",
         "tracked_policies": len(rows),
     }
@@ -333,6 +343,24 @@ def _require_read_client() -> SupabaseRestClient:
     if client is None:
         raise SupabaseUnavailable(_READ_UNAVAILABLE)
     return client
+
+
+def _agent_intake_configured(client: SupabaseRestClient) -> bool:
+    try:
+        client.select_rows(
+            "v_agent_evidence_submissions",
+            columns="submission_id",
+            params={"limit": "1"},
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return False
+        return False
+    except httpx.HTTPError:
+        return False
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def _select(

@@ -81,7 +81,15 @@ const policyEvents = [
 ]
 const provisionTimelines = currentPci.flatMap((policy) => [
   timeline(policy, "2022-W33", "2022-08-15", policy.baseline_pci),
-  timeline(policy, "2026-W21", "2026-05-18", policy.pci),
+  timeline(
+    policy,
+    "2026-W21",
+    "2026-05-18",
+    policy.pci,
+    policy.code === "45V"
+      ? ["2026-W21:federal_register:45v-guidance:45V"]
+      : [],
+  ),
 ])
 const forecastPerformance = [
   {
@@ -295,7 +303,7 @@ function policyUnit(code, name, pci, specificity, durability, enforceability) {
   }
 }
 
-function timeline(policy, week, weekStart, pci) {
+function timeline(policy, week, weekStart, pci, sourceEventIds = []) {
   return {
     provision: policy.code,
     name: policy.name,
@@ -305,10 +313,10 @@ function timeline(policy, week, weekStart, pci) {
     specificity: policy.specificity,
     durability: policy.durability,
     enforceability: policy.enforceability,
-    n_docs: 0,
+    n_docs: sourceEventIds.length,
     delta_this_week: 0,
     data_origin: policy.data_origin,
-    source_event_ids: [],
+    source_event_ids: sourceEventIds,
     provenance_status: "complete",
   }
 }

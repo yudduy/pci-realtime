@@ -3,39 +3,26 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
 from pci_realtime import service
+from pci_realtime.env import load_local_env
 from pci_realtime.service_errors import ServiceError
 
 
-def _load_local_env() -> None:
-    env_path = Path.cwd() / ".env"
-    if not env_path.exists():
-        return
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        clean_key = key.strip()
-        clean_value = value.strip().strip('"').strip("'")
-        if clean_key:
-            os.environ.setdefault(clean_key, clean_value)
-
-
-_load_local_env()
+load_local_env()
 
 
 mcp = FastMCP("pcindex")
 _READ = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
 _WRITE = ToolAnnotations(readOnlyHint=False, openWorldHint=True)
 _LOCAL_READ = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
+_Transport = Literal["stdio", "sse", "streamable-http"]
+_SUPPORTED_TRANSPORTS: set[str] = {"stdio", "sse", "streamable-http"}
 
 
 def _safe(call) -> dict[str, Any]:
@@ -133,8 +120,25 @@ def get_evidence_trace(
     )
 
 
+def configured_transport() -> _Transport:
+    """Return the requested MCP transport, defaulting to local stdio."""
+    value = os.environ.get("PCINDEX_MCP_TRANSPORT", "stdio").strip().lower()
+    if value not in _SUPPORTED_TRANSPORTS:
+        options = ", ".join(sorted(_SUPPORTED_TRANSPORTS))
+        raise SystemExit(
+            f"Unsupported PCINDEX_MCP_TRANSPORT={value!r}. Use one of: {options}."
+        )
+    return value  # type: ignore[return-value]
+
+
+def configured_mount_path() -> str | None:
+    """Return the mount path used by streamable HTTP or SSE transports."""
+    value = os.environ.get("PCINDEX_MCP_MOUNT_PATH", "").strip()
+    return value or None
+
+
 def main() -> None:  # pragma: no cover
-    mcp.run(transport="stdio")
+    mcp.run(transport=configured_transport(), mount_path=configured_mount_path())
 
 
 if __name__ == "__main__":  # pragma: no cover

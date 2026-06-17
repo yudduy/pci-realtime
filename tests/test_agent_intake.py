@@ -99,6 +99,22 @@ class RecordingClient:
 
 
 class MissingAgentMigrationClient(RecordingClient):
+    def select_rows(
+        self,
+        table: str,
+        *,
+        columns: str = "*",
+        params: dict[str, str] | None = None,
+    ) -> list[dict[str, Any]]:
+        if table == "v_agent_evidence_submissions":
+            request = httpx.Request(
+                "GET",
+                "https://example.supabase.co/rest/v1/v_agent_evidence_submissions",
+            )
+            response = httpx.Response(404, request=request)
+            raise httpx.HTTPStatusError("not found", request=request, response=response)
+        return super().select_rows(table, columns=columns, params=params)
+
     def upsert_rows(
         self,
         table: str,
@@ -313,6 +329,33 @@ def test_service_reports_missing_agent_intake_migration_cleanly() -> None:
         )
 
 
+def test_status_requires_agent_intake_view_for_write_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class StatusClient(MissingAgentMigrationClient):
+        def select_rows(
+            self,
+            table: str,
+            *,
+            columns: str = "*",
+            params: dict[str, str] | None = None,
+        ) -> list[dict[str, Any]]:
+            if table == "v_current_pci":
+                return [{"code": "45V"}]
+            return super().select_rows(table, columns=columns, params=params)
+
+    client = StatusClient()
+    monkeypatch.setattr(service, "_read_client", lambda: client)
+    monkeypatch.setattr(service, "_write_client", lambda: client)
+
+    payload = service.status()
+
+    assert payload["reachable"] is True
+    assert payload["write_credentials_configured"] is True
+    assert payload["agent_intake_configured"] is False
+    assert payload["write_configured"] is False
+
+
 def test_core_registry_writer_strips_agent_intake_only_columns() -> None:
     client = RecordingClient()
     result = build_agent_evidence_rows(
@@ -341,6 +384,25 @@ def test_mcp_server_exposes_write_tools() -> None:
 
     assert callable(mcp_server.submit_policy_evidence)
     assert callable(mcp_server.ingest_source_url)
+
+
+def test_mcp_server_transport_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("mcp")
+    from pci_realtime import mcp_server
+
+    monkeypatch.delenv("PCINDEX_MCP_TRANSPORT", raising=False)
+    monkeypatch.delenv("PCINDEX_MCP_MOUNT_PATH", raising=False)
+    assert mcp_server.configured_transport() == "stdio"
+    assert mcp_server.configured_mount_path() is None
+
+    monkeypatch.setenv("PCINDEX_MCP_TRANSPORT", "streamable-http")
+    monkeypatch.setenv("PCINDEX_MCP_MOUNT_PATH", "/mcp")
+    assert mcp_server.configured_transport() == "streamable-http"
+    assert mcp_server.configured_mount_path() == "/mcp"
+
+    monkeypatch.setenv("PCINDEX_MCP_TRANSPORT", "websocket")
+    with pytest.raises(SystemExit):
+        mcp_server.configured_transport()
 
 
 def test_mcp_stdio_server_lists_tools_and_reads_policies() -> None:

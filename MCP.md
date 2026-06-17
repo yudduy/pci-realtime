@@ -1,25 +1,62 @@
 # PCIndex MCP
 
-PCIndex exposes a local MCP server for policy agents that need to read the
-registry and submit cited evidence. It is the intended path for agent intake;
+PCIndex exposes two MCP paths:
+
+- Hosted read-only MCP at `https://pcindex.vercel.app/mcp` for agents that need
+  policy status, current PCI, dossiers, and evidence traces.
+- Local write-capable MCP for trusted operators that need to submit cited
+  evidence into the registry.
+
+The local write path is the intended path for agent intake;
 `data/fixtures/agent_evidence_seed.json` is only a bootstrap fixture.
 
 ## What It Does
 
-The MCP server lets an agent:
+The hosted read-only MCP lets an agent:
 
 - Check registry status with `status`.
 - List the tracked policy units with `list_policies`.
 - Read current scores with `current_pci`.
 - Read policy evidence with `policy_dossier` and `get_evidence_trace`.
+
+The local write-capable MCP additionally lets a trusted operator:
+
 - Submit a public source citation with `submit_policy_evidence`.
 - Fetch a public URL for citation extraction with `ingest_source_url`.
 
 Write tools require the hosted Supabase project to include
 `supabase/migrations/005_agent_evidence_intake.sql`. Without that migration,
 read tools still work, but writes stop with a clear setup error.
+`status.write_credentials_configured` only means credentials are present;
+`status.write_configured` is true only when the Agent COI views are live too.
 
 For a human-facing setup page, use `/connect` on the public web app.
+
+## Hosted Read-Only Setup
+
+Claude Code:
+
+```bash
+claude mcp add -s user -t http pcindex https://pcindex.vercel.app/mcp
+```
+
+Codex CLI:
+
+```bash
+codex mcp add pcindex --url https://pcindex.vercel.app/mcp
+```
+
+Generic remote MCP config:
+
+```json
+{
+  "mcpServers": {
+    "pcindex": {
+      "serverUrl": "https://pcindex.vercel.app/mcp"
+    }
+  }
+}
+```
 
 ## One-Time Owner Setup
 
@@ -60,6 +97,44 @@ Before migration `005`, `--write-smoke` is expected to exit nonzero with:
 
 ```text
 Agent evidence intake migration is not applied.
+```
+
+## Daily Research Scout
+
+The MCP server is an intake surface, not a scheduler. To have an agent gather
+new official evidence, run the research scout:
+
+```bash
+uv run --extra dev python scripts/run_agent_research_intake.py \
+  --since 2026-06-01 \
+  --output-path data/debug/agent_research_intake.json
+```
+
+Add `--write` only after `status.write_configured` is true:
+
+```bash
+uv run --extra dev python scripts/run_agent_research_intake.py --write
+```
+
+The production workflow `.github/workflows/production-agent-research-intake.yml`
+can run this daily. It stays dry-run by default unless manually dispatched with
+`write=true`.
+
+## Transport Modes
+
+Local stdio is the default:
+
+```bash
+uv run --extra dev python -m pci_realtime.mcp_server
+```
+
+For a hosted or internal HTTP deployment, run the same server with Streamable
+HTTP:
+
+```bash
+PCINDEX_MCP_TRANSPORT=streamable-http \
+PCINDEX_MCP_MOUNT_PATH=/mcp \
+uv run --extra dev python -m pci_realtime.mcp_server
 ```
 
 ## Claude Code Setup
@@ -131,16 +206,14 @@ Example `submit_policy_evidence` payload:
 }
 ```
 
-## Current Product Gap
+## Hosted Write Gap
 
-DeepWiki provides a hosted remote MCP endpoint. PCIndex currently provides a
-local stdio MCP server because write access requires service-role Supabase
-credentials and scorer credentials. For nontechnical users, the next product
-step is a hosted authenticated MCP endpoint, for example:
+DeepWiki-style hosted read access is live at:
 
 ```text
 https://pcindex.vercel.app/mcp
 ```
 
-That endpoint should use OAuth or scoped API keys, never browser publishable
-keys, and should preserve the same `submit_policy_evidence` validation rules.
+Hosted write access is intentionally not live. It should use OAuth or scoped API
+keys, audit every submitter, enforce rate limits, and preserve the same
+`submit_policy_evidence` validation rules before it is exposed remotely.

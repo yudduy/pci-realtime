@@ -44,6 +44,7 @@ export function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   }).format(new Date(value))
 }
 
@@ -54,6 +55,7 @@ export function formatDateTime(value: string | null | undefined) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "UTC",
   }).format(new Date(value))
 }
 

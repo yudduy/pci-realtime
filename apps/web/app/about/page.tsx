@@ -157,8 +157,8 @@ export default function AboutPage() {
         <h2>What the terminal adds</h2>
         <p>
           The paper explains the empirical result. The terminal turns the same
-          PCI logic into a weekly production loop: official documents, PCI
-          updates, source citations, and source freshness.
+          PCI logic into a live evidence loop: official documents, score updates,
+          source citations, and source freshness.
         </p>
         <div className="results-grid">
           {findings.map((finding) => (

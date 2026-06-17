@@ -151,17 +151,18 @@ python -m pci_realtime.pipeline.daily_refresh --supabase
 ## Agent MCP Evidence Intake
 
 For the copy-paste setup guide, see [`MCP.md`](MCP.md). The public web app also
-serves a human setup page at `/connect` and an agent documentation index at
-`/llms.txt`, following the same discovery pattern used by hosted MCP
-documentation sites.
+serves a human setup page at `/connect`, a hosted read-only MCP endpoint at
+`/mcp`, and an agent documentation index at `/llms.txt`.
 
 The JSON fixture in `data/fixtures/agent_evidence_seed.json` is only a bootstrap
 seed. The intended live path is for a research agent to call the PCIndex MCP
 server, submit a public citation, and let the service dedupe, score, trace, and
 write the registry rows.
 
-Before using MCP writes, apply `supabase/migrations/005_agent_evidence_intake.sql`
-to the hosted Supabase project. The write tools require server-side credentials:
+Hosted `/mcp` exposes read-only tools for status, policy lists, current PCI,
+dossiers, and evidence traces. Before using local MCP writes, apply
+`supabase/migrations/005_agent_evidence_intake.sql` to the hosted Supabase
+project. The write tools require server-side credentials:
 
 ```bash
 export SUPABASE_URL="https://<project>.supabase.co"
@@ -233,6 +234,19 @@ Example tool payload:
 Use `ingest_source_url` only when the agent cannot reliably extract a citation
 anchor itself. Prefer `submit_policy_evidence` because it forces the agent to
 name the exact quote that supports the claim.
+
+Run the daily research scout in dry-run mode:
+
+```bash
+uv run --extra dev python scripts/run_agent_research_intake.py \
+  --since 2026-06-01 \
+  --output-path data/debug/agent_research_intake.json
+```
+
+The scout uses OpenAI web search over official-source domains, returns
+structured source candidates, and writes only when `--write` is passed and
+`status.write_configured` is true. If `status.agent_intake_configured` is false,
+apply migration `005` before expecting governed agent-submission rows.
 
 Start the Supabase-backed registry and web app from one command:
 

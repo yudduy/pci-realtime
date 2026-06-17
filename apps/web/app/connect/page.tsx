@@ -3,82 +3,81 @@ import { CopyBlock } from "@/components/connect/copy-block"
 import { SiteHeader } from "@/components/layout/site-header"
 
 export const metadata: Metadata = {
-  title: "PCIndex MCP Server",
+  title: "Connect PCIndex MCP",
   description:
-    "MCP setup and tool reference for reading PCIndex policy dossiers and submitting source-cited evidence.",
+    "MCP server reference for connecting trusted agents to the PCIndex policy evidence registry.",
 }
 
-const claudeCommand =
+const localServerCommand =
+  "uv run --extra dev python -m pci_realtime.mcp_server"
+
+const hostedUrl = "https://pcindex.vercel.app/mcp"
+
+const setupCommand =
+  "git clone https://github.com/yudduy/pci-realtime && cd pci-realtime && uv sync --extra dev"
+
+const claudeHostedCommand =
+  `claude mcp add -s user -t http pcindex ${hostedUrl}`
+
+const codexHostedCommand =
+  `codex mcp add pcindex --url ${hostedUrl}`
+
+const claudeLocalCommand =
   'claude mcp add -s user pcindex -- bash -lc "cd \\"$(pwd)\\" && uv run --extra dev python -m pci_realtime.mcp_server"'
 
-const codexCommand =
+const codexLocalCommand =
   'codex mcp add pcindex -- bash -lc "cd \\"$(pwd)\\" && uv run --extra dev python -m pci_realtime.mcp_server"'
 
-const connectionDetails = [
-  ["Server name", "pcindex"],
-  ["Transport", "Local stdio"],
-  ["Run from", "PCIndex repository root"],
-  ["Server command", "uv run --extra dev python -m pci_realtime.mcp_server"],
-]
+const genericLocalConfig = `{
+  "mcpServers": {
+    "pcindex": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "cd \\"$(pwd)\\" && uv run --extra dev python -m pci_realtime.mcp_server"
+      ]
+    }
+  }
+}`
 
-const toolReference = [
+const genericHostedConfig = `{
+  "mcpServers": {
+    "pcindex": {
+      "serverUrl": "${hostedUrl}"
+    }
+  }
+}`
+
+const tools = [
   {
     name: "status",
-    mode: "read",
     signature: "status()",
-    purpose: "Check registry reachability and write readiness.",
-    parameters: "none",
-    returns: "reachable, registry_configured, write_configured, tracked_policies",
+    mode: "read",
+    purpose: "Check registry reachability and connector readiness.",
   },
   {
     name: "list_policies",
-    mode: "read",
     signature: "list_policies()",
-    purpose: "List the six tracked IRA policy units.",
-    parameters: "none",
-    returns: "policy code, name, type, primary channel, baseline PCI",
+    mode: "read",
+    purpose: "Return the six tracked IRA policy units.",
   },
   {
     name: "current_pci",
-    mode: "read",
     signature: "current_pci(code?)",
-    purpose: "Read current PCI scores for one policy or all policies.",
-    parameters: "code is optional; use values like 45V, 45Q, 30D",
-    returns: "current PCI, dimensions, weekly delta, update timestamp",
+    mode: "read",
+    purpose: "Read the current PCI score for one policy or all policies.",
   },
   {
     name: "policy_dossier",
-    mode: "read",
     signature: "policy_dossier(code)",
-    purpose: "Read the policy page backing data for a tracked unit.",
-    parameters: "code is required",
-    returns: "policy state, events, evidence rows, contributor submissions",
+    mode: "read",
+    purpose: "Read policy events, evidence rows, and registry state.",
   },
   {
     name: "get_evidence_trace",
-    mode: "read",
     signature: "get_evidence_trace(provision, evidence_id?)",
-    purpose: "Verify citation links and scored evidence before using an update.",
-    parameters: "provision is required; evidence_id is optional",
-    returns: "evidence rows, source links, policy events",
-  },
-  {
-    name: "submit_policy_evidence",
-    mode: "write",
-    signature:
-      "submit_policy_evidence(provision, source, citation, claim, idempotency_key, agent_run_id?, agent_name?, question?)",
-    purpose: "Submit a public, quote-backed source for validation and scoring.",
-    parameters: "provision, source metadata, citation quote, claim, idempotency key",
-    returns: "submission status, source document id, evidence id, score event ids",
-  },
-  {
-    name: "ingest_source_url",
-    mode: "write",
-    signature:
-      "ingest_source_url(provision, url, rationale, idempotency_key, agent_run_id?, agent_name?, question?)",
-    purpose: "Fetch a public URL server-side, extract text, and submit it as evidence.",
-    parameters: "provision, URL, rationale, idempotency key",
-    returns: "submission status, extracted citation, evidence trace ids",
+    mode: "read",
+    purpose: "Verify source links and evidence that entered the registry.",
   },
 ]
 
@@ -89,70 +88,160 @@ export default function ConnectPage() {
 
       <section className="connect-hero">
         <div>
-          <p className="eyebrow">MCP Server Documentation</p>
-          <h1>PCIndex MCP Server</h1>
+          <p className="eyebrow">PCIndex MCP</p>
+          <h1>Connect an agent to PCIndex</h1>
           <p>
-            Programmatic access to the policy credibility registry: read policy
-            dossiers, inspect citation traces, and submit public evidence for
-            validated scoring.
+            The website is the public terminal. The hosted MCP endpoint gives
+            agents read access; trusted operators can run the local connector
+            when they need evidence intake.
           </p>
         </div>
       </section>
 
       <section className="connect-layout">
         <div className="connect-main">
-          <section className="terminal-panel">
-            <div className="section-heading">
-              <p>Getting started</p>
-              <h2>Connection details</h2>
+          <section className="terminal-panel connect-answer-card">
+            <div className="connect-answer-grid">
+              <div>
+                <p className="eyebrow">Recommended today</p>
+                <h2>Use hosted read access; keep writes local.</h2>
+                <p>
+                  External agents can read PCIndex directly from the hosted MCP
+                  URL. Registry-changing tools stay in the configured local
+                  runtime until authentication and review controls are added.
+                </p>
+              </div>
+              <div className="connect-status-stack" aria-label="Connector status">
+                <span>Hosted read MCP: live</span>
+                <span>Local write MCP: ready</span>
+              </div>
             </div>
-            <dl className="connect-detail-grid">
-              {connectionDetails.map(([label, value]) => (
-                <div key={label}>
-                  <dt>{label}</dt>
-                  <dd>
-                    <code>{value}</code>
-                  </dd>
-                </div>
-              ))}
-            </dl>
           </section>
 
-          <section className="terminal-panel connect-command-panel">
+          <section className="terminal-panel connect-server-card">
             <div className="section-heading">
-              <p>Setup instructions</p>
-              <h2>Add PCIndex to your client</h2>
+              <p>Quick start</p>
+              <h2>Hosted read connector</h2>
             </div>
-            <CopyBlock label="Claude Code command" value={claudeCommand} />
-            <CopyBlock label="Codex CLI command" value={codexCommand} />
+            <ol className="connect-steps">
+              <li>
+                <strong>Add PCIndex.</strong>
+                <span>Register the hosted MCP URL in your agent client.</span>
+              </li>
+              <li>
+                <strong>Use read tools.</strong>
+                <span>Ask for policies, PCI state, dossiers, or evidence traces.</span>
+              </li>
+              <li>
+                <strong>Keep intake local.</strong>
+                <span>Write-capable evidence intake remains operator-only.</span>
+              </li>
+            </ol>
+            <div className="connect-quick-grid">
+              <CopyBlock label="Claude Code" value={claudeHostedCommand} />
+              <CopyBlock label="Codex CLI" value={codexHostedCommand} />
+            </div>
           </section>
 
           <section className="terminal-panel">
             <div className="section-heading">
-              <p>Available tools</p>
-              <h2>Tool reference</h2>
+              <p>Current setup</p>
+              <h2>What is live</h2>
             </div>
-            <div className="connect-tool-reference">
-              {toolReference.map((tool) => (
+            <div className="connect-choice-grid">
+              <ProtocolCard
+                label="Use now"
+                title="Hosted read MCP"
+                status="Live"
+                body="Works from MCP clients that support Streamable HTTP. Exposes read-only policy and evidence tools."
+                code={hostedUrl}
+              />
+              <ProtocolCard
+                label="Trusted operators"
+                title="Local write MCP"
+                status="Ready"
+                body="Runs from the repository checkout and keeps evidence intake inside the configured PCIndex runtime."
+                code={localServerCommand}
+              />
+            </div>
+          </section>
+
+          <section className="terminal-panel">
+            <div className="section-heading">
+              <p>Tool surface</p>
+              <h2>Functions the agent gets</h2>
+            </div>
+            <div className="connect-tool-list">
+              {tools.map((tool, index) => (
                 <article key={tool.name}>
-                  <div className="connect-tool-head">
-                    <code>{tool.signature}</code>
-                    <span data-mode={tool.mode}>{tool.mode}</span>
-                  </div>
-                  <p>{tool.purpose}</p>
-                  <div className="connect-tool-meta">
-                    <span>Parameters</span>
-                    <strong>{tool.parameters}</strong>
-                    <span>Returns</span>
-                    <strong>{tool.returns}</strong>
+                  <span>{index + 1}</span>
+                  <div>
+                    <div className="connect-tool-head">
+                      <code>{tool.signature}</code>
+                      <em data-mode={tool.mode}>{tool.mode}</em>
+                    </div>
+                    <p>{tool.purpose}</p>
                   </div>
                 </article>
               ))}
             </div>
           </section>
-        </div>
 
+          <section className="terminal-panel connect-command-panel">
+            <div className="section-heading">
+              <p>Manual config</p>
+              <h2>Generic hosted config</h2>
+            </div>
+            <p className="connect-lede">
+              Use this when your agent client accepts remote MCP server JSON.
+            </p>
+            <CopyBlock label="Generic hosted MCP config" value={genericHostedConfig} language="json" />
+          </section>
+
+          <section className="terminal-panel connect-command-panel">
+            <div className="section-heading">
+              <p>Evidence intake</p>
+              <h2>Local write connector</h2>
+            </div>
+            <p className="connect-lede">
+              Use this only for trusted operators who need to submit cited
+              evidence into the registry.
+            </p>
+            <CopyBlock label="Get PCIndex" value={setupCommand} />
+            <div className="connect-quick-grid">
+              <CopyBlock label="Claude Code local" value={claudeLocalCommand} />
+              <CopyBlock label="Codex CLI local" value={codexLocalCommand} />
+            </div>
+            <CopyBlock label="Generic local MCP config" value={genericLocalConfig} language="json" />
+          </section>
+        </div>
       </section>
     </main>
+  )
+}
+
+function ProtocolCard({
+  label,
+  title,
+  status,
+  body,
+  code,
+}: {
+  label: string
+  title: string
+  status: string
+  body: string
+  code: string
+}) {
+  return (
+    <article className="connect-protocol-card">
+      <div>
+        <span>{label}</span>
+        <strong>{status}</strong>
+      </div>
+      <h3>{title}</h3>
+      <p>{body}</p>
+      <code>{code}</code>
+    </article>
   )
 }

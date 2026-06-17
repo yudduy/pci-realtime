@@ -12,7 +12,8 @@ export function GET() {
 - [About](${baseUrl}/about): Methodology companion for PCI scoring.
 
 ## Agent Setup
-- [Connect](${baseUrl}/connect): Human-facing setup page for trusted agents that read PCIndex dossiers and submit cited evidence.
+- [Connect](${baseUrl}/connect): Human-facing setup page for trusted agents that read the PCIndex registry and submit cited evidence.
+- [Hosted MCP](${baseUrl}/mcp): Read-only Streamable HTTP MCP endpoint for policy status, dossiers, and evidence traces.
 - [PCIndex MCP](${repoUrl}/blob/main/MCP.md): How agents connect to the PCIndex MCP server and submit cited evidence.
 - [Repository README](${repoUrl}/blob/main/README.md): Build, registry, web app, and operator guide.
 - [Contributor guide](${repoUrl}/blob/main/AGENTS.md): Repository structure, commands, tests, and contribution rules.

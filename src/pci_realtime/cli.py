@@ -11,7 +11,10 @@ from rich.console import Console
 from rich.table import Table
 
 from pci_realtime import service
+from pci_realtime.env import load_local_env
 from pci_realtime.service_errors import ServiceError
+
+load_local_env()
 
 
 app = typer.Typer(
