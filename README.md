@@ -308,7 +308,7 @@ The product-facing contract is the registry tables: `provisions`, `pci_weekly`, 
 | Forecast registry, public market reads, and gated proposals | implemented |
 | Normalized source documents, evidence items, trace links, and source health | implemented |
 | Public Supabase views | implemented |
-| Cloud scheduler | GitHub Actions workflows for weekly production and daily refresh |
+| Cloud scheduler | not configured; run registry commands manually or attach an external scheduler |
 | Secured webhook runner | Supabase Edge Functions proxy to an external Python runner when configured |
 
 ## Cloud Provisioning
@@ -320,7 +320,6 @@ CLI checks:
 ```bash
 vercel whoami
 supabase projects list
-gh auth status
 ```
 
 Provision Supabase after `supabase login`:
@@ -343,33 +342,9 @@ vercel --prod
 vercel alias set <deployment-url> pcindex.vercel.app
 ```
 
-The Vercel app reads the public Supabase views from the browser, so the landing page and registry stay current while the backend updates the data on its weekly and daily schedules.
+The Vercel app reads the public Supabase views from the browser, so the landing page and registry stay current after the backend registry commands write fresh data.
 
-Set these GitHub repository secrets for the production workflows:
-
-```bash
-gh secret set SUPABASE_URL
-gh secret set SUPABASE_SERVICE_ROLE_KEY
-gh secret set OPENAI_API_KEY
-gh secret set CONGRESS_GOV_API_KEY
-gh secret set REGULATIONS_GOV_API_KEY
-gh secret set GOVINFO_API_KEY
-gh secret set FRED_API_KEY
-gh secret set PROPUBLICA_CONGRESS_API_KEY
-gh secret set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-```
-
-Optional repository variables:
-
-```bash
-gh variable set FEDERAL_REGISTER_USER_AGENT --body "pci-realtime-production/0.1"
-gh variable set PCI_SCREENING_MODEL --body "gpt-5.4-nano"
-gh variable set PCI_SCORING_MODEL --body "gpt-5.4-mini"
-gh variable set PCI_AUDIT_MODEL --body "gpt-5.5"
-```
-
-`.github/workflows/production-registry-pipeline.yml` runs the complete weekly loop every Monday. `.github/workflows/production-market-discovery.yml` scans public market venues every six hours. `.github/workflows/production-registry-refresh.yml` refreshes market settlements and metrics daily.
-`.github/workflows/production-smoke.yml` checks `https://pcindex.vercel.app` and the public Supabase views every six hours.
+This repository does not ship GitHub Actions CI/CD workflows. Run backend registry commands manually from a trusted local or server environment with the needed environment variables present.
 
 Supabase Edge Function triggers are intentionally fail-closed. If they are used, set both the outbound webhook values and the inbound trigger secret:
 

@@ -116,9 +116,8 @@ Add `--write` only after `status.write_configured` is true:
 uv run --extra dev python scripts/run_agent_research_intake.py --write
 ```
 
-The production workflow `.github/workflows/production-agent-research-intake.yml`
-can run this daily. It stays dry-run by default unless manually dispatched with
-`write=true`.
+Run this manually from a trusted local or server environment. Keep it dry-run
+unless `status.write_configured` is true and you explicitly pass `--write`.
 
 ## Transport Modes
 

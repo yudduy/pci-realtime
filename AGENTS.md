@@ -37,7 +37,7 @@ Use Python 3.10+ and keep modules snake_case. Prefer typed, small functions that
 
 ## Testing Guidelines
 
-Pytest discovers backend tests from `tests/test_*.py`; add focused unit tests near the behavior changed. Playwright e2e tests live under `apps/web/tests/e2e/` and run against the mock Supabase server configured in `apps/web/playwright.config.ts`. Do not require real API keys in normal CI tests; gate live checks behind explicit environment variables.
+Pytest discovers backend tests from `tests/test_*.py`; add focused unit tests near the behavior changed. Playwright e2e tests live under `apps/web/tests/e2e/` and run against the mock Supabase server configured in `apps/web/playwright.config.ts`. Do not require real API keys in normal local tests; gate live checks behind explicit environment variables.
 
 ## Commit & Pull Request Guidelines
 

@@ -86,7 +86,7 @@ npm --prefix apps/web run lint
 npm --prefix apps/web run test:e2e
 ```
 
-CI runs Python tests on 3.11 and 3.12, Ruff, Next typecheck/lint/build, and Playwright e2e.
+Run these checks manually before shipping relevant changes.
 
 ## Main Pipeline Commands
 
@@ -355,12 +355,7 @@ If the estimate exceeds `PCI_LLM_RUN_COST_CEILING_USD`, a live scoring run must 
 
 ## Cloud And Scheduling
 
-GitHub workflows:
-
-- `.github/workflows/ci.yml`: tests/lint/web checks.
-- `.github/workflows/production-registry-pipeline.yml`: scheduled Monday finalized weekly loop plus weekday rolling live ingest.
-- `.github/workflows/production-market-discovery.yml`: scheduled six-hour public market scan and candidate audit.
-- `.github/workflows/production-registry-refresh.yml`: scheduled six-hour daily refresh.
+GitHub Actions CI/CD workflows are intentionally not configured in this repository. Run checks and production registry commands manually from a trusted local or server environment, or attach an external scheduler outside the repo when needed.
 
 Supabase functions:
 
