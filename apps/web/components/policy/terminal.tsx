@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { ChevronDown, ChevronLeft, ChevronRight, FileText, Info, Search, X } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { SiteHeader } from "@/components/layout/site-header"
 import {
   deltaToneClass,
@@ -63,22 +63,49 @@ export type PolicyTerminalData = {
 export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
   const [query, setQuery] = useState("")
   const [infoOpen, setInfoOpen] = useState(false)
+  const infoButtonRef = useRef<HTMLButtonElement>(null)
+  const infoCloseRef = useRef<HTMLButtonElement>(null)
   const policies = data.policies
   const visible = useMemo(() => filterPolicies(policies, query), [policies, query])
+  const [sort, setSort] = useState<TerminalSort>({ key: "code", dir: 1 })
+  const [density, setDensity] = useState<"comfortable" | "compact">("comfortable")
+  const sorted = useMemo(() => sortPolicies(visible, sort), [visible, sort])
+  const onSort = (key: TerminalSortKey) =>
+    setSort((current) =>
+      current.key === key
+        ? { key, dir: (current.dir * -1) as 1 | -1 }
+        : { key, dir: key === "code" ? 1 : -1 },
+    )
   const [expandedCode, setExpandedCode] = useState<string | null>(null)
   useEffect(() => {
     const hashCode = window.location.hash.match(/^#policy-(.+)$/)?.[1]
     if (hashCode && policies.some((policy) => policy.code === hashCode)) {
       const frame = window.requestAnimationFrame(() => {
         setExpandedCode(hashCode)
+        // "start" + scroll-margin-top lands the row just below the sticky header
+        // instead of pulling the hero under it.
         document.getElementById(`policy-${hashCode}`)?.scrollIntoView({
-          block: "center",
+          block: "start",
           behavior: "smooth",
         })
       })
       return () => window.cancelAnimationFrame(frame)
     }
   }, [policies])
+  // Dialog: trap focus to the close control, close on Escape, restore focus on exit.
+  useEffect(() => {
+    if (!infoOpen) return
+    const trigger = infoButtonRef.current
+    infoCloseRef.current?.focus()
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setInfoOpen(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      trigger?.focus()
+    }
+  }, [infoOpen])
   return (
     <div className="tracker-page policy-terminal">
       <SiteHeader />
@@ -91,6 +118,7 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
               <h1>Climate policy intelligence</h1>
               <div className="terminal-title-actions">
                 <button
+                  ref={infoButtonRef}
                   type="button"
                   className="terminal-info-button"
                   onClick={() => setInfoOpen(true)}
@@ -122,31 +150,56 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
               placeholder="Search policy, agency, or document"
             />
           </label>
-          <p>{visible.length} of {policies.length} policies</p>
+          <div className="terminal-controls-meta">
+            <p>{visible.length} of {policies.length} policies</p>
+            <button
+              type="button"
+              className="density-toggle"
+              onClick={() =>
+                setDensity((current) => (current === "comfortable" ? "compact" : "comfortable"))
+              }
+              aria-pressed={density === "compact"}
+            >
+              {density === "compact" ? "Comfortable" : "Compact"}
+            </button>
+          </div>
         </section>
 
         <section className="terminal-main">
           <div className="terminal-table-wrap policy-accordion-shell">
             <PolicyScoreGuide />
-            <PolicyAccordion
-              policies={visible}
-              expandedCode={expandedCode}
-              onToggle={(code) =>
-                setExpandedCode((current) => (current === code ? null : code))
-              }
-            />
+            {density === "compact" ? (
+              <PolicyCompareTable policies={sorted} sort={sort} onSort={onSort} />
+            ) : (
+              <>
+                <RegisterHeader sort={sort} onSort={onSort} />
+                <PolicyAccordion
+                  policies={sorted}
+                  expandedCode={expandedCode}
+                  onToggle={(code) =>
+                    setExpandedCode((current) => (current === code ? null : code))
+                  }
+                />
+              </>
+            )}
           </div>
         </section>
 
         {infoOpen && (
-          <div className="terminal-info-overlay" role="presentation">
+          <div
+            className="terminal-info-overlay"
+            role="presentation"
+            onClick={() => setInfoOpen(false)}
+          >
             <div
               className="terminal-info-modal"
               role="dialog"
               aria-modal="true"
               aria-labelledby="terminal-info-title"
+              onClick={(event) => event.stopPropagation()}
             >
               <button
+                ref={infoCloseRef}
                 type="button"
                 className="terminal-info-close"
                 onClick={() => setInfoOpen(false)}
@@ -175,13 +228,18 @@ function UpdateCarousel({
   updates: PolicyHeadline[]
 }) {
   const [active, setActive] = useState(0)
+  const [paused, setPaused] = useState(false)
   useEffect(() => {
-    if (updates.length <= 1) return
+    if (updates.length <= 1 || paused) return
+    const reduceMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches
+    if (reduceMotion) return
     const timer = window.setInterval(() => {
       setActive((value) => (value + 1) % updates.length)
     }, 5200)
     return () => window.clearInterval(timer)
-  }, [updates.length])
+  }, [updates.length, paused])
 
   if (!updates.length) return null
 
@@ -190,7 +248,14 @@ function UpdateCarousel({
   const next = () => setActive((value) => (value + 1) % updates.length)
 
   return (
-    <section className="terminal-updates-carousel" aria-label="Latest policy updates">
+    <section
+      className="terminal-updates-carousel"
+      aria-label="Latest policy updates"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
+    >
       <div className="terminal-updates-head">
         <div>
           <p>Latest policy updates</p>
@@ -254,6 +319,135 @@ function PolicyScoreGuide() {
   )
 }
 
+type TerminalSortKey = "code" | "pci" | "move"
+type TerminalSort = { key: TerminalSortKey; dir: 1 | -1 }
+
+function sortPolicies(policies: TerminalPolicy[], sort: TerminalSort): TerminalPolicy[] {
+  const arr = [...policies]
+  arr.sort((a, b) => {
+    if (sort.key === "code") return a.code.localeCompare(b.code) * sort.dir
+    if (sort.key === "pci") return ((a.currentPci ?? 0) - (b.currentPci ?? 0)) * sort.dir
+    return ((policyDelta(a) ?? 0) - (policyDelta(b) ?? 0)) * sort.dir
+  })
+  return arr
+}
+
+function RegisterHeader({
+  sort,
+  onSort,
+}: {
+  sort: TerminalSort
+  onSort: (key: TerminalSortKey) => void
+}) {
+  const indicator = (key: TerminalSortKey) =>
+    sort.key === key ? (sort.dir === 1 ? " ↑" : " ↓") : ""
+  const sortButton = (label: string, sortKey: TerminalSortKey) => (
+    <button
+      type="button"
+      className={`register-sort${sort.key === sortKey ? " active" : ""}`}
+      onClick={() => onSort(sortKey)}
+      aria-pressed={sort.key === sortKey}
+      aria-label={`Sort by ${label.toLowerCase()}`}
+    >
+      {label}
+      {indicator(sortKey)}
+    </button>
+  )
+  return (
+    <div className="policy-register-head" role="row">
+      {sortButton("Policy", "code")}
+      <span className="register-col-label">Trend</span>
+      <div className="register-sort-cluster">
+        {sortButton("PCI", "pci")}
+        {sortButton("Move", "move")}
+      </div>
+      <span aria-hidden="true" />
+    </div>
+  )
+}
+
+// Dense comparison table (Compact mode): every policy's dimensions are
+// column-scannable head-to-head without expanding. The accordion (Comfortable)
+// stays for single-policy depth.
+function PolicyCompareTable({
+  policies,
+  sort,
+  onSort,
+}: {
+  policies: TerminalPolicy[]
+  sort: TerminalSort
+  onSort: (key: TerminalSortKey) => void
+}) {
+  const indicator = (key: TerminalSortKey) =>
+    sort.key === key ? (sort.dir === 1 ? " ↑" : " ↓") : ""
+  const ariaSort = (key: TerminalSortKey): "ascending" | "descending" | "none" =>
+    sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"
+  const headButton = (label: string, key: TerminalSortKey) => (
+    <button
+      type="button"
+      className={`compare-sort${sort.key === key ? " active" : ""}`}
+      onClick={() => onSort(key)}
+      aria-label={`Sort by ${label.toLowerCase()}`}
+    >
+      {label}
+      {indicator(key)}
+    </button>
+  )
+  return (
+    <div className="policy-compare-wrap">
+      <table className="policy-compare-table">
+        <thead>
+          <tr>
+            <th scope="col" aria-sort={ariaSort("code")}>{headButton("Policy", "code")}</th>
+            <th scope="col" className="num">Spec</th>
+            <th scope="col" className="num">Dur</th>
+            <th scope="col" className="num">Enf</th>
+            <th scope="col" className="num" aria-sort={ariaSort("pci")}>
+              {headButton("PCI", "pci")}
+            </th>
+            <th scope="col" className="num" aria-sort={ariaSort("move")}>
+              {headButton("Move", "move")}
+            </th>
+            <th scope="col" className="spark-col">Trend</th>
+          </tr>
+        </thead>
+        <tbody>
+          {policies.map((policy) => {
+            const delta = policyDelta(policy)
+            return (
+              <tr key={policy.code}>
+                <th scope="row" className="compare-policy">
+                  <Link href={`/#policy-${policy.code}`}>
+                    <strong>{policy.code}</strong>
+                    <span>{policy.name}</span>
+                  </Link>
+                </th>
+                <td className="num">{formatScore(policy.specificity)}</td>
+                <td className="num">{formatScore(policy.durability)}</td>
+                <td className="num">{formatScore(policy.enforceability)}</td>
+                <td className="num compare-pci">{formatScore(policy.currentPci)}</td>
+                <td className="num">
+                  <span className={deltaToneClass(delta)}>{formatDelta(delta)}</span>
+                </td>
+                <td className="spark-col">
+                  <RowSpark timeline={policy.timeline} />
+                </td>
+              </tr>
+            )
+          })}
+          {!policies.length && (
+            <tr>
+              <td colSpan={7} className="compare-empty">
+                No matching policy. Clear search to restore the register.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function PolicyAccordion({
   policies,
   expandedCode,
@@ -289,6 +483,7 @@ function PolicyAccordion({
                   {policy.latestEvidenceAt ? ` / ${formatPolicyDate(policy.latestEvidenceAt)}` : ""}
                 </span>
               </span>
+              <RowSpark timeline={policy.timeline} />
               <span className="policy-score-cluster">
                 <span className="policy-score-label">Score</span>
                 <strong>{formatScore(policy.currentPci)}</strong>
@@ -326,49 +521,116 @@ function PolicyAccordion({
   )
 }
 
+function RowSpark({ timeline }: { timeline: TerminalPolicyPoint[] }) {
+  const points = useMemo(() => {
+    const sorted = timeline
+      .filter((point) => typeof point.value === "number" && Number.isFinite(point.value))
+      .sort((a, b) => dateValue(a.date) - dateValue(b.date))
+      .slice(-12)
+    const distinct = new Set(sorted.map((point) => point.value)).size
+    if (sorted.length < 2 || distinct < 2) return null
+    const width = 72
+    const height = 26
+    const pad = 4
+    const step = (width - pad * 2) / (sorted.length - 1)
+    return sorted.map((point, index) => ({
+      x: pad + index * step,
+      y: height - pad - ((Number(point.value) - 1) / 4) * (height - pad * 2),
+    }))
+  }, [timeline])
+
+  // No movement yet — a flat spark would imply a measured trend that isn't there.
+  if (!points) return <span className="row-spark-empty" aria-hidden="true">—</span>
+
+  const path = points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+    .join(" ")
+  const last = points[points.length - 1]
+  return (
+    <svg className="row-spark" viewBox="0 0 72 26" width="72" height="26" aria-hidden="true">
+      <path d={path} />
+      <circle cx={last.x} cy={last.y} r="2.4" />
+    </svg>
+  )
+}
+
 function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
   const points = useMemo(() => largeTrendPoints(policy.timeline), [policy.timeline])
+  const distinctValues = useMemo(
+    () => new Set(points.map((point) => point.value)).size,
+    [points],
+  )
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const active = points.find((point) => point.key === activeKey) ?? points.at(-1)
-  const path = points
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
-    .join(" ")
 
-  if (points.length <= 1) {
+  // A line is only honest with >=3 points that actually move. Otherwise the index
+  // is holding at its baseline — label that state rather than draw a flat segment.
+  const hasTrend = points.length >= 3 && distinctValues > 1
+
+  if (!hasTrend) {
+    const baseline = points[0]
+    const latest = points.at(-1) ?? baseline
     return (
-      <section className="policy-score-trend" aria-label={`${policy.code} PCI score trend`}>
-        {points[0] && <PointAttribution point={points[0]} policy={policy} />}
+      <section className="policy-score-trend" aria-label={`${policy.code} PCI score`}>
+        <div className="trend-baseline">
+          <div>
+            <span>Current PCI</span>
+            <strong>{formatScore(policy.currentPci)}</strong>
+          </div>
+          <p>
+            Holding at the {formatPolicyDate(baseline?.date)} baseline. The index moves only
+            when a new official document changes specificity, durability, or enforceability.
+          </p>
+        </div>
+        {latest && <PointAttribution point={latest} policy={policy} />}
       </section>
     )
   }
 
+  const dense = points.length >= 10
+  const path = points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ")
+
   return (
     <section className="policy-score-trend" aria-label={`${policy.code} PCI score trend`}>
-      <svg viewBox="0 0 720 220" role="img" aria-label={`${policy.code} PCI score chart`}>
-        <line x1="24" x2="696" y1="38" y2="38" />
-        <line x1="24" x2="696" y1="110" y2="110" />
-        <line x1="24" x2="696" y1="182" y2="182" />
+      <svg viewBox="0 0 720 200" role="img" aria-label={`${policy.code} PCI score chart`}>
+        <rect className="trend-band" x="24" y="24" width="672" height="144" rx="4" />
+        <line x1="24" x2="696" y1="24" y2="24" />
+        <line x1="24" x2="696" y1="96" y2="96" />
+        <line x1="24" x2="696" y1="168" y2="168" />
         {path && <path d={path} />}
-        {points.map((point) => (
-          <circle
-            key={point.key}
-            data-testid={`terminal-trend-point-${point.key}`}
-            tabIndex={0}
-            cx={point.x}
-            cy={point.y}
-            r={point.attributions.length ? "5" : "4"}
-            className={active?.key === point.key ? "active" : ""}
-            aria-label={`${formatDate(point.date)} score ${formatScore(point.value)}`}
-            onFocus={() => setActiveKey(point.key)}
-            onMouseEnter={() => setActiveKey(point.key)}
-          >
-            <title>{`${formatDate(point.date)} score ${formatScore(point.value)}`}</title>
-          </circle>
-        ))}
-        <text x="24" y="208">
+        {points.map((point, index) => {
+          const endpoint = index === 0 || index === points.length - 1
+          if (
+            dense &&
+            !endpoint &&
+            active?.key !== point.key &&
+            !point.attributions.length
+          ) {
+            return null
+          }
+          return (
+            <circle
+              key={point.key}
+              data-testid={`terminal-trend-point-${point.key}`}
+              tabIndex={0}
+              cx={point.x}
+              cy={point.y}
+              r={point.attributions.length ? "5" : "4"}
+              className={active?.key === point.key ? "active" : ""}
+              aria-label={`${formatDate(point.date)} score ${formatScore(point.value)}`}
+              onFocus={() => setActiveKey(point.key)}
+              onMouseEnter={() => setActiveKey(point.key)}
+            >
+              <title>{`${formatDate(point.date)} score ${formatScore(point.value)}`}</title>
+            </circle>
+          )
+        })}
+        <text x="24" y="192">
           {points[0] ? formatDate(points[0].date) : ""}
         </text>
-        <text x="696" y="208" textAnchor="end">
+        <text x="696" y="192" textAnchor="end">
           {points.at(-1) ? formatDate(points.at(-1)?.date) : ""}
         </text>
       </svg>
@@ -392,18 +654,16 @@ function largeTrendPoints(points: TerminalPolicyPoint[]): LargeTrendPoint[] {
     .slice(-24)
 
   if (!sorted.length) return []
-  const values = sorted.map((point) => Number(point.value))
-  const min = Math.min(...values, 1)
-  const max = Math.max(...values, 5)
-  const range = max - min || 1
   const xStep = sorted.length === 1 ? 0 : 672 / (sorted.length - 1)
 
+  // Fixed 1–5 domain so a 0.2 move and a 2.0 move stay proportional across every
+  // policy. The plot band y∈[24,168] matches the gridlines drawn at value 5/3/1.
   return sorted.map((point, index) => ({
     ...point,
     date: point.date ?? "2022-08-16",
     value: Number(point.value),
     x: 24 + index * xStep,
-    y: 190 - ((Number(point.value) - min) / range) * 160,
+    y: 168 - ((Number(point.value) - 1) / 4) * 144,
   }))
 }
 

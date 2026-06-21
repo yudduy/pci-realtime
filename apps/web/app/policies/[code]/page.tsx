@@ -6,5 +6,5 @@ type PolicyPageProps = {
 
 export default async function PolicyPage({ params }: PolicyPageProps) {
   const { code } = await params
-  redirect(`/dashboard#policy-${code.toUpperCase()}`)
+  redirect(`/#policy-${code.toUpperCase()}`)
 }

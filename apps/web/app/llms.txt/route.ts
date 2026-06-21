@@ -7,8 +7,7 @@ export function GET() {
   const body = `# PCIndex Docs
 
 ## Public Product
-- [Homepage](${baseUrl}/): Live Policy Credibility Index overview.
-- [Terminal](${baseUrl}/dashboard): Policy-unit register, source freshness, and evidence state.
+- [Terminal](${baseUrl}/): Live Policy Credibility Index — policy-unit register, source freshness, and evidence state.
 - [About](${baseUrl}/about): Methodology companion for PCI scoring.
 
 ## Agent Setup

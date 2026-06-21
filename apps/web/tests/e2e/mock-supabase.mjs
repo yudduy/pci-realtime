@@ -79,18 +79,48 @@ const policyEvents = [
     created_at: now,
   },
 ]
-const provisionTimelines = currentPci.flatMap((policy) => [
-  timeline(policy, "2022-W33", "2022-08-15", policy.baseline_pci),
-  timeline(
-    policy,
-    "2026-W21",
-    "2026-05-18",
-    policy.pci,
-    policy.code === "45V"
-      ? ["2026-W21:federal_register:45v-guidance:45V"]
-      : [],
-  ),
-])
+// Representative PCI arcs: the IRA-enactment anchor, the OBBBA stress dip, and
+// recent recovery/guidance. Several provisions carry real movement so the trend
+// chart and row sparklines render; 50144/50141 stay flat to exercise the
+// honest "holding at baseline" state.
+const trendArcs = {
+  "45X": [
+    ["2022-W33", "2022-08-15", 4.0],
+    ["2024-W20", "2024-05-13", 4.33],
+    ["2025-W30", "2025-07-21", 4.5],
+    ["2026-W21", "2026-05-18", 4.67],
+  ],
+  "45V": [
+    ["2022-W33", "2022-08-15", 4.0],
+    ["2024-W20", "2024-05-13", 4.67],
+    ["2025-W30", "2025-07-21", 4.67],
+    ["2026-W21", "2026-05-18", 4.33, ["2026-W21:federal_register:45v-guidance:45V"]],
+  ],
+  "45Q": [
+    ["2022-W33", "2022-08-15", 4.0],
+    ["2024-W20", "2024-05-13", 4.0],
+    ["2025-W30", "2025-07-21", 4.5],
+    ["2026-W21", "2026-05-18", 4.33],
+  ],
+  "30D": [
+    ["2022-W33", "2022-08-15", 4.33],
+    ["2024-W20", "2024-05-13", 3.67],
+    ["2025-W30", "2025-07-21", 3.67],
+    ["2026-W21", "2026-05-18", 4.0],
+  ],
+}
+const provisionTimelines = currentPci.flatMap((policy) => {
+  const arc = trendArcs[policy.code] ?? [
+    ["2022-W33", "2022-08-15", policy.baseline_pci],
+    ["2026-W21", "2026-05-18", policy.pci],
+  ]
+  let previous = null
+  return arc.map(([week, weekStart, pci, eventIds = []]) => {
+    const delta = previous === null ? 0 : Number((pci - previous).toFixed(2))
+    previous = pci
+    return timeline(policy, week, weekStart, pci, eventIds, delta)
+  })
+})
 const forecastPerformance = [
   {
     forecast_count: 0,
@@ -303,7 +333,7 @@ function policyUnit(code, name, pci, specificity, durability, enforceability) {
   }
 }
 
-function timeline(policy, week, weekStart, pci, sourceEventIds = []) {
+function timeline(policy, week, weekStart, pci, sourceEventIds = [], deltaThisWeek = 0) {
   return {
     provision: policy.code,
     name: policy.name,
@@ -314,7 +344,7 @@ function timeline(policy, week, weekStart, pci, sourceEventIds = []) {
     durability: policy.durability,
     enforceability: policy.enforceability,
     n_docs: sourceEventIds.length,
-    delta_this_week: 0,
+    delta_this_week: deltaThisWeek,
     data_origin: policy.data_origin,
     source_event_ids: sourceEventIds,
     provenance_status: "complete",

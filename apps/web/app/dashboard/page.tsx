@@ -1,8 +1,7 @@
-import { PolicyTerminal } from "@/components/policy/terminal"
-import { getPolicyTerminalData } from "@/lib/terminal-data"
+import { redirect } from "next/navigation"
 
-export const dynamic = "force-dynamic"
-
-export default async function DashboardPage() {
-  return <PolicyTerminal data={await getPolicyTerminalData()} />
+// The terminal lives at "/"; "/dashboard" is kept only as a stable redirect
+// so previously shared links and sitemap entries do not break.
+export default function DashboardPage() {
+  redirect("/")
 }

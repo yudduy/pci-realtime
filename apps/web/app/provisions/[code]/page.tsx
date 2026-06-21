@@ -6,5 +6,5 @@ type LegacyPolicyPageProps = {
 
 export default async function LegacyPolicyPage({ params }: LegacyPolicyPageProps) {
   const { code } = await params
-  redirect(`/dashboard#policy-${code.toUpperCase()}`)
+  redirect(`/#policy-${code.toUpperCase()}`)
 }

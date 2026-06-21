@@ -15,9 +15,12 @@ export function formatScore(value: number | null | undefined) {
 
 export function formatDelta(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value) || value === 0) {
-    return "--"
+    return "—"
   }
-  return `${value > 0 ? "+" : ""}${value.toFixed(2)}`
+  // Arrow + sign so direction never relies on color alone (WCAG 1.4.1).
+  const arrow = value > 0 ? "▲" : "▼"
+  const sign = value > 0 ? "+" : "−"
+  return `${arrow} ${sign}${Math.abs(value).toFixed(2)}`
 }
 
 export function deltaToneClass(value: number | null | undefined) {

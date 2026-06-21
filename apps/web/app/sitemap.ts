@@ -11,11 +11,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
-      url: `${baseUrl}/dashboard`,
-      changeFrequency: "hourly",
-      priority: 0.9,
-    },
-    {
       url: `${baseUrl}/about`,
       changeFrequency: "monthly",
       priority: 0.7,
