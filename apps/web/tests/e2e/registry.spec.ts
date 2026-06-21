@@ -67,10 +67,10 @@ test("renders the agent connection setup without secrets", async ({ page }) => {
   await expect(page.getByText("Use read tools.")).toBeVisible()
   await expect(page.getByText("Keep intake local.")).toBeVisible()
   await expect(page.getByRole("heading", { name: "What is live" })).toBeVisible()
-  await expect(page.getByText("Hosted read MCP")).toBeVisible()
-  await expect(page.getByText("Local write MCP")).toBeVisible()
-  await expect(page.getByText("Live")).toBeVisible()
-  await expect(page.getByText("Ready")).toBeVisible()
+  await expect(page.getByText("Hosted read MCP", { exact: true })).toBeVisible()
+  await expect(page.getByText("Local write MCP", { exact: true })).toBeVisible()
+  await expect(page.getByText("Live", { exact: true })).toBeVisible()
+  await expect(page.getByText("Ready", { exact: true })).toBeVisible()
   await expect(page.locator(".connect-protocol-card", { hasText: "Hosted read MCP" })).toContainText(
     "https://pcindex.vercel.app/mcp",
   )
@@ -133,6 +133,7 @@ test("redirects the common connect page typo", async ({ page }) => {
 
 test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
   const response = await request.post("/mcp", {
+    headers: { accept: "application/json, text/event-stream" },
     data: {
       jsonrpc: "2.0",
       id: 1,
@@ -235,10 +236,10 @@ test("renders the policy credibility terminal without fake market fields", async
   await expect(page.getByText("KX-HYDROGEN-TAXCREDIT-2026")).toHaveCount(0)
 })
 
-test("policy detail URLs resolve back to the dashboard accordion", async ({ page }) => {
+test("policy detail URLs resolve back to the terminal accordion", async ({ page }) => {
   await page.goto("/policies/45V")
 
-  await expect(page).toHaveURL(/\/dashboard#policy-45V$/)
+  await expect(page).toHaveURL(/\/#policy-45V$/)
   await expect(page.getByRole("heading", { name: "Tracked policies" })).toBeVisible()
   await expect(page.locator(".policy-accordion-trigger", { hasText: "45V" })).toBeVisible()
   await expect(page.getByText("Latest official evidence")).toHaveCount(0)
