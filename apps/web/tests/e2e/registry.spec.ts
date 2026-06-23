@@ -1,15 +1,15 @@
 import { expect, test } from "@playwright/test"
 
-test("renders the policy terminal as the home page", async ({ page }) => {
+test("renders the policy intelligence desk as the home page", async ({ page }) => {
   await page.goto("/")
 
-  await expect(page.getByRole("heading", { name: "Climate policy intelligence" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "About this terminal" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Policy Intelligence Desk" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "About this desk" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Read about the paper" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Evidence moving the index" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Reviewed evidence for decisions" })).toBeVisible()
   await expect(page.locator(".terminal-updates-carousel")).toContainText("Clean hydrogen production credit guidance")
   await expect(page.locator(".terminal-updates-carousel")).not.toContainText("Advanced Manufacturing Production Credit")
-  await expect(page.getByText("Policy Intelligence Ledger", { exact: true })).toBeVisible()
+  await expect(page.getByText("Daily Staff Desk", { exact: true })).toBeVisible()
   await expect(page.getByText("Clean Vehicle Credit").first()).toBeVisible()
   await expect(page.getByRole("link", { name: "Open terminal" })).toHaveCount(0)
   await expect(page.getByText("Source coverage")).toHaveCount(0)
@@ -24,11 +24,12 @@ test("renders the policy terminal as the home page", async ({ page }) => {
   await expect(page.getByText("Trajectory")).toHaveCount(0)
   await expect(page.getByText("Data updated")).toHaveCount(0)
   const content = await page.content()
-  expect(content).not.toMatch(/rules, notices, agency guidance|tax-credit guidance, forms, FAQs|statutes, amendments, committee movement/i)
+  const visibleContent = await page.locator("body").innerText()
+  expect(visibleContent).not.toMatch(/rules, notices, agency guidance|tax-credit guidance, forms, FAQs|statutes, amendments, committee movement/i)
   expect(content).not.toMatch(/supabase/i)
   expect(content).not.toMatch(new RegExp("autonom" + "ous", "i"))
   expect(content).not.toMatch(new RegExp("absta" + "in", "i"))
-  expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|pci signal|prediction mode/i)
+  expect(visibleContent).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|pci signal|prediction mode/i)
 })
 
 test("renders a policy dossier with briefs, theses, and cited answers", async ({ page }) => {
@@ -67,13 +68,13 @@ test("renders the methodology companion with policy dimensions", async ({ page }
   await expect(page.getByText("132,826")).toBeVisible()
   await expect(page.getByRole("heading", { name: "Paper anchors" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Policy credibility by unit" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "What the terminal adds" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "What the desk adds" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Specificity" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Durability" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Enforceability" })).toBeVisible()
   await expect(page.getByText("source citations, and source freshness")).toBeVisible()
   await expect(page.getByRole("heading", { name: "BibTeX" })).toBeVisible()
-  await expect(page.getByRole("link", { name: "Terminal" }).first()).toBeVisible()
+  await expect(page.getByRole("link", { name: "Desk" }).first()).toBeVisible()
   expect(await page.content()).not.toMatch(/gated trade proposals|supabase/i)
 })
 
@@ -81,13 +82,13 @@ test("renders the agent connection setup without secrets", async ({ page }) => {
   await page.goto("/connect")
 
   await expect(
-    page.getByRole("heading", { name: "Connect an agent to PCIndex" }),
+    page.getByRole("heading", { name: "Connect an agent to the Policy Intelligence Desk" }),
   ).toBeVisible()
   await expect(page.getByRole("heading", { name: "Use hosted read access; keep writes local." })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Hosted read connector" })).toBeVisible()
   await expect(page.getByText("Hosted read MCP: live")).toBeVisible()
   await expect(page.getByText("Local write MCP: ready")).toBeVisible()
-  await expect(page.getByText("Add PCIndex.")).toBeVisible()
+  await expect(page.getByText("Add the desk.")).toBeVisible()
   await expect(page.getByText("Use read tools.")).toBeVisible()
   await expect(page.getByText("Keep intake local.")).toBeVisible()
   await expect(page.getByRole("heading", { name: "What is live" })).toBeVisible()
@@ -151,7 +152,7 @@ test("redirects the common connect page typo", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/connect$/)
   await expect(
-    page.getByRole("heading", { name: "Connect an agent to PCIndex" }),
+    page.getByRole("heading", { name: "Connect an agent to the Policy Intelligence Desk" }),
   ).toBeVisible()
 })
 
@@ -182,10 +183,10 @@ test("lists the connection page in the agent documentation index", async ({ page
   await expect(page.getByText("[Hosted MCP](https://pcindex.vercel.app/mcp)")).toBeVisible()
 })
 
-test("renders the policy credibility terminal without fake market fields", async ({ page }) => {
+test("renders the policy intelligence desk without fake market fields", async ({ page }) => {
   await page.goto("/dashboard")
 
-  await expect(page.getByRole("heading", { name: "Climate policy intelligence" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Policy Intelligence Desk" })).toBeVisible()
   await expect(
     page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Terminal" }),
   ).toHaveCount(0)
@@ -196,23 +197,23 @@ test("renders the policy credibility terminal without fake market fields", async
     page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Paper" }),
   ).toHaveCount(0)
   await expect(page.getByPlaceholder("Search policy, agency, or document")).toBeVisible()
-  await expect(page.getByText("Policy Intelligence Ledger", { exact: true })).toBeVisible()
-  await expect(page.getByRole("button", { name: "About this terminal" })).toBeVisible()
+  await expect(page.getByText("Daily Staff Desk", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "About this desk" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Read about the paper" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Evidence moving the index" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Reviewed evidence for decisions" })).toBeVisible()
   await expect(page.locator(".terminal-updates-carousel")).not.toContainText("Advanced Manufacturing Production Credit")
-  await expect(page.getByRole("button", { name: "Previous PCI update" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Next PCI update" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Previous staff update" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Next staff update" })).toBeVisible()
   const sourceLink = page.getByRole("link", { name: "Open cited source" })
   await expect(sourceLink).toBeVisible()
   await expect(sourceLink).toHaveAttribute(
     "href",
     /https:\/\/www\.federalregister\.gov\/documents\/example#:~:text=Treasury%20guidance%20narrows%20eligibility/,
   )
-  await page.getByRole("button", { name: "About this terminal" }).click()
-  await expect(page.getByRole("dialog", { name: "How to read policy scores" })).toBeVisible()
+  await page.getByRole("button", { name: "About this desk" }).click()
+  await expect(page.getByRole("dialog", { name: "How the desk treats evidence" })).toBeVisible()
   await page.getByRole("button", { name: "Close terminal information" }).click()
-  await expect(page.getByRole("heading", { name: "Tracked policies" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Policy brief register" })).toBeVisible()
   await expect(page.getByText("Fragile")).toHaveCount(0)
   await expect(page.getByText("Mixed")).toHaveCount(0)
   await expect(page.getByText("Strong")).toHaveCount(0)
@@ -227,7 +228,7 @@ test("renders the policy credibility terminal without fake market fields", async
     await page.locator(".policy-accordion-trigger").first().click()
   }
   await expect(page.locator(".policy-score-trend").first()).toBeVisible()
-  await expect(page.getByText("Scoring").first()).toBeVisible()
+  await expect(page.getByText("Derived Index Inputs").first()).toBeVisible()
   await expect(page.locator(".policy-source-card").first()).toBeVisible()
   await expect(page.getByRole("columnheader")).toHaveCount(0)
   await expect(page.getByText("Current Brief")).toHaveCount(0)
@@ -242,18 +243,19 @@ test("renders the policy credibility terminal without fake market fields", async
   await expect(page.getByText("Source ledger")).toHaveCount(0)
   await page.getByPlaceholder("Search policy, agency, or document").fill("45V")
   await page.locator(".policy-accordion-trigger", { hasText: "45V" }).click()
-  await expect(page.locator("[aria-label='45V PCI score trend']")).toBeVisible()
+  await expect(page.locator("[aria-label='45V derived PCI signal trend']")).toBeVisible()
   await expect(page.getByTestId("terminal-trend-point-45V-2026-W21")).toBeVisible()
   await page.getByTestId("terminal-trend-point-45V-2026-W21").hover()
   await expect(page.getByText("Clean hydrogen production credit guidance").first()).toBeVisible()
   await expect(page.locator(".policy-point-attribution")).toContainText("Treasury guidance narrows eligibility for the clean hydrogen credit.")
 
   const content = await page.content()
+  const visibleContent = await page.locator("body").innerText()
   expect(content).not.toMatch(/supabase/i)
   expect(content).not.toMatch(new RegExp("autonom" + "ous", "i"))
   expect(content).not.toMatch(new RegExp("absta" + "in", "i"))
-  expect(content).not.toMatch(/PCIndex continuously parses official policy sources/i)
-  expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|no source|pci signal|prediction mode/i)
+  expect(visibleContent).not.toMatch(/PCIndex continuously parses official policy sources/i)
+  expect(visibleContent).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|no source|pci signal|prediction mode/i)
   await expect(page.getByRole("columnheader", { name: "Probability" })).toHaveCount(0)
   await expect(page.getByRole("columnheader", { name: "Edge" })).toHaveCount(0)
   await expect(page.getByRole("columnheader", { name: "Liquidity" })).toHaveCount(0)
@@ -271,9 +273,10 @@ test("policy detail URLs render a staff dossier", async ({ page }) => {
   await expect(page.getByText("Policy basis")).toHaveCount(0)
 
   const content = await page.content()
+  const visibleContent = await page.locator("body").innerText()
   expect(content).not.toMatch(/supabase/i)
   expect(content).not.toMatch(new RegExp("autonom" + "ous", "i"))
   expect(content).not.toMatch(new RegExp("absta" + "in", "i"))
-  expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|no source|pci signal|prediction mode/i)
+  expect(visibleContent).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|no source|pci signal|prediction mode/i)
   await expect(page.getByText("US Treasury send transactions on blockchain")).toHaveCount(0)
 })

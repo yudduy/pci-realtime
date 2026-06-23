@@ -3,9 +3,9 @@ import { CopyBlock } from "@/components/connect/copy-block"
 import { SiteHeader } from "@/components/layout/site-header"
 
 export const metadata: Metadata = {
-  title: "Connect PCIndex MCP",
+  title: "Connect Policy Desk MCP",
   description:
-    "MCP server reference for connecting trusted agents to the PCIndex policy evidence registry.",
+    "MCP server reference for connecting trusted agents to the policy intelligence evidence registry.",
 }
 
 const localServerCommand =
@@ -65,7 +65,7 @@ const tools = [
     name: "current_pci",
     signature: "current_pci(code?)",
     mode: "read",
-    purpose: "Read the current PCI score for one policy or all policies.",
+    purpose: "Read the derived PCI signal for one policy or all policies.",
   },
   {
     name: "policy_dossier",
@@ -88,10 +88,10 @@ export default function ConnectPage() {
 
       <section className="connect-hero">
         <div>
-          <p className="eyebrow">PCIndex MCP</p>
-          <h1>Connect an agent to PCIndex</h1>
+          <p className="eyebrow">Policy Desk MCP</p>
+          <h1>Connect an agent to the Policy Intelligence Desk</h1>
           <p>
-            The website is the public terminal. The hosted MCP endpoint gives
+            The website is the public desk. The hosted MCP endpoint gives
             agents read access; trusted operators can run the local connector
             when they need evidence intake.
           </p>
@@ -106,7 +106,7 @@ export default function ConnectPage() {
                 <p className="eyebrow">Recommended today</p>
                 <h2>Use hosted read access; keep writes local.</h2>
                 <p>
-                  External agents can read PCIndex directly from the hosted MCP
+                  External agents can read the policy desk directly from the hosted MCP
                   URL. Registry-changing tools stay in the configured local
                   runtime until authentication and review controls are added.
                 </p>
@@ -125,12 +125,12 @@ export default function ConnectPage() {
             </div>
             <ol className="connect-steps">
               <li>
-                <strong>Add PCIndex.</strong>
+                <strong>Add the desk.</strong>
                 <span>Register the hosted MCP URL in your agent client.</span>
               </li>
               <li>
                 <strong>Use read tools.</strong>
-                <span>Ask for policies, PCI state, dossiers, or evidence traces.</span>
+                <span>Ask for policies, briefs, dossiers, evidence traces, or the derived PCI state.</span>
               </li>
               <li>
                 <strong>Keep intake local.</strong>
@@ -160,7 +160,7 @@ export default function ConnectPage() {
                 label="Trusted operators"
                 title="Local write MCP"
                 status="Ready"
-                body="Runs from the repository checkout and keeps evidence intake inside the configured PCIndex runtime."
+                body="Runs from the repository checkout and keeps evidence intake inside the configured policy desk runtime."
                 code={localServerCommand}
               />
             </div>

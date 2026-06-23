@@ -41,10 +41,11 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
           <h1>{policy.name}</h1>
           <p>{policy.formalName}</p>
           <div className="policy-dossier-metrics" aria-label="Policy status metrics">
-            <Metric label="PCI" value={formatScore(policy.currentPci)} />
+            <Metric label="Staff brief" value={latestBrief ? "Ready" : "Empty"} />
             <Metric label="Evidence" value={String(policy.evidenceCount)} />
             <Metric label="Theses" value={String(theses.length)} />
             <Metric label="Last refresh" value={formatDate(policy.latestRefreshAt)} />
+            <Metric label="Derived PCI" value={formatScore(policy.currentPci)} />
           </div>
         </section>
 

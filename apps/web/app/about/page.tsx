@@ -61,7 +61,7 @@ export default function AboutPage() {
             SI Appendix
           </a>
           <Link className="academic-pill-link" href="/dashboard">
-            Terminal
+            Desk
           </Link>
           <a className="academic-pill-link" href="https://github.com/yudduy/pci-realtime">
             Code
@@ -107,7 +107,7 @@ export default function AboutPage() {
               <h2 id="pci-figure-title">Policy credibility by unit</h2>
             </div>
             <Link className="academic-outline-link" href="/dashboard">
-              Open terminal
+              Open desk
             </Link>
           </div>
 
@@ -147,18 +147,18 @@ export default function AboutPage() {
 
           <p className="academic-caption">
             PCI is the simple average of specificity, durability, and
-            enforceability. The terminal state is driven by current evidence,
+            enforceability. The desk state is driven by current evidence,
             source citations, and source refresh timing.
           </p>
         </div>
       </section>
 
       <section className="academic-section">
-        <h2>What the terminal adds</h2>
+        <h2>What the desk adds</h2>
         <p>
-          The paper explains the empirical result. The terminal turns the same
-          PCI logic into a live evidence loop: official documents, score updates,
-          source citations, and source freshness.
+          The paper explains the empirical result. The desk turns the same
+          credibility logic into an auditable operating loop: reviewed briefs,
+          official evidence, source citations, and source freshness.
         </p>
         <div className="results-grid">
           {findings.map((finding) => (

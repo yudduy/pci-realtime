@@ -3,15 +3,15 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://pcindex.vercel.app"),
-  title: "PCIndex",
+  title: "Policy Intelligence Desk",
   description:
-    "Climate policy intelligence for official evidence, score trends, and source attribution.",
+    "Policy intelligence for reviewed briefs, verified evidence, tracked theses, and a derived credibility signal.",
   openGraph: {
-    title: "PCIndex",
+    title: "Policy Intelligence Desk",
     description:
-      "Climate policy intelligence for official evidence, score trends, and source attribution.",
+      "Policy intelligence for reviewed briefs, verified evidence, tracked theses, and a derived credibility signal.",
     url: "https://pcindex.vercel.app",
-    siteName: "PCIndex",
+    siteName: "Policy Intelligence Desk",
     type: "website",
   },
 }

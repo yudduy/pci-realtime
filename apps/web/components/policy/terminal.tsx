@@ -112,16 +112,16 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
       <main className="terminal-shell">
         <section className="terminal-hero">
           <div>
-            <p className="eyebrow">Policy Intelligence Ledger</p>
+            <p className="eyebrow">Daily Staff Desk</p>
             <div className="terminal-title-row">
-              <h1>Climate policy intelligence</h1>
+              <h1>Policy Intelligence Desk</h1>
               <div className="terminal-title-actions">
                 <button
                   ref={infoButtonRef}
                   type="button"
                   className="terminal-info-button"
                   onClick={() => setInfoOpen(true)}
-                  aria-label="About this terminal"
+                  aria-label="About this desk"
                 >
                   <Info className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -207,11 +207,11 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
               <p className="eyebrow">How to read this</p>
-              <h2 id="terminal-info-title">How to read policy scores</h2>
+              <h2 id="terminal-info-title">How the desk treats evidence</h2>
               <p>
-                Scores run from 1 to 5. Higher means the policy signal is more
-                specific, durable, and enforceable. Movement shows the latest
-                change: green improves, red weakens, and -- means no measured move.
+                Staff briefs come first. The derived PCI signal runs from 1 to 5
+                and only moves when reviewed primary evidence changes specificity,
+                durability, or enforceability.
               </p>
             </div>
           </div>
@@ -257,17 +257,17 @@ function UpdateCarousel({
     >
       <div className="terminal-updates-head">
         <div>
-          <p>Latest policy updates</p>
-          <h2>Evidence moving the index</h2>
+          <p>Latest staff updates</p>
+          <h2>Reviewed evidence for decisions</h2>
         </div>
         <div className="terminal-carousel-controls" aria-label="Update carousel controls">
-          <button type="button" onClick={previous} aria-label="Previous PCI update">
+          <button type="button" onClick={previous} aria-label="Previous staff update">
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </button>
           <span>
             {active + 1} / {updates.length}
           </span>
-          <button type="button" onClick={next} aria-label="Next PCI update">
+          <button type="button" onClick={next} aria-label="Next staff update">
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
@@ -291,7 +291,7 @@ function UpdateCarousel({
         </div>
       </article>
 
-      <div className="terminal-update-dots" aria-label="Select PCI update">
+      <div className="terminal-update-dots" aria-label="Select staff update">
         {updates.map((update, index) => (
           <button
             key={update.id}
@@ -309,10 +309,10 @@ function UpdateCarousel({
 
 function PolicyScoreGuide() {
   return (
-    <div className="policy-score-guide" aria-label="How to read policy scores">
+    <div className="policy-score-guide" aria-label="Policy desk register">
       <div>
-        <p>Policy register</p>
-        <h2>Tracked policies</h2>
+        <p>Reviewed desk</p>
+        <h2>Policy brief register</h2>
       </div>
     </div>
   )
@@ -355,10 +355,10 @@ function RegisterHeader({
   return (
     <div className="policy-register-head" role="row">
       {sortButton("Policy", "code")}
-      <span className="register-col-label">Trend</span>
+      <span className="register-col-label">Source trace</span>
       <div className="register-sort-cluster">
-        {sortButton("PCI", "pci")}
-        {sortButton("Move", "move")}
+        {sortButton("Derived PCI", "pci")}
+        {sortButton("Latest move", "move")}
       </div>
       <span aria-hidden="true" />
     </div>
@@ -402,7 +402,7 @@ function PolicyCompareTable({
             <th scope="col" className="num">Dur</th>
             <th scope="col" className="num">Enf</th>
             <th scope="col" className="num" aria-sort={ariaSort("pci")}>
-              {headButton("PCI", "pci")}
+              {headButton("Derived PCI", "pci")}
             </th>
             <th scope="col" className="num" aria-sort={ariaSort("move")}>
               {headButton("Move", "move")}
@@ -484,10 +484,10 @@ function PolicyAccordion({
               </span>
               <RowSpark timeline={policy.timeline} />
               <span className="policy-score-cluster">
-                <span className="policy-score-label">Score</span>
+                <span className="policy-score-label">Derived PCI</span>
                 <strong>{formatScore(policy.currentPci)}</strong>
                 <span className={deltaToneClass(delta)}>
-                  <span className="policy-score-label">Move</span>
+                  <span className="policy-score-label">Latest move</span>
                   {formatDelta(delta)}
                 </span>
               </span>
@@ -570,15 +570,15 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
     const baseline = points[0]
     const latest = points.at(-1) ?? baseline
     return (
-      <section className="policy-score-trend" aria-label={`${policy.code} PCI score`}>
+      <section className="policy-score-trend" aria-label={`${policy.code} derived PCI signal`}>
         <div className="trend-baseline">
           <div>
-            <span>Current PCI</span>
+            <span>Derived PCI</span>
             <strong>{formatScore(policy.currentPci)}</strong>
           </div>
           <p>
-            Holding at the {formatPolicyDate(baseline?.date)} baseline. The index moves only
-            when a new official document changes specificity, durability, or enforceability.
+            No staff-relevant evidence movement since the {formatPolicyDate(baseline?.date)}
+            baseline. The derived signal moves only after reviewed primary evidence.
           </p>
         </div>
         {latest && <PointAttribution point={latest} policy={policy} />}
@@ -592,8 +592,8 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
     .join(" ")
 
   return (
-    <section className="policy-score-trend" aria-label={`${policy.code} PCI score trend`}>
-      <svg viewBox="0 0 720 200" role="img" aria-label={`${policy.code} PCI score chart`}>
+    <section className="policy-score-trend" aria-label={`${policy.code} derived PCI signal trend`}>
+      <svg viewBox="0 0 720 200" role="img" aria-label={`${policy.code} derived PCI chart`}>
         <rect className="trend-band" x="24" y="24" width="672" height="144" rx="4" />
         <line x1="24" x2="696" y1="24" y2="24" />
         <line x1="24" x2="696" y1="96" y2="96" />
@@ -618,11 +618,11 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
               cy={point.y}
               r={point.attributions.length ? "5" : "4"}
               className={active?.key === point.key ? "active" : ""}
-              aria-label={`${formatPolicyDate(point.date)} score ${formatScore(point.value)}`}
+              aria-label={`${formatPolicyDate(point.date)} derived PCI ${formatScore(point.value)}`}
               onFocus={() => setActiveKey(point.key)}
               onMouseEnter={() => setActiveKey(point.key)}
             >
-              <title>{`${formatPolicyDate(point.date)} score ${formatScore(point.value)}`}</title>
+              <title>{`${formatPolicyDate(point.date)} derived PCI ${formatScore(point.value)}`}</title>
             </circle>
           )
         })}
@@ -717,8 +717,8 @@ function FallbackAttribution({ policy }: { policy: TerminalPolicy }) {
 
 function ScoreBreakdown({ policy }: { policy: TerminalPolicy }) {
   return (
-    <section className="policy-score-breakdown" aria-label={`${policy.code} score breakdown`}>
-      <h3>Scoring</h3>
+    <section className="policy-score-breakdown" aria-label={`${policy.code} derived PCI inputs`}>
+      <h3>Derived Index Inputs</h3>
       <ScorePart label="Specificity" value={policy.specificity} />
       <ScorePart label="Durability" value={policy.durability} />
       <ScorePart label="Enforceability" value={policy.enforceability} />

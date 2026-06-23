@@ -10,7 +10,7 @@ export function SiteHeader() {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <Link href="/" className="site-brand" aria-label="PCIndex home">
+        <Link href="/" className="site-brand" aria-label="Policy Intelligence Desk home">
           <svg
             className="site-mark"
             viewBox="0 0 28 28"
@@ -30,7 +30,7 @@ export function SiteHeader() {
             <circle cx="21.5" cy="8.5" r="2" fill="#ffffff" />
           </svg>
           <span className="site-wordmark">
-            PC<span>Index</span>
+            Policy<span>Desk</span>
           </span>
         </Link>
         <nav className="site-nav" aria-label="Primary navigation">
