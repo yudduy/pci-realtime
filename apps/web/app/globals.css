@@ -4456,3 +4456,260 @@ input {
     background-position: 0 0;
   }
 }
+
+.policy-dossier-page {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.policy-dossier-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 56px;
+}
+
+.policy-dossier-hero,
+.policy-dossier-section,
+.policy-dossier-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.policy-dossier-hero {
+  display: grid;
+  gap: 14px;
+  padding: 28px;
+}
+
+.policy-dossier-hero h1 {
+  max-width: 880px;
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 4.25rem);
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.policy-dossier-hero p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted-foreground);
+}
+
+.policy-dossier-back {
+  width: fit-content;
+  color: var(--accent);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.policy-dossier-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.policy-dossier-metrics div {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.policy-dossier-metrics span,
+.policy-dossier-belief-delta span,
+.policy-dossier-list strong,
+.policy-dossier-thesis div span:last-child {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.policy-dossier-metrics strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.2rem;
+  font-weight: 650;
+}
+
+.policy-dossier-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.policy-dossier-panel,
+.policy-dossier-section {
+  padding: 22px;
+}
+
+.policy-dossier-panel-wide {
+  min-height: 280px;
+}
+
+.policy-dossier-panel h2,
+.policy-dossier-section h2 {
+  margin: 4px 0 10px;
+  font-size: 1.25rem;
+  letter-spacing: 0;
+}
+
+.policy-dossier-panel p,
+.policy-dossier-section p {
+  color: var(--muted-foreground);
+}
+
+.policy-dossier-brief-list {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 0;
+}
+
+.policy-dossier-brief-list div {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.policy-dossier-brief-list dt {
+  color: var(--foreground);
+  font-weight: 650;
+}
+
+.policy-dossier-brief-list dd {
+  margin: 6px 0 0;
+  color: var(--muted-foreground);
+}
+
+.policy-dossier-belief-delta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.policy-dossier-belief-delta span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 10px;
+}
+
+.policy-dossier-section {
+  margin-top: 16px;
+}
+
+.policy-dossier-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.policy-dossier-section-head h2 {
+  margin: 0;
+}
+
+.policy-dossier-theses {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.policy-dossier-thesis {
+  min-height: 148px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+}
+
+.policy-dossier-thesis h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.policy-dossier-thesis div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.policy-dossier-thesis div span:first-child {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.policy-dossier-list,
+.policy-dossier-qa {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.policy-dossier-list li,
+.policy-dossier-qa article {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.policy-dossier-list li {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.policy-dossier-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.policy-dossier-list a,
+.policy-dossier-citations a,
+.policy-dossier-citations span {
+  color: var(--accent);
+  font-size: 0.86rem;
+}
+
+.policy-dossier-qa h3 {
+  margin: 0 0 6px;
+  font-size: 0.98rem;
+  letter-spacing: 0;
+}
+
+.policy-dossier-qa p {
+  margin: 0;
+}
+
+.policy-dossier-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+@media (max-width: 900px) {
+  .policy-dossier-grid,
+  .policy-dossier-theses,
+  .policy-dossier-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .policy-dossier-hero,
+  .policy-dossier-panel,
+  .policy-dossier-section {
+    padding: 18px;
+  }
+}

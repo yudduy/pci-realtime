@@ -31,6 +31,26 @@ test("renders the policy terminal as the home page", async ({ page }) => {
   expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|pci signal|prediction mode/i)
 })
 
+test("renders a policy dossier with briefs, theses, and cited answers", async ({ page }) => {
+  await page.goto("/policies/45V")
+
+  await expect(page.getByRole("heading", { name: "Clean Hydrogen Production Credit" })).toBeVisible()
+  await expect(page.getByText("Latest Staff Brief")).toBeVisible()
+  await expect(page.getByText("45V has 1 verified belief update")).toBeVisible()
+  await expect(page.getByText("Beliefs The Desk Is Maintaining")).toBeVisible()
+  await expect(page.getByText("weakens implementation timing thesis").first()).toBeVisible()
+  await expect(page.getByText("Primary Sources")).toBeVisible()
+  await expect(page.getByText("Clean hydrogen production credit guidance").first()).toBeVisible()
+  await expect(page.getByText("Context, Not PCI Movement")).toBeVisible()
+  await expect(
+    page.locator(".policy-dossier-panel", { hasText: "Context, Not PCI Movement" }),
+  ).toContainText("Hydrogen implementation analysis")
+  await expect(page.getByText("Answers From The Ledger")).toBeVisible()
+  await expect(page.getByText("Why did this move?")).toBeVisible()
+  await expect(page.getByText("What source proves it?")).toBeVisible()
+  await expect(page.getByText("Unreviewed news")).toHaveCount(0)
+})
+
 test("renders the methodology companion with policy dimensions", async ({ page }) => {
   await page.goto("/about")
 
@@ -236,15 +256,15 @@ test("renders the policy credibility terminal without fake market fields", async
   await expect(page.getByText("KX-HYDROGEN-TAXCREDIT-2026")).toHaveCount(0)
 })
 
-test("policy detail URLs resolve back to the terminal accordion", async ({ page }) => {
+test("policy detail URLs render a staff dossier", async ({ page }) => {
   await page.goto("/policies/45V")
 
-  await expect(page).toHaveURL(/\/#policy-45V$/)
-  await expect(page.getByRole("heading", { name: "Tracked policies" })).toBeVisible()
-  await expect(page.locator(".policy-accordion-trigger", { hasText: "45V" })).toBeVisible()
+  await expect(page).toHaveURL(/\/policies\/45V$/)
+  await expect(page.getByRole("heading", { name: "Clean Hydrogen Production Credit" })).toBeVisible()
+  await expect(page.getByText("Policy Intelligence Desk")).toBeVisible()
+  await expect(page.getByText("Staff Q&A")).toBeVisible()
   await expect(page.getByText("Latest official evidence")).toHaveCount(0)
   await expect(page.getByText("Policy basis")).toHaveCount(0)
-  await expect(page.getByText("Cited evidence")).toHaveCount(0)
 
   const content = await page.content()
   expect(content).not.toMatch(/supabase/i)

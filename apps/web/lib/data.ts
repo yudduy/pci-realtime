@@ -130,6 +130,14 @@ export type PolicySourceCandidate = {
   why_it_matters: string | null
   confidence: number
   related_evidence_ids: string[]
+  verification_status?: "not_checked" | "verified" | "unverified" | "override"
+  quote_verified_against_source?: boolean
+  source_retrieved_at?: string | null
+  source_retrieval_method?: string | null
+  quote_locator_type?: string | null
+  review_decision_code?: string | null
+  approval_basis?: string | null
+  promotion_policy_version?: string | null
   reviewed_at: string | null
   promoted_submission_id: string | null
   promotion_result: Record<string, unknown>
@@ -228,6 +236,10 @@ export type EvidenceItem = {
   citation_page?: string | null
   citation_url_fragment?: string | null
   claim_hash?: string | null
+  quote_hash?: string | null
+  quote_verified_against_source?: boolean
+  quote_locator_type?: string | null
+  quote_locator_value?: string | null
   submitted_by_agent_run_id?: string | null
   extraction_confidence?: number | null
   raw_public_metadata?: Record<string, unknown>
@@ -258,6 +270,72 @@ export type SourceDocument = {
   last_seen_at?: string | null
   submitted_by_agent_run_id?: string | null
   text_excerpt: string | null
+  source_retrieved_at?: string | null
+  source_retrieval_method?: string | null
+  source_content_hash?: string | null
+  raw_public_metadata: Record<string, unknown>
+}
+
+export type PolicyThesis = {
+  thesis_id: string
+  provision: string
+  provision_name: string | null
+  thesis_type: string
+  question: string
+  prior_probability: number
+  current_probability: number
+  confidence: number
+  status: "active"
+  created_at: string
+  updated_at: string
+  raw_public_metadata: Record<string, unknown>
+}
+
+export type BeliefUpdate = {
+  update_id: string
+  thesis_id: string
+  thesis_question: string | null
+  provision: string
+  provision_name: string | null
+  run_id: string | null
+  prior_probability: number
+  likelihood_ratio: number
+  posterior_probability: number
+  direction: "strengthens" | "weakens" | "neutral" | "ambiguous"
+  magnitude: "low" | "medium" | "high"
+  reliability: "low" | "medium" | "high"
+  novelty: "duplicate" | "incremental" | "new"
+  affected_evidence_ids: string[]
+  affected_candidate_ids: string[]
+  market_snapshot_ids: string[]
+  rationale: string
+  counterargument: string | null
+  decision_implication: string | null
+  updater_version: string
+  replay_hash: string
+  adjudication_state: "approved"
+  created_at: string
+  raw_public_metadata: Record<string, unknown>
+}
+
+export type PolicyBrief = {
+  brief_id: string
+  provision: string
+  provision_name: string | null
+  brief_type: "daily" | "weekly"
+  period_start: string
+  period_end: string
+  generated_at: string
+  title: string
+  summary: string
+  what_changed: string
+  why_it_matters: string
+  decision_relevance: string
+  watch_items: string[]
+  evidence_ids: string[]
+  candidate_ids: string[]
+  thesis_update_ids: string[]
+  source_health_summary: Record<string, unknown>
   raw_public_metadata: Record<string, unknown>
 }
 
@@ -310,11 +388,15 @@ export type RegistryData = {
   marketSnapshots: MarketSnapshot[]
   marketDiscoveryCandidates: MarketDiscoveryCandidate[]
   policySourceCandidates: PolicySourceCandidate[]
+  policyTheses: PolicyThesis[]
+  beliefUpdates: BeliefUpdate[]
+  policyBriefs: PolicyBrief[]
   policyEvents: PolicyEvent[]
   pipelineRuns: PipelineRun[]
   provisionTimelines: ProvisionTimeline[]
   forecastPerformance: ForecastPerformance | null
   evidenceItems: EvidenceItem[]
+  policyEvidenceItems: EvidenceItem[]
   sourceDocuments: SourceDocument[]
   sourceLinks: SourceLink[]
   sourceHealth: SourceHealth[]
@@ -385,11 +467,15 @@ export function emptyRegistryData(viewErrors: string[] = []): RegistryData {
     marketSnapshots: [],
     marketDiscoveryCandidates: [],
     policySourceCandidates: [],
+    policyTheses: [],
+    beliefUpdates: [],
+    policyBriefs: [],
     policyEvents: [],
     pipelineRuns: [],
     provisionTimelines: [],
     forecastPerformance: null,
     evidenceItems: [],
+    policyEvidenceItems: [],
     sourceDocuments: [],
     sourceLinks: [],
     sourceHealth: [],
@@ -411,11 +497,15 @@ export async function getRegistryData(): Promise<RegistryData> {
     marketSnapshotsResult,
     marketDiscoveryCandidatesResult,
     policySourceCandidatesResult,
+    policyThesesResult,
+    beliefUpdatesResult,
+    policyBriefsResult,
     policyEventsResult,
     pipelineRunsResult,
     provisionTimelinesResult,
     forecastPerformanceResult,
     evidenceItemsResult,
+    policyEvidenceItemsResult,
     sourceDocumentsResult,
     sourceLinksResult,
     sourceHealthResult,
@@ -434,6 +524,9 @@ export async function getRegistryData(): Promise<RegistryData> {
       "v_policy_source_candidates",
       "select=*&order=discovered_at.desc&limit=100",
     ),
+    fetchView<PolicyThesis>("v_policy_theses", "select=*&order=provision.asc"),
+    fetchView<BeliefUpdate>("v_belief_updates", "select=*&order=created_at.desc&limit=200"),
+    fetchView<PolicyBrief>("v_policy_briefs", "select=*&order=period_end.desc&limit=100"),
     fetchView<PolicyEvent>("v_policy_events", "select=*&order=created_at.desc"),
     fetchView<PipelineRun>("v_pipeline_status", "select=*&limit=5"),
     fetchView<ProvisionTimeline>(
@@ -442,6 +535,7 @@ export async function getRegistryData(): Promise<RegistryData> {
     ),
     fetchView<ForecastPerformance>("v_forecast_performance", "select=*&limit=1"),
     fetchView<EvidenceItem>("v_evidence_items", "select=*&order=created_at.desc"),
+    fetchView<EvidenceItem>("v_policy_evidence_items", "select=*&order=created_at.desc"),
     fetchView<SourceDocument>("v_source_documents", "select=*&order=fetched_at.desc"),
     fetchView<SourceLink>("v_source_links", "select=*&order=created_at.desc"),
     fetchView<SourceHealth>("v_source_health", "select=*"),
@@ -458,11 +552,15 @@ export async function getRegistryData(): Promise<RegistryData> {
     marketSnapshotsResult.error,
     marketDiscoveryCandidatesResult.error,
     policySourceCandidatesResult.error,
+    policyThesesResult.error,
+    beliefUpdatesResult.error,
+    policyBriefsResult.error,
     policyEventsResult.error,
     pipelineRunsResult.error,
     provisionTimelinesResult.error,
     forecastPerformanceResult.error,
     evidenceItemsResult.error,
+    policyEvidenceItemsResult.error,
     sourceDocumentsResult.error,
     sourceLinksResult.error,
     sourceHealthResult.error,
@@ -476,6 +574,9 @@ export async function getRegistryData(): Promise<RegistryData> {
   const marketSnapshots = marketSnapshotsResult.rows
   const marketDiscoveryCandidates = marketDiscoveryCandidatesResult.rows
   const policySourceCandidates = policySourceCandidatesResult.rows
+  const policyTheses = policyThesesResult.rows
+  const beliefUpdates = beliefUpdatesResult.rows
+  const policyBriefs = policyBriefsResult.rows
   const policyEvents = policyEventsResult.rows
   const pipelineRuns = pipelineRunsResult.rows.map((run) => ({
     ...run,
@@ -484,6 +585,7 @@ export async function getRegistryData(): Promise<RegistryData> {
   const provisionTimelines = provisionTimelinesResult.rows
   const forecastPerformance = forecastPerformanceResult.rows[0] ?? null
   const evidenceItems = evidenceItemsResult.rows
+  const policyEvidenceItems = policyEvidenceItemsResult.rows
   const sourceDocuments = sourceDocumentsResult.rows
   const sourceLinks = sourceLinksResult.rows
   const sourceHealth = sourceHealthResult.rows
@@ -497,11 +599,15 @@ export async function getRegistryData(): Promise<RegistryData> {
     marketSnapshots,
     marketDiscoveryCandidates,
     policySourceCandidates,
+    policyTheses,
+    beliefUpdates,
+    policyBriefs,
     policyEvents,
     pipelineRuns,
     provisionTimelines,
     forecastPerformance,
     evidenceItems,
+    policyEvidenceItems,
     sourceDocuments,
     sourceLinks,
     sourceHealth,
