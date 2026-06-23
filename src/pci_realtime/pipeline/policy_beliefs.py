@@ -13,7 +13,11 @@ from pci_realtime.config import BASELINE_PCI, TRACKED_PROVISIONS
 from pci_realtime.forecast_registry.evidence import stable_hash
 from pci_realtime.forecast_registry.engine import clamp_probability, utc_now_iso
 from pci_realtime.forecast_registry.policy import PROVISION_DETAILS
-from pci_realtime.forecast_registry.store import SupabaseRestClient, json_clean, write_json
+from pci_realtime.forecast_registry.store import (
+    SupabaseRestClient,
+    json_clean,
+    write_json,
+)
 
 
 UPDATER_VERSION = "policy-beliefs-v1"
@@ -31,7 +35,9 @@ THESIS_LABELS = {
 }
 
 
-def posterior_from_likelihood(prior_probability: float, likelihood_ratio: float) -> float:
+def posterior_from_likelihood(
+    prior_probability: float, likelihood_ratio: float
+) -> float:
     prior = clamp_probability(prior_probability)
     ratio = max(0.01, float(likelihood_ratio))
     prior_odds = prior / (1.0 - prior)
@@ -249,7 +255,9 @@ def build_policy_brief_rows(
                     "summary": _brief_summary(
                         code, provision_evidence, provision_context, provision_updates
                     ),
-                    "what_changed": _what_changed(provision_evidence, provision_updates),
+                    "what_changed": _what_changed(
+                        provision_evidence, provision_updates
+                    ),
                     "why_it_matters": _why_it_matters(code, provision_updates),
                     "decision_relevance": _decision_relevance(code, provision_context),
                     "watch_items": _watch_items(code, provision_updates, health),
@@ -336,7 +344,9 @@ def run_policy_beliefs(
     }
 
 
-def load_policy_belief_inputs(client: SupabaseRestClient | None) -> dict[str, list[dict[str, Any]]]:
+def load_policy_belief_inputs(
+    client: SupabaseRestClient | None,
+) -> dict[str, list[dict[str, Any]]]:
     if client is None:
         return {}
     return {
@@ -434,7 +444,9 @@ def _what_changed(
 ) -> str:
     if updates:
         strongest = updates[0]
-        return str(strongest.get("rationale") or "A verified source changed a tracked thesis.")
+        return str(
+            strongest.get("rationale") or "A verified source changed a tracked thesis."
+        )
     if evidence:
         title = evidence[0].get("source_title") or evidence[0].get("snippet")
         return f"Verified evidence was added: {title}."
@@ -516,7 +528,9 @@ def _affected_thesis_types(row: Mapping[str, Any]) -> list[str]:
         str(row.get(key) or "")
         for key in ("snippet", "normalized_signal", "source_title", "citation_quote")
     ).casefold()
-    if any(word in text for word in ("budget", "appropriation", "rescission", "funding")):
+    if any(
+        word in text for word in ("budget", "appropriation", "rescission", "funding")
+    ):
         return ["budget_exposure", "legal_durability"]
     if any(word in text for word in ("guidance", "rule", "criteria", "eligibility")):
         return ["implementation_timing", "legal_durability"]
@@ -577,7 +591,9 @@ def _update_rationale(
     signal: Mapping[str, Any],
     markets: Sequence[Mapping[str, Any]],
 ) -> str:
-    title = evidence.get("source_title") or evidence.get("snippet") or "Verified evidence"
+    title = (
+        evidence.get("source_title") or evidence.get("snippet") or "Verified evidence"
+    )
     market_note = ""
     market_meta = _market_public_metadata(markets)
     if market_meta["market_probability"] is not None:
@@ -591,7 +607,9 @@ def _update_rationale(
 def _counterargument(signal: Mapping[str, Any]) -> str:
     if signal["direction"] == "neutral":
         return "The evidence may be already reflected in the ledger and should not move the thesis further."
-    return "The source may be narrow, procedural, or already anticipated by stakeholders."
+    return (
+        "The source may be narrow, procedural, or already anticipated by stakeholders."
+    )
 
 
 def _update_decision_implication(
@@ -648,7 +666,13 @@ def _brief_id(*, provision: str, brief_type: str, since: date, through: date) ->
 
 
 def _row_date(row: Mapping[str, Any]) -> str | None:
-    for key in ("created_at", "published_at", "reviewed_at", "discovered_at", "generated_at"):
+    for key in (
+        "created_at",
+        "published_at",
+        "reviewed_at",
+        "discovered_at",
+        "generated_at",
+    ):
         if row.get(key):
             return str(row[key])
     return None
@@ -684,7 +708,9 @@ def _print_json(payload: Mapping[str, Any]) -> None:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Build policy thesis updates and briefs.")
+    parser = argparse.ArgumentParser(
+        description="Build policy thesis updates and briefs."
+    )
     parser.add_argument("--since", required=True)
     parser.add_argument("--through")
     parser.add_argument("--dry-run", action="store_true")

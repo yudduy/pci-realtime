@@ -26,6 +26,15 @@ export type PolicyDossier = {
   staffQuestions: StaffQuestion[]
 }
 
+type SortableDateRow = {
+  created_at?: string | null
+  generated_at?: string | null
+  discovered_at?: string | null
+  published_at?: string | null
+  reviewed_at?: string | null
+  period_end?: string | null
+}
+
 export function buildPolicyDossier(data: RegistryData, code: string): PolicyDossier | null {
   const policy = getPolicyIntelligence(data, code)
   if (!policy) return null
@@ -119,7 +128,12 @@ function buildStaffQuestions({
         latestLead?.why_it_matters ??
         "Watch for new reviewed primary-source activity before changing staff guidance.",
       citations: latestLead
-        ? [{ label: latestLead.title, href: latestLead.resolved_primary_url ?? latestLead.canonical_url }]
+        ? [
+            {
+              label: latestLead.title,
+              href: latestLead.resolved_primary_url ?? latestLead.canonical_url,
+            },
+          ]
         : [],
     },
   ]
@@ -135,35 +149,11 @@ function marketMatchesPolicy(market: MarketSnapshot, code: string): boolean {
   ].some((value) => typeof value === "string" && value.toUpperCase().includes(code))
 }
 
-function compareNewest(
-  a: {
-    created_at?: string | null
-    generated_at?: string | null
-    discovered_at?: string | null
-    published_at?: string | null
-    reviewed_at?: string | null
-    period_end?: string | null
-  },
-  b: {
-    created_at?: string | null
-    generated_at?: string | null
-    discovered_at?: string | null
-    published_at?: string | null
-    reviewed_at?: string | null
-    period_end?: string | null
-  },
-): number {
+function compareNewest(a: SortableDateRow, b: SortableDateRow): number {
   return dateValue(b) - dateValue(a)
 }
 
-function dateValue(row: {
-  created_at?: string | null
-  generated_at?: string | null
-  discovered_at?: string | null
-  published_at?: string | null
-  reviewed_at?: string | null
-  period_end?: string | null
-}): number {
+function dateValue(row: SortableDateRow): number {
   const value =
     row.created_at ??
     row.generated_at ??

@@ -119,19 +119,24 @@ def test_policy_beliefs_replay_hash_ignores_submission_idempotency() -> None:
         through=date(2026, 6, 23),
         run_id=FIXED_RUN_ID,
         provisions=("45V",),
-        evidence_items=[_verified_evidence(raw_public_metadata={"idempotency_key": "a"})],
+        evidence_items=[
+            _verified_evidence(raw_public_metadata={"idempotency_key": "a"})
+        ],
     )
     second = build_policy_belief_rows(
         since=date(2026, 6, 1),
         through=date(2026, 6, 23),
         run_id=FIXED_RUN_ID,
         provisions=("45V",),
-        evidence_items=[_verified_evidence(raw_public_metadata={"idempotency_key": "b"})],
+        evidence_items=[
+            _verified_evidence(raw_public_metadata={"idempotency_key": "b"})
+        ],
     )
 
-    assert first["belief_updates"][0]["replay_hash"] == second["belief_updates"][0][
-        "replay_hash"
-    ]
+    assert (
+        first["belief_updates"][0]["replay_hash"]
+        == second["belief_updates"][0]["replay_hash"]
+    )
 
 
 def test_policy_beliefs_ignore_unverified_and_market_evidence() -> None:

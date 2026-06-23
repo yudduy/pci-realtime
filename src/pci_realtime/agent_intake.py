@@ -486,7 +486,9 @@ def _verification_metadata(
     quote: str,
 ) -> dict[str, Any]:
     result = dict(source_verification or {})
-    status = str(result.get("verification_status") or result.get("status") or "not_checked")
+    status = str(
+        result.get("verification_status") or result.get("status") or "not_checked"
+    )
     verified = bool(result.get("quote_verified_against_source"))
     return {
         "verification_status": status,
