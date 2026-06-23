@@ -26,6 +26,9 @@ apps/web/playwright-report/
 apps/web/test-results/
 apps/web/tsconfig.tsbuildinfo
 
+# Agent scratch
+.codex-tmp/
+
 # Secrets and env
 .env
 .env.*

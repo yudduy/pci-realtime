@@ -18,6 +18,7 @@ from pci_realtime.agent_intake import (
 )
 from pci_realtime.config import BASELINE_PCI, TRACKED_PROVISIONS
 from pci_realtime.forecast_registry.evidence import excerpt
+from pci_realtime.forecast_registry.engine import utc_now_iso
 from pci_realtime.forecast_registry.policy import PROVISION_DETAILS
 from pci_realtime.forecast_registry.store import SupabaseRestClient
 from pci_realtime.scoring.scorer import SCHEMA_B_COLUMNS
@@ -126,6 +127,102 @@ def policy_dossier(code: str) -> dict[str, Any]:
         "events": events,
         "evidence": evidence,
         "submissions": submissions,
+    }
+
+
+def list_policy_source_candidates(
+    *,
+    review_state: str = "queued",
+    limit: int = 50,
+    client: SupabaseRestClient | None = None,
+) -> dict[str, Any]:
+    client = _require_write_client(client)
+    rows = _select(
+        client,
+        "policy_source_candidates",
+        params={
+            "review_state": f"eq.{review_state}",
+            "order": "discovered_at.desc",
+            "limit": str(limit),
+        },
+    )
+    return {"candidates": [_public_policy_candidate(row) for row in rows]}
+
+
+def review_policy_source_candidate(
+    candidate_id: str,
+    *,
+    review_state: str,
+    reviewer_note: str | None = None,
+    client: SupabaseRestClient | None = None,
+) -> dict[str, Any]:
+    client = _require_write_client(client)
+    state = review_state.strip().lower()
+    if state not in {"approved", "needs_primary_source", "duplicate", "rejected"}:
+        raise BadRequest(
+            "review_state must be approved, needs_primary_source, duplicate, or rejected."
+        )
+    row = _load_policy_source_candidate(client, candidate_id)
+    if state == "approved" and row.get("promotability") == "ledger_candidate":
+        raise BadRequest(
+            "Ledger candidates must be approved through promote_policy_source_candidate."
+        )
+    updated = {
+        **row,
+        "review_state": state,
+        "reviewer_note": reviewer_note,
+        "reviewed_at": utc_now_iso(),
+    }
+    _upsert_agent_rows(client, "policy_source_candidates", [updated], "candidate_id")
+    return {"status": state, "candidate": _public_policy_candidate(updated)}
+
+
+def promote_policy_source_candidate(
+    candidate_id: str,
+    *,
+    client: SupabaseRestClient | None = None,
+    scorer: PolicyScorer | None = None,
+) -> dict[str, Any]:
+    client = _require_write_client(client)
+    row = _load_policy_source_candidate(client, candidate_id)
+    _validate_promotable_policy_candidate(row)
+    quote = str(row.get("citation_quote") or "").strip()
+    if not quote:
+        raise BadRequest("Promotion requires an exact citation_quote.")
+    source_url = row.get("resolved_primary_url") or row.get("canonical_url")
+
+    result = submit_policy_evidence(
+        provision=str(row["provision"]),
+        source={
+            "url": source_url,
+            "title": row.get("title"),
+            "source_name": row.get("source_name"),
+            "published_at": row.get("published_at"),
+        },
+        citation={
+            "quote": quote,
+            "section": row.get("citation_section"),
+            "url": source_url,
+        },
+        claim=str(row.get("claim") or ""),
+        idempotency_key=str(row.get("idempotency_key") or ""),
+        agent_name="policy-discovery",
+        question=str(row.get("why_it_matters") or row.get("decision_relevance") or ""),
+        client=client,
+        scorer=scorer,
+    )
+    updated = {
+        **row,
+        "review_state": "approved",
+        "reviewed_at": utc_now_iso(),
+        "promoted_submission_id": _promotion_submission_id(result),
+        "promotion_result": result,
+    }
+    _upsert_agent_rows(client, "policy_source_candidates", [updated], "candidate_id")
+    return {
+        "status": "approved",
+        "candidate": _public_policy_candidate(updated),
+        "promotion": result,
     }
 
 
@@ -345,6 +442,15 @@ def _require_read_client() -> SupabaseRestClient:
     return client
 
 
+def _require_write_client(
+    client: SupabaseRestClient | None = None,
+) -> SupabaseRestClient:
+    client = client or _write_client()
+    if client is None:
+        raise SupabaseUnavailable(_WRITE_UNAVAILABLE)
+    return client
+
+
 def _agent_intake_configured(client: SupabaseRestClient) -> bool:
     try:
         client.select_rows(
@@ -409,6 +515,44 @@ def _load_scored_deltas(client: SupabaseRestClient) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _load_policy_source_candidate(
+    client: SupabaseRestClient,
+    candidate_id: str,
+) -> dict[str, Any]:
+    rows = _select(
+        client,
+        "policy_source_candidates",
+        params={"candidate_id": f"eq.{candidate_id}", "limit": "1"},
+    )
+    if not rows:
+        raise BadRequest(f"Unknown policy source candidate: {candidate_id}")
+    return rows[0]
+
+
+def _validate_promotable_policy_candidate(row: Mapping[str, Any]) -> None:
+    if row.get("source_class") != "official":
+        raise BadRequest(
+            "Only official primary-source candidates can be promoted to ledger evidence."
+        )
+    if row.get("promotability") != "ledger_candidate":
+        raise BadRequest(
+            "Only ledger_candidate rows can be promoted to ledger evidence."
+        )
+    if row.get("review_state") in {"duplicate", "rejected"}:
+        raise BadRequest(
+            f"Candidate is already {row.get('review_state')} and cannot be promoted."
+        )
+
+
+def _promotion_submission_id(result: Mapping[str, Any]) -> Any:
+    if result.get("submission_id"):
+        return result.get("submission_id")
+    submission = result.get("submission")
+    if isinstance(submission, Mapping):
+        return submission.get("submission_id")
+    return None
+
+
 def _baseline_row(code: str) -> dict[str, Any]:
     baseline = BASELINE_PCI[code]
     details = PROVISION_DETAILS[code]
@@ -436,6 +580,36 @@ def _public_submission(row: Mapping[str, Any]) -> dict[str, Any]:
         "claim_hash": row.get("claim_hash"),
         "submitted_at": row.get("submitted_at"),
         "promoted_at": row.get("promoted_at"),
+    }
+
+
+def _public_policy_candidate(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "candidate_id": row.get("candidate_id"),
+        "run_id": row.get("run_id"),
+        "discovered_at": row.get("discovered_at"),
+        "provision": row.get("provision"),
+        "source_class": row.get("source_class"),
+        "review_state": row.get("review_state"),
+        "promotability": row.get("promotability"),
+        "source_name": row.get("source_name"),
+        "source_type": row.get("source_type"),
+        "canonical_url": row.get("canonical_url"),
+        "resolved_primary_url": row.get("resolved_primary_url"),
+        "title": row.get("title"),
+        "published_at": row.get("published_at"),
+        "citation_quote": row.get("citation_quote"),
+        "citation_section": row.get("citation_section"),
+        "claim": row.get("claim"),
+        "decision_relevance": row.get("decision_relevance"),
+        "why_it_matters": row.get("why_it_matters"),
+        "confidence": row.get("confidence"),
+        "duplicate_of": row.get("duplicate_of"),
+        "related_evidence_ids": row.get("related_evidence_ids") or [],
+        "reviewed_at": row.get("reviewed_at"),
+        "promoted_submission_id": row.get("promoted_submission_id"),
+        "promotion_result": row.get("promotion_result") or {},
+        "raw_public_metadata": row.get("raw_public_metadata") or {},
     }
 
 

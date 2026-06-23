@@ -99,6 +99,20 @@ test.describe("PolicyIntelligence evidence derivation", () => {
     expect(hydrogen?.sourceReferences[0]?.source).toBe("Internal Revenue Service")
     expect(hydrogen?.attributionDrivers.length).toBeGreaterThan(0)
   })
+
+  test("keeps approved policy source leads scoped to their policy unit", () => {
+    const policies = buildPolicyIntelligence(
+      registryData({
+        policySourceCandidates: [policySourceCandidate("45V")],
+      }),
+    )
+
+    const hydrogen = policies.find((policy) => policy.code === "45V")
+    const manufacturing = policies.find((policy) => policy.code === "45X")
+
+    expect(hydrogen?.sourceLeads).toHaveLength(1)
+    expect(manufacturing?.sourceLeads).toHaveLength(0)
+  })
 })
 
 function registryData(
@@ -111,6 +125,7 @@ function registryData(
     tradeProposals: [],
     marketSnapshots: [],
     marketDiscoveryCandidates: [],
+    policySourceCandidates: [],
     policyEvents: [],
     pipelineRuns: [],
     provisionTimelines: [],
@@ -123,6 +138,36 @@ function registryData(
     connected: true,
     viewErrors: [],
     ...overrides,
+  }
+}
+
+function policySourceCandidate(policyCode: string) {
+  return {
+    candidate_id: `policy-source:${policyCode}`,
+    run_id: "test-run",
+    discovered_at: freshAt,
+    provision: policyCode,
+    provision_name: "Policy source candidate",
+    source_class: "analysis" as const,
+    review_state: "approved" as const,
+    promotability: "context_only" as const,
+    source_name: "Policy analysis",
+    source_type: "policy_discovery_lead",
+    canonical_url: "https://example.com/policy-analysis",
+    resolved_primary_url: null,
+    title: "Policy analysis",
+    published_at: freshAt,
+    citation_quote: "A reviewed context lead.",
+    citation_section: null,
+    claim: "Reviewed context lead.",
+    decision_relevance: "implementation_watch",
+    why_it_matters: "It may matter for implementation timing.",
+    confidence: 0.6,
+    related_evidence_ids: [],
+    reviewed_at: freshAt,
+    promoted_submission_id: null,
+    promotion_result: {},
+    raw_public_metadata: {},
   }
 }
 

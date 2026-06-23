@@ -14,6 +14,8 @@ The main object is not a document, score, market, dashboard, or AI summary. The 
 
 Official documents are raw material. Claims, citations, rationales, provenance, and affected policy units form the durable ledger. PCI scores, trends, forecasts, dashboards, reports, and AI answers are downstream products that must trace back to ledger evidence.
 
+Daily policy discovery is a supply chain for that ledger, not a second source of truth. Web search, news, and analysis can surface leads, but only reviewed primary evidence can become a ledger event or move PCI.
+
 This means the system should optimize for:
 
 - evidence before opinion
@@ -26,6 +28,7 @@ This means the system should optimize for:
 ## System Design Decisions
 
 - Use official and public sources as the credibility base.
+- Treat web/news discovery as a lead generator that must resolve to primary evidence before it affects derived signals.
 - Track policy at the provision level first, then expand to broader policy domains.
 - Treat source documents as inputs and evidence events as the normalized ledger entries.
 - Preserve a strict public/private boundary: no secrets, raw model responses, private execution payloads, signed trading data, local user paths, or private firm data in public views.
@@ -39,6 +42,7 @@ This means the system should optimize for:
 ```text
 Official Sources
   -> Raw Source Archive
+  -> Discovery Candidates / Review Queue
   -> Canonical Documents / Sections
   -> Evidence Events / Claims / Citations
   -> Policy Intelligence Ledger
@@ -57,6 +61,12 @@ Official Sources
 - Stores retrieved source material with canonical URLs, retrieval metadata, timestamps, and stable identifiers.
 - Preserves enough provenance to explain where each downstream record came from.
 - Raw material is not itself the product-facing interpretation.
+
+### Discovery Candidates / Review Queue
+
+- Captures daily official-source findings, news leads, and analysis context before they become ledger evidence.
+- Separates source class from review state so news/context cannot accidentally act like primary evidence.
+- Keeps candidates private or reviewed-only in public views until a human/operator decides whether to promote, reject, mark duplicate, or keep as context.
 
 ### Canonical Documents / Sections
 
@@ -158,6 +168,22 @@ Tests:
 - Semantic-style fixtures for natural questions such as "Why did 45V credibility change?"
 - Citation preservation tests from retrieval result through UI or API response.
 - Empty-result tests that verify no invented evidence appears.
+
+### Phase 2A: Daily Policy Discovery
+
+Passes when:
+
+- Daily discovery produces queued `policy_source_candidates` for the six tracked IRA policy units.
+- Official sources are treated as ledger candidates; news and analysis are treated as leads or context.
+- Candidate promotion is server-side and calls governed evidence intake.
+- No queued, rejected, duplicate, news, or context-only candidate can create a PCI movement.
+
+Tests:
+
+- Candidate normalization, canonical URL dedupe, source-class validation, and idempotency stability.
+- News-wall tests proving candidates cannot write `scored_deltas`, `policy_events`, or `pci_weekly`.
+- Contract tests proving public candidate views expose only reviewed-safe fields.
+- Brief tests for confirmed evidence plus reviewed context leads.
 
 ### Phase 3: Derived Signals
 

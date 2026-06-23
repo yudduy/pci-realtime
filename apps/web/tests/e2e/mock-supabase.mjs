@@ -58,6 +58,35 @@ const marketDiscoveryCandidates = [
     volume_24h: 8,
   },
 ]
+const policySourceCandidates = [
+  {
+    candidate_id: "policy-source:45v-context",
+    run_id: "test-run",
+    discovered_at: now,
+    provision: "45V",
+    provision_name: "Clean Hydrogen Production Credit",
+    source_class: "analysis",
+    review_state: "approved",
+    promotability: "context_only",
+    source_name: "Policy analysis",
+    source_type: "policy_discovery_lead",
+    canonical_url: "https://example.com/45v-analysis",
+    resolved_primary_url: null,
+    title: "Hydrogen implementation analysis",
+    published_at: now,
+    citation_quote: "Agencies are expected to continue clarifying documentation.",
+    citation_section: null,
+    claim: "Reviewed context lead for 45V implementation watch.",
+    decision_relevance: "implementation_watch",
+    why_it_matters: "This lead helps monitor implementation timing.",
+    confidence: 0.62,
+    related_evidence_ids: [],
+    reviewed_at: now,
+    promoted_submission_id: null,
+    promotion_result: {},
+    raw_public_metadata: {},
+  },
+]
 const policyEvents = [
   {
     event_id: "2026-W21:federal_register:45v-guidance:45V",
@@ -302,6 +331,7 @@ const views = {
   v_trade_proposals: tradeProposals,
   v_market_snapshots: marketSnapshots,
   v_market_discovery_candidates: marketDiscoveryCandidates,
+  v_policy_source_candidates: policySourceCandidates,
   v_policy_events: policyEvents,
   v_pipeline_status: pipelineRuns,
   v_provision_timelines: provisionTimelines,

@@ -108,6 +108,34 @@ export type MarketDiscoveryCandidate = {
   volume_24h: number | null
 }
 
+export type PolicySourceCandidate = {
+  candidate_id: string
+  run_id: string
+  discovered_at: string
+  provision: string
+  provision_name: string | null
+  source_class: "official" | "news" | "analysis" | "mixed"
+  review_state: "approved"
+  promotability: "ledger_candidate" | "context_only"
+  source_name: string
+  source_type: string | null
+  canonical_url: string
+  resolved_primary_url: string | null
+  title: string
+  published_at: string | null
+  citation_quote: string | null
+  citation_section: string | null
+  claim: string
+  decision_relevance: string | null
+  why_it_matters: string | null
+  confidence: number
+  related_evidence_ids: string[]
+  reviewed_at: string | null
+  promoted_submission_id: string | null
+  promotion_result: Record<string, unknown>
+  raw_public_metadata: Record<string, unknown>
+}
+
 export type PolicyEvent = {
   event_id: string
   provision: string
@@ -281,6 +309,7 @@ export type RegistryData = {
   tradeProposals: TradeProposal[]
   marketSnapshots: MarketSnapshot[]
   marketDiscoveryCandidates: MarketDiscoveryCandidate[]
+  policySourceCandidates: PolicySourceCandidate[]
   policyEvents: PolicyEvent[]
   pipelineRuns: PipelineRun[]
   provisionTimelines: ProvisionTimeline[]
@@ -355,6 +384,7 @@ export function emptyRegistryData(viewErrors: string[] = []): RegistryData {
     tradeProposals: [],
     marketSnapshots: [],
     marketDiscoveryCandidates: [],
+    policySourceCandidates: [],
     policyEvents: [],
     pipelineRuns: [],
     provisionTimelines: [],
@@ -380,6 +410,7 @@ export async function getRegistryData(): Promise<RegistryData> {
     tradeProposalsResult,
     marketSnapshotsResult,
     marketDiscoveryCandidatesResult,
+    policySourceCandidatesResult,
     policyEventsResult,
     pipelineRunsResult,
     provisionTimelinesResult,
@@ -398,6 +429,10 @@ export async function getRegistryData(): Promise<RegistryData> {
     fetchView<MarketDiscoveryCandidate>(
       "v_market_discovery_candidates",
       "select=*&order=generated_at.desc&limit=100",
+    ),
+    fetchView<PolicySourceCandidate>(
+      "v_policy_source_candidates",
+      "select=*&order=discovered_at.desc&limit=100",
     ),
     fetchView<PolicyEvent>("v_policy_events", "select=*&order=created_at.desc"),
     fetchView<PipelineRun>("v_pipeline_status", "select=*&limit=5"),
@@ -422,6 +457,7 @@ export async function getRegistryData(): Promise<RegistryData> {
     tradeProposalsResult.error,
     marketSnapshotsResult.error,
     marketDiscoveryCandidatesResult.error,
+    policySourceCandidatesResult.error,
     policyEventsResult.error,
     pipelineRunsResult.error,
     provisionTimelinesResult.error,
@@ -439,6 +475,7 @@ export async function getRegistryData(): Promise<RegistryData> {
   const tradeProposals = tradeProposalsResult.rows
   const marketSnapshots = marketSnapshotsResult.rows
   const marketDiscoveryCandidates = marketDiscoveryCandidatesResult.rows
+  const policySourceCandidates = policySourceCandidatesResult.rows
   const policyEvents = policyEventsResult.rows
   const pipelineRuns = pipelineRunsResult.rows.map((run) => ({
     ...run,
@@ -459,6 +496,7 @@ export async function getRegistryData(): Promise<RegistryData> {
     tradeProposals,
     marketSnapshots,
     marketDiscoveryCandidates,
+    policySourceCandidates,
     policyEvents,
     pipelineRuns,
     provisionTimelines,

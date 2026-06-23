@@ -1,6 +1,6 @@
 # Policy Credibility Registry
 
-Supabase-backed registry for the Policy Credibility Index (PCI) from the IRA venture-capital research project. The system turns official federal policy documents into weekly PCI updates, matches those updates to clean public prediction markets, and records forecasts, gated trade proposals, and resolved outcomes.
+Supabase-backed policy intelligence registry for the IRA venture-capital research project. The system turns official federal policy documents and reviewed public leads into a citation-backed ledger for policymakers. The Policy Credibility Index (PCI) is a derived signal on top of that ledger, alongside public market matching, forecasts, gated trade proposals, and resolved outcomes.
 
 The public web app is a research companion and read-only registry surface. It does not place orders, invent forecasts, or expose private execution payloads.
 
@@ -11,13 +11,15 @@ official policy documents
   -> provision relevance filter
   -> PCI delta scoring
   -> weekly PCI series
+  -> daily policy discovery candidates
+  -> governed evidence promotion
   -> market discovery
   -> forecast registry
   -> gated trade proposal
   -> outcome tracking
 ```
 
-`weekly_live` owns the full weekly path: ingest official sources, score PCI deltas, build PCI, fetch public market data, create forecasts, gate trade proposals, and publish registry rows. `daily_refresh` reads open forecasts, refreshes market results, records settlements, refreshes public context sources, and stores performance metadata.
+`weekly_live` owns the full weekly path: ingest official sources, score PCI deltas, build PCI, fetch public market data, create forecasts, gate trade proposals, and publish registry rows. `policy_discovery` runs the daily intelligence-desk path: official-source discovery plus OpenAI web-search leads, candidate triage, source review, and governed promotion through `submit_policy_evidence`. `daily_refresh` reads open forecasts, refreshes market results, records settlements, refreshes public context sources, and stores performance metadata.
 
 Trading stays backend-only. Live execution is disabled unless `PCI_ENABLE_LIVE_TRADING=true`, Kalshi credentials are present, and a proposal id appears in an approval file.
 
@@ -56,7 +58,7 @@ PCI[p, t] = clip(
 )
 ```
 
-PCI is not investor sentiment and not a news index. General news scraping is intentionally out of scope for index updates. Public market data is read only for market matching and outcome tracking; trading remains backend-gated.
+PCI is not investor sentiment and not a news index. General news can enter the system only as a review candidate or context lead; it cannot move PCI unless a human-approved candidate resolves to citeable primary evidence and is promoted through governed evidence intake. Public market data is read only for market matching and outcome tracking; trading remains backend-gated.
 
 ## Repository Layout
 
@@ -141,6 +143,28 @@ python -m pci_realtime.pipeline.market_discovery
 
 The discovery loop paginates public Kalshi and Polymarket surfaces, stores eligible market snapshots, and records near-miss candidates with rejection reasons. Use `--include-all-candidates` only for bounded absence audits because it persists every scanned public market row.
 The scheduled default scans 5,000 open Kalshi markets plus 1,000 active Polymarket events; raise `--polymarket-limit` for one-off deeper absence audits.
+
+Run the daily policy intelligence discovery loop:
+
+```bash
+python -m pci_realtime.pipeline.policy_discovery \
+  --since 2026-06-01 \
+  --dry-run \
+  --output-path data/debug/policy_discovery.json
+python -m pci_realtime.pipeline.policy_discovery --since 2026-06-01
+```
+
+The discovery loop writes only `policy_source_candidates` and `source_health`.
+Queued candidates do not create `scored_deltas`, `policy_events`, or `pci_weekly`
+rows. Promote an official, ledger-eligible candidate through the governed intake
+path:
+
+```bash
+python -m pci_realtime.pipeline.policy_discovery --list-pending
+python -m pci_realtime.pipeline.policy_discovery --approve-id <candidate_id>
+python -m pci_realtime.pipeline.policy_discovery --approve-context-id <candidate_id>
+python -m pci_realtime.pipeline.policy_discovery --reject-id <candidate_id>
+```
 
 Refresh market outcomes and performance metadata from Supabase:
 
@@ -248,6 +272,39 @@ structured source candidates, and writes only when `--write` is passed and
 `status.write_configured` is true. If `status.agent_intake_configured` is false,
 apply migration `005` before expecting governed agent-submission rows.
 
+### Automated Evidence Scout
+
+The backend already has the pieces for an automated research job, but the
+scheduler is intentionally external to this repository:
+
+```text
+cron / external worker / supervised Codex automation
+  -> scripts/run_agent_research_intake.py --since <date> --output-path <json>
+  -> review exact quotes, source URLs, policy mapping, and idempotency keys
+  -> rerun with --write only when status.write_configured is true
+  -> service.submit_policy_evidence scores the cited claim and writes Supabase rows
+  -> Vercel renders the updated ledger from public Supabase views
+```
+
+Use Codex, Claude Code, Omnigent, or another trusted agent as the research
+operator when human-supervised web search and parsing are useful. Do not make a
+Codex session the production database writer by itself. The production writer
+should be a trusted server or local operator environment with `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, and `OPENAI_API_KEY` configured.
+
+General news can be useful as a lead source, but PCI score movement should still
+be promoted only from public, citeable policy evidence. Prefer IRS, Treasury,
+Federal Register, DOE/LPO, Congress, GovInfo, Regulations.gov, RegInfo/OIRA,
+court records, and official agency pages. If a news article points to a primary
+source, submit the primary source quote. If no citeable primary source exists,
+keep the item in review or context and do not write a PCI delta.
+
+The LLM judge is the semantic update layer, not the evidence source. Every write
+must include a tracked policy code, canonical URL, source title, exact quote or
+section anchor, claim, deterministic idempotency key, and public-safe metadata.
+The web app has no separate render job: after backend rows are written, the
+dynamic Next.js routes read the current public views.
+
 Start the Supabase-backed registry and web app from one command:
 
 ```bash
@@ -308,6 +365,7 @@ The product-facing contract is the registry tables: `provisions`, `pci_weekly`, 
 | Forecast registry, public market reads, and gated proposals | implemented |
 | Normalized source documents, evidence items, trace links, and source health | implemented |
 | Public Supabase views | implemented |
+| Agent research scout over official-source web search | implemented, dry-run first and write-gated |
 | Cloud scheduler | not configured; run registry commands manually or attach an external scheduler |
 | Secured webhook runner | Supabase Edge Functions proxy to an external Python runner when configured |
 

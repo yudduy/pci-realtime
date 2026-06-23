@@ -4,6 +4,7 @@ import type {
   EvidenceItem,
   MarketDiscoveryCandidate,
   MarketSnapshot,
+  PolicySourceCandidate,
   PipelineRun,
   PolicyEvent,
   RegistryData,
@@ -40,6 +41,7 @@ export type PolicyIntelligence = {
   sourceReferences: PolicySourceReference[]
   marketSignals: MarketSnapshot[]
   reviewCandidates: MarketDiscoveryCandidate[]
+  sourceLeads: PolicySourceCandidate[]
   evidenceStatus: PolicyEvidenceStatus
   latestRefreshAt: string | null
 }
@@ -62,12 +64,14 @@ export function getPolicyIntelligence(
 export function deriveEvidenceStatus({
   marketSignals,
   reviewCandidates,
+  sourceLeads = [],
   latestRefreshAt,
   scanned,
   now = new Date(),
 }: {
   marketSignals: unknown[]
   reviewCandidates: unknown[]
+  sourceLeads?: unknown[]
   latestRefreshAt: string | null
   scanned: number
   now?: Date
@@ -75,7 +79,7 @@ export function deriveEvidenceStatus({
   if (!latestRefreshAt && !scanned) return "source_refresh"
   if (latestRefreshAt && hoursBetween(latestRefreshAt, now) > SOURCE_STALE_HOURS) return "stale"
   if (marketSignals.length) return "market_attached"
-  if (reviewCandidates.length) return "source_review"
+  if (reviewCandidates.length || sourceLeads.length) return "source_review"
   return scanned ? "documented" : "source_refresh"
 }
 
@@ -97,6 +101,9 @@ function buildPolicy(data: RegistryData, code: string): PolicyIntelligence {
         candidate.matched_provisions.includes(code) && !candidate.eligible_snapshot,
     )
     .sort(compareNewest)
+  const sourceLeads = data.policySourceCandidates
+    .filter((candidate) => candidate.provision === code)
+    .sort(compareNewest)
   const coverage = buildMarketCoverage(data)
   const sourceHealthLatest = latestDate(
     data.sourceHealth
@@ -107,6 +114,7 @@ function buildPolicy(data: RegistryData, code: string): PolicyIntelligence {
   const evidenceStatus = deriveEvidenceStatus({
     marketSignals,
     reviewCandidates,
+    sourceLeads,
     latestRefreshAt,
     scanned: coverage.scanned,
   })
@@ -134,6 +142,7 @@ function buildPolicy(data: RegistryData, code: string): PolicyIntelligence {
     sourceReferences: copy.sourceReferences,
     marketSignals,
     reviewCandidates,
+    sourceLeads,
     evidenceStatus,
     latestRefreshAt,
   }
@@ -171,7 +180,11 @@ function newestEvidence(evidence: EvidenceItem[], events: PolicyEvent[]) {
 
 function latestRefreshDate(runs: PipelineRun[], sourceHealthLatest: string | null) {
   const marketRuns = runs
-    .filter((run) => run.status === "success" && run.run_type === "market_discovery")
+    .filter(
+      (run) =>
+        run.status === "success" &&
+        (run.run_type === "market_discovery" || run.run_type === "policy_discovery"),
+    )
     .map((run) => run.completed_at ?? run.started_at)
     .filter((value): value is string => Boolean(value))
   return latestDate(
@@ -203,12 +216,14 @@ function compareNewest(
   a: {
     created_at?: string | null
     generated_at?: string | null
+    discovered_at?: string | null
     published_at?: string | null
     date?: string | null
   },
   b: {
     created_at?: string | null
     generated_at?: string | null
+    discovered_at?: string | null
     published_at?: string | null
     date?: string | null
   },
@@ -219,10 +234,12 @@ function compareNewest(
 function dateValue(value: {
   created_at?: string | null
   generated_at?: string | null
+  discovered_at?: string | null
   published_at?: string | null
   date?: string | null
 }) {
-  const date = value.date ?? value.published_at ?? value.generated_at ?? value.created_at
+  const date =
+    value.date ?? value.published_at ?? value.discovered_at ?? value.generated_at ?? value.created_at
   return date ? new Date(date).getTime() : 0
 }
 
