@@ -9,6 +9,8 @@ type PolicyPageProps = {
   params: Promise<{ code: string }>
 }
 
+type PolicyDossierData = NonNullable<ReturnType<typeof buildPolicyDossier>>
+
 export const dynamic = "force-dynamic"
 
 export default async function PolicyPage({ params }: PolicyPageProps) {
@@ -175,7 +177,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   )
 }
 
-function EvidenceList({ evidence }: { evidence: NonNullable<ReturnType<typeof buildPolicyDossier>>["evidence"] }) {
+function EvidenceList({ evidence }: { evidence: PolicyDossierData["evidence"] }) {
   if (!evidence.length) return <p>No verified policy-evidence citation is available yet.</p>
   return (
     <ul className="policy-dossier-list">
@@ -196,7 +198,7 @@ function EvidenceList({ evidence }: { evidence: NonNullable<ReturnType<typeof bu
   )
 }
 
-function LeadList({ leads }: { leads: NonNullable<ReturnType<typeof buildPolicyDossier>>["reviewedLeads"] }) {
+function LeadList({ leads }: { leads: PolicyDossierData["reviewedLeads"] }) {
   if (!leads.length) return <p>No reviewed context leads are published for this policy.</p>
   return (
     <ul className="policy-dossier-list">
@@ -214,7 +216,7 @@ function LeadList({ leads }: { leads: NonNullable<ReturnType<typeof buildPolicyD
 }
 
 function evidenceMeta(
-  item: NonNullable<ReturnType<typeof buildPolicyDossier>>["evidence"][number],
+  item: PolicyDossierData["evidence"][number],
 ) {
   const issuer = item.source_name ?? item.agency ?? "Official source"
   const date = formatDate(item.published_at ?? item.created_at)
@@ -223,16 +225,23 @@ function evidenceMeta(
 }
 
 function leadLabel(
-  lead: NonNullable<ReturnType<typeof buildPolicyDossier>>["reviewedLeads"][number],
+  lead: PolicyDossierData["reviewedLeads"][number],
 ) {
-  const classLabel =
-    lead.source_class === "official"
-      ? "official source"
-      : lead.source_class === "news"
-        ? "reviewed news lead"
-        : lead.source_class === "analysis"
-          ? "reviewed analysis"
-          : "mixed source"
+  let classLabel: string
+  switch (lead.source_class) {
+    case "official":
+      classLabel = "official source"
+      break
+    case "news":
+      classLabel = "reviewed news lead"
+      break
+    case "analysis":
+      classLabel = "reviewed analysis"
+      break
+    default:
+      classLabel = "mixed source"
+  }
+
   const useLabel =
     lead.promotability === "ledger_candidate"
       ? "ready for evidence review"
@@ -241,7 +250,7 @@ function leadLabel(
 }
 
 function beliefMove(
-  update: NonNullable<ReturnType<typeof buildPolicyDossier>>["beliefUpdates"][number],
+  update: PolicyDossierData["beliefUpdates"][number],
 ) {
   const delta = update.posterior_probability - update.prior_probability
   if (!Number.isFinite(delta) || Math.abs(delta) < 0.005) return "no material move"

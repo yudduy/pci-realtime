@@ -187,23 +187,14 @@ function policyEvents(data: RegistryData, code: string) {
 }
 
 function evidenceForPolicy(data: RegistryData, code: string) {
-  const eventIds = new Set(
+  const eventIds =
     data.policyEvents
       .filter((event) => event.provision === code)
-      .map((event) => event.event_id),
-  )
-  const evidenceIds = new Set(
-    data.sourceLinks
-      .filter(
-        (link) =>
-          link.target_table === "policy_events" && eventIds.has(link.target_id),
-      )
-      .map((link) => link.evidence_id),
-  )
-  return data.policyEvidenceItems.filter(
-    (item) =>
-      item.quote_verified_against_source === true &&
-      (item.provision === code || evidenceIds.has(item.evidence_id)),
+      .map((event) => event.event_id)
+  const linkedEvidenceIds = evidenceIdsForEvents(data, eventIds)
+  return verifiedPolicyEvidence(
+    data,
+    (item) => item.provision === code || linkedEvidenceIds.has(item.evidence_id),
   )
 }
 
@@ -227,18 +218,30 @@ function eventPayload(event: PolicyEvent, data: RegistryData) {
 }
 
 function verifiedEvidenceForEvent(event: PolicyEvent, data: RegistryData) {
-  const evidenceIds = new Set(
+  const evidenceIds = evidenceIdsForEvents(data, [event.event_id])
+  return verifiedPolicyEvidence(data, (item) =>
+    evidenceIds.has(item.evidence_id),
+  )
+}
+
+function evidenceIdsForEvents(data: RegistryData, eventIds: Iterable<string>) {
+  const ids = new Set(eventIds)
+  return new Set(
     data.sourceLinks
       .filter(
         (link) =>
-          link.target_table === "policy_events" && link.target_id === event.event_id,
+          link.target_table === "policy_events" && ids.has(link.target_id),
       )
       .map((link) => link.evidence_id),
   )
+}
+
+function verifiedPolicyEvidence(
+  data: RegistryData,
+  include: (item: EvidenceItem) => boolean,
+) {
   return data.policyEvidenceItems.filter(
-    (item) =>
-      item.quote_verified_against_source === true &&
-      evidenceIds.has(item.evidence_id),
+    (item) => item.quote_verified_against_source === true && include(item),
   )
 }
 
