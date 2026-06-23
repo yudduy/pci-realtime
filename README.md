@@ -166,6 +166,17 @@ python -m pci_realtime.pipeline.policy_discovery --approve-context-id <candidate
 python -m pci_realtime.pipeline.policy_discovery --reject-id <candidate_id>
 ```
 
+Build deterministic policy thesis updates and staff briefs from verified ledger
+evidence plus reviewed context:
+
+```bash
+python -m pci_realtime.pipeline.policy_beliefs \
+  --since 2026-06-01 \
+  --dry-run \
+  --output-path data/debug/policy_beliefs.json
+python -m pci_realtime.pipeline.policy_beliefs --since 2026-06-01
+```
+
 Refresh market outcomes and performance metadata from Supabase:
 
 ```bash
@@ -336,6 +347,10 @@ The UI reads from Supabase public views:
 | `v_evidence_items` | citations and source-backed snippets |
 | `v_source_links` | links from evidence to events, forecasts, and market rows |
 | `v_source_health` | plain-language source freshness labels |
+| `v_policy_source_candidates` | reviewed source leads and context candidates |
+| `v_policy_theses` | active policymaker-relevant belief objects |
+| `v_belief_updates` | deterministic belief moves tied to verified evidence |
+| `v_policy_briefs` | generated daily/weekly staff briefs |
 
 Private order payloads, raw model responses, API keys, firm data, signatures, and private file paths must never appear in public views.
 
@@ -349,7 +364,7 @@ The backend keeps three file-level contracts for tests and offline runs:
 | Scored PCI deltas | `pci_realtime.scoring.scorer` | weekly PCI builder | `data/processed/scored/scored_<YYYY-WW>.parquet` |
 | Weekly PCI series | `pci_realtime.pci.builder` | registry loop and export jobs | `data/processed/pci_weekly.parquet` |
 
-The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `market_discovery_candidates`, `forecasts`, `trade_proposals`, `forecast_outcomes`, `pipeline_runs`, `source_documents`, `evidence_items`, `source_links`, and `source_health`.
+The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `market_discovery_candidates`, `policy_source_candidates`, `policy_theses`, `belief_updates`, `policy_briefs`, `forecasts`, `trade_proposals`, `forecast_outcomes`, `pipeline_runs`, `source_documents`, `evidence_items`, `source_links`, and `source_health`.
 
 ## Capability Status
 

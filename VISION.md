@@ -192,12 +192,14 @@ Passes when:
 - PCI and other signals trace back to evidence events.
 - Score changes expose rationale and source-event links.
 - No-evidence and no-change periods remain visible instead of being filled with fake movement.
+- Policy thesis updates are deterministic, replayable, and tied to verified ledger evidence or reviewed context.
 
 Tests:
 
 - PCI calculation tests for dimension deltas, clipping, sticky weeks, and no-change behavior.
 - Signal trace tests proving each visible movement has linked evidence.
 - Regression tests that prevent synthetic forecasts or score movements without eligible evidence.
+- Belief-update tests for odds math, replay hashes, source verification, and market-calibration context.
 
 ### Phase 4: Policymaker Terminal
 
