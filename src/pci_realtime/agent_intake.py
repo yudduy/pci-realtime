@@ -21,6 +21,7 @@ from pci_realtime.scoring.scorer import (
     ScoringResult,
 )
 from pci_realtime.service_errors import BadRequest, ScoringUnavailable
+from pci_realtime.source_verification import quote_verification_hash
 
 
 PUBLIC_SOURCE = "contributor_intake"
@@ -122,6 +123,11 @@ def build_agent_evidence_rows(
     submitted_at: str | None = None,
     scorer: PolicyScorer | None = None,
     historical_scored: pd.DataFrame | list[dict[str, Any]] | None = None,
+    source_verification: Mapping[str, Any] | None = None,
+    reviewed_by: str | None = None,
+    review_decision_code: str | None = None,
+    approval_basis: str | None = None,
+    promotion_policy_version: str | None = None,
 ) -> AgentEvidenceBuildResult:
     code = normalize_provision(provision)
     clean_claim = _required_text(claim, "claim")
@@ -146,6 +152,13 @@ def build_agent_evidence_rows(
     source_slug = _slug(source_name)
     source_doc_id = f"source:{source_slug}:{source_hash[:16]}"
     claim_hash = stable_hash(code, _normalize_text(clean_claim), _normalize_text(quote))
+    verification = _verification_metadata(source_verification, quote)
+    review = _review_metadata(
+        reviewed_by=reviewed_by,
+        review_decision_code=review_decision_code,
+        approval_basis=approval_basis,
+        promotion_policy_version=promotion_policy_version,
+    )
     evidence_id = f"evidence:{code}:{source_hash[:12]}:{claim_hash[:16]}"
     event_id = f"{week}:{source_doc_id}:{code}"
     key_hash = idempotency_key_hash(idempotency_key)
@@ -219,11 +232,16 @@ def build_agent_evidence_rows(
                 "first_seen_at": now,
                 "last_seen_at": now,
                 "submitted_by_agent_run_id": agent_run_id,
-                "content_hash": stable_hash(canonical_url, source_title),
+                "content_hash": verification.get("source_content_hash")
+                or stable_hash(canonical_url, source_title),
                 "text_excerpt": excerpt(quote),
+                "source_retrieved_at": verification.get("source_retrieved_at"),
+                "source_retrieval_method": verification.get("source_retrieval_method"),
+                "source_content_hash": verification.get("source_content_hash"),
                 "raw_public_metadata": {
                     "provision": code,
                     "citation_section": citation.get("section"),
+                    "verification_status": verification["verification_status"],
                 },
             }
         ],
@@ -244,6 +262,12 @@ def build_agent_evidence_rows(
                 "citation_page": _clean_text(citation.get("page")),
                 "citation_url_fragment": _clean_text(citation.get("url_fragment")),
                 "claim_hash": claim_hash,
+                "quote_hash": verification["quote_hash"],
+                "quote_verified_against_source": verification[
+                    "quote_verified_against_source"
+                ],
+                "quote_locator_type": verification.get("quote_locator_type"),
+                "quote_locator_value": verification.get("quote_locator_value"),
                 "submitted_by_agent_run_id": agent_run_id,
                 "extraction_confidence": _optional_float(
                     citation.get("confidence"), default=score.confidence
@@ -251,6 +275,7 @@ def build_agent_evidence_rows(
                 "raw_public_metadata": {
                     "claim_hash": claim_hash,
                     "citation_required": True,
+                    "verification_status": verification["verification_status"],
                 },
             }
         ],
@@ -301,6 +326,9 @@ def build_agent_evidence_rows(
                 "claim_hash": claim_hash,
                 "status": "promoted",
                 "rejection_reason": None,
+                "verification_status": verification["verification_status"],
+                "verification_result": verification,
+                **review,
                 "promotion_result": {
                     "week": week,
                     "pci_delta": pci_delta,
@@ -311,6 +339,7 @@ def build_agent_evidence_rows(
                 "raw_public_metadata": {
                     "source_name": source_name,
                     "citation_section": citation.get("section"),
+                    "verification_status": verification["verification_status"],
                 },
             }
         ],
@@ -450,6 +479,46 @@ def _citation_quote(citation: Mapping[str, Any]) -> str:
     if not quote:
         raise BadRequest("Evidence citation requires a quoted source span.")
     return quote
+
+
+def _verification_metadata(
+    source_verification: Mapping[str, Any] | None,
+    quote: str,
+) -> dict[str, Any]:
+    result = dict(source_verification or {})
+    status = str(result.get("verification_status") or result.get("status") or "not_checked")
+    verified = bool(result.get("quote_verified_against_source"))
+    return {
+        "verification_status": status,
+        "quote_verified_against_source": verified,
+        "source_retrieved_at": result.get("source_retrieved_at")
+        or result.get("retrieved_at"),
+        "source_retrieval_method": result.get("source_retrieval_method")
+        or result.get("retrieval_method"),
+        "source_content_hash": result.get("source_content_hash"),
+        "quote_hash": result.get("quote_hash") or quote_verification_hash(quote),
+        "quote_locator_type": result.get("quote_locator_type"),
+        "quote_locator_value": result.get("quote_locator_value"),
+        "source_text_excerpt": result.get("source_text_excerpt"),
+        "error_class": result.get("error_class"),
+        "error_summary": result.get("error_summary"),
+    }
+
+
+def _review_metadata(
+    *,
+    reviewed_by: str | None,
+    review_decision_code: str | None,
+    approval_basis: str | None,
+    promotion_policy_version: str | None,
+) -> dict[str, Any]:
+    return {
+        "reviewed_by": _clean_text(reviewed_by) or None,
+        "review_decision_code": _clean_text(review_decision_code) or None,
+        "approval_basis": _clean_text(approval_basis) or None,
+        "promotion_policy_version": _clean_text(promotion_policy_version)
+        or INTAKE_EXTRACTOR_VERSION,
+    }
 
 
 def _primary_dimension(deltas: Mapping[str, float]) -> str:

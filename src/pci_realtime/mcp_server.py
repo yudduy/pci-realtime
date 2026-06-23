@@ -66,6 +66,10 @@ def submit_policy_evidence(
     agent_run_id: str | None = None,
     agent_name: str | None = None,
     question: str | None = None,
+    reviewed_by: str | None = None,
+    review_decision_code: str | None = None,
+    approval_basis: str | None = None,
+    allow_unverified: bool = False,
 ) -> dict[str, Any]:
     """Submit citeable public policy evidence for automatic promotion."""
     return _safe(
@@ -78,6 +82,10 @@ def submit_policy_evidence(
             agent_run_id=agent_run_id,
             agent_name=agent_name,
             question=question,
+            reviewed_by=reviewed_by,
+            review_decision_code=review_decision_code,
+            approval_basis=approval_basis,
+            allow_unverified=allow_unverified,
         )
     )
 
@@ -91,6 +99,9 @@ def ingest_source_url(
     agent_run_id: str | None = None,
     agent_name: str | None = None,
     question: str | None = None,
+    reviewed_by: str | None = None,
+    review_decision_code: str | None = None,
+    approval_basis: str | None = None,
 ) -> dict[str, Any]:
     """Fetch a public URL and submit its text as policy evidence."""
     return _safe(
@@ -102,6 +113,9 @@ def ingest_source_url(
             agent_run_id=agent_run_id,
             agent_name=agent_name,
             question=question,
+            reviewed_by=reviewed_by,
+            review_decision_code=review_decision_code,
+            approval_basis=approval_basis,
         )
     )
 

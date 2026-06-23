@@ -97,6 +97,12 @@ def main() -> None:
                             "What official policy evidence has changed since "
                             f"{args.since.isoformat()}?"
                         ),
+                        reviewed_by="pcindex-agent-research",
+                        review_decision_code="agent_research_candidate",
+                        approval_basis=(
+                            "Agent research candidate submitted from official-source "
+                            "search after write readiness checks."
+                        ),
                     )
                 )
             except ServiceError as exc:

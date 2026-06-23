@@ -846,6 +846,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--approve-context-id")
     parser.add_argument("--reject-id")
     parser.add_argument("--reviewer-note")
+    parser.add_argument("--reviewed-by")
+    parser.add_argument("--decision-code")
+    parser.add_argument("--approval-basis")
+    parser.add_argument("--allow-unverified", action="store_true")
     return parser
 
 
@@ -859,7 +863,15 @@ def main(argv: Sequence[str] | None = None) -> None:
         _print_json(service.list_policy_source_candidates(review_state="queued"))
         return
     if args.approve_id:
-        _print_json(service.promote_policy_source_candidate(args.approve_id))
+        _print_json(
+            service.promote_policy_source_candidate(
+                args.approve_id,
+                reviewed_by=args.reviewed_by,
+                review_decision_code=args.decision_code,
+                approval_basis=args.approval_basis,
+                allow_unverified=args.allow_unverified,
+            )
+        )
         return
     if args.approve_context_id:
         _print_json(
@@ -867,6 +879,9 @@ def main(argv: Sequence[str] | None = None) -> None:
                 args.approve_context_id,
                 review_state="approved",
                 reviewer_note=args.reviewer_note,
+                reviewed_by=args.reviewed_by,
+                review_decision_code=args.decision_code,
+                approval_basis=args.approval_basis,
             )
         )
         return

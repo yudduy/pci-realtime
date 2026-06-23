@@ -271,6 +271,14 @@ def _candidate(
     }
 
 
+def _review_kwargs() -> dict[str, str]:
+    return {
+        "reviewed_by": "test-reviewer",
+        "review_decision_code": "policy_discovery_unit_test",
+        "approval_basis": "Fixture candidate quote matched the supplied source text.",
+    }
+
+
 def test_promote_policy_source_candidate_uses_governed_intake() -> None:
     client = RecordingSupabaseClient({"policy_source_candidates": [_candidate()]})
 
@@ -278,6 +286,8 @@ def test_promote_policy_source_candidate_uses_governed_intake() -> None:
         _candidate()["candidate_id"],
         client=client,  # type: ignore[arg-type]
         scorer=FakeScorer(),
+        source_text="Treasury clarifies 45V eligibility.",
+        **_review_kwargs(),
     )
 
     assert result["status"] == "approved"
@@ -304,6 +314,8 @@ def test_promote_policy_source_candidate_blocks_news_and_context() -> None:
             _candidate()["candidate_id"],
             client=news_client,  # type: ignore[arg-type]
             scorer=FakeScorer(),
+            source_text="Treasury clarifies 45V eligibility.",
+            **_review_kwargs(),
         )
     except BadRequest as exc:
         assert "official primary-source" in exc.message
@@ -315,6 +327,8 @@ def test_promote_policy_source_candidate_blocks_news_and_context() -> None:
             _candidate()["candidate_id"],
             client=context_client,  # type: ignore[arg-type]
             scorer=FakeScorer(),
+            source_text="Treasury clarifies 45V eligibility.",
+            **_review_kwargs(),
         )
     except BadRequest as exc:
         assert "ledger_candidate" in exc.message

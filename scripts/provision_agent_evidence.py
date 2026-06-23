@@ -180,6 +180,10 @@ def promote(payloads: list[dict[str, Any]]) -> dict[str, Any]:
             claim=item["claim"],
             idempotency_key=item["idempotency_key"],
             agent_name="agent-coi-seed",
+            reviewed_by="agent-coi-seed",
+            review_decision_code="seed_fixture",
+            approval_basis="Seed fixture reviewed for local provisioning.",
+            allow_unverified=True,
         )
         for item in payloads
     ]

@@ -30,6 +30,10 @@ from pci_realtime.service_errors import (
     UpstreamTimeout,
     UpstreamUnavailable,
 )
+from pci_realtime.source_verification import (
+    override_source_verification,
+    verify_quote_against_source,
+)
 
 
 _READ_UNAVAILABLE = (
@@ -38,6 +42,7 @@ _READ_UNAVAILABLE = (
 _WRITE_UNAVAILABLE = (
     "Evidence intake requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
 )
+PROMOTION_POLICY_VERSION = "policy-intel-review-v2"
 
 
 def status() -> dict[str, Any]:
@@ -154,6 +159,9 @@ def review_policy_source_candidate(
     *,
     review_state: str,
     reviewer_note: str | None = None,
+    reviewed_by: str | None = None,
+    review_decision_code: str | None = None,
+    approval_basis: str | None = None,
     client: SupabaseRestClient | None = None,
 ) -> dict[str, Any]:
     client = _require_write_client(client)
@@ -167,10 +175,20 @@ def review_policy_source_candidate(
         raise BadRequest(
             "Ledger candidates must be approved through promote_policy_source_candidate."
         )
+    if state == "approved":
+        _validate_review_accountability(
+            reviewed_by=reviewed_by,
+            review_decision_code=review_decision_code,
+            approval_basis=approval_basis,
+        )
     updated = {
         **row,
         "review_state": state,
         "reviewer_note": reviewer_note,
+        "reviewed_by": _clean_review_text(reviewed_by),
+        "review_decision_code": _clean_review_text(review_decision_code),
+        "approval_basis": _clean_review_text(approval_basis),
+        "promotion_policy_version": PROMOTION_POLICY_VERSION,
         "reviewed_at": utc_now_iso(),
     }
     _upsert_agent_rows(client, "policy_source_candidates", [updated], "candidate_id")
@@ -182,14 +200,32 @@ def promote_policy_source_candidate(
     *,
     client: SupabaseRestClient | None = None,
     scorer: PolicyScorer | None = None,
+    reviewed_by: str | None = None,
+    review_decision_code: str | None = None,
+    approval_basis: str | None = None,
+    source_text: str | None = None,
+    allow_unverified: bool = False,
 ) -> dict[str, Any]:
     client = _require_write_client(client)
     row = _load_policy_source_candidate(client, candidate_id)
     _validate_promotable_policy_candidate(row)
+    _validate_review_accountability(
+        reviewed_by=reviewed_by,
+        review_decision_code=review_decision_code,
+        approval_basis=approval_basis,
+    )
     quote = str(row.get("citation_quote") or "").strip()
     if not quote:
         raise BadRequest("Promotion requires an exact citation_quote.")
     source_url = row.get("resolved_primary_url") or row.get("canonical_url")
+    source_verification = _candidate_source_verification(
+        row,
+        source_url=str(source_url),
+        quote=quote,
+        source_text=source_text,
+        allow_unverified=allow_unverified,
+        approval_basis=str(approval_basis or ""),
+    )
 
     result = submit_policy_evidence(
         provision=str(row["provision"]),
@@ -210,11 +246,21 @@ def promote_policy_source_candidate(
         question=str(row.get("why_it_matters") or row.get("decision_relevance") or ""),
         client=client,
         scorer=scorer,
+        source_verification=source_verification,
+        reviewed_by=reviewed_by,
+        review_decision_code=review_decision_code,
+        approval_basis=approval_basis,
+        allow_unverified=allow_unverified,
     )
     updated = {
         **row,
         "review_state": "approved",
         "reviewed_at": utc_now_iso(),
+        "reviewed_by": _clean_review_text(reviewed_by),
+        "review_decision_code": _clean_review_text(review_decision_code),
+        "approval_basis": _clean_review_text(approval_basis),
+        "promotion_policy_version": PROMOTION_POLICY_VERSION,
+        **_candidate_verification_update(source_verification),
         "promoted_submission_id": _promotion_submission_id(result),
         "promotion_result": result,
     }
@@ -259,6 +305,12 @@ def submit_policy_evidence(
     question: str | None = None,
     client: SupabaseRestClient | None = None,
     scorer: PolicyScorer | None = None,
+    source_text: str | None = None,
+    source_verification: Mapping[str, Any] | None = None,
+    reviewed_by: str | None = None,
+    review_decision_code: str | None = None,
+    approval_basis: str | None = None,
+    allow_unverified: bool = False,
 ) -> dict[str, Any]:
     client = client or _write_client()
     if client is None:
@@ -275,6 +327,19 @@ def submit_policy_evidence(
             "status": "duplicate",
             "submission": _public_submission(existing[0]),
         }
+    _validate_review_accountability(
+        reviewed_by=reviewed_by,
+        review_decision_code=review_decision_code,
+        approval_basis=approval_basis,
+    )
+    verified = _source_verification_for_submission(
+        source=source,
+        citation=citation,
+        source_text=source_text,
+        source_verification=source_verification,
+        allow_unverified=allow_unverified,
+        approval_basis=str(approval_basis or ""),
+    )
 
     result = build_agent_evidence_rows(
         provision=provision,
@@ -287,6 +352,11 @@ def submit_policy_evidence(
         question=question,
         scorer=scorer,
         historical_scored=_load_scored_deltas(client),
+        source_verification=verified,
+        reviewed_by=reviewed_by,
+        review_decision_code=review_decision_code,
+        approval_basis=approval_basis,
+        promotion_policy_version=PROMOTION_POLICY_VERSION,
     )
     write_agent_intake_rows(result, client=client)
     return result.payload()
@@ -303,6 +373,9 @@ def ingest_source_url(
     question: str | None = None,
     client: SupabaseRestClient | None = None,
     scorer: PolicyScorer | None = None,
+    reviewed_by: str | None = None,
+    review_decision_code: str | None = None,
+    approval_basis: str | None = None,
 ) -> dict[str, Any]:
     canonical_url = canonicalize_url(url)
     try:
@@ -340,6 +413,11 @@ def ingest_source_url(
         question=question,
         client=client,
         scorer=scorer,
+        source_text=text,
+        reviewed_by=reviewed_by or agent_name or "source-url-ingest",
+        review_decision_code=review_decision_code or "source_url_ingest",
+        approval_basis=approval_basis
+        or "Fetched source text and used matching excerpt from the cited URL.",
     )
 
 
@@ -544,6 +622,138 @@ def _validate_promotable_policy_candidate(row: Mapping[str, Any]) -> None:
         )
 
 
+def _validate_review_accountability(
+    *,
+    reviewed_by: str | None,
+    review_decision_code: str | None,
+    approval_basis: str | None,
+) -> None:
+    missing = [
+        label
+        for label, value in [
+            ("reviewed_by", reviewed_by),
+            ("review_decision_code", review_decision_code),
+            ("approval_basis", approval_basis),
+        ]
+        if not _clean_review_text(value)
+    ]
+    if missing:
+        raise BadRequest(
+            "Approval requires reviewer accountability fields: "
+            + ", ".join(missing)
+            + "."
+        )
+
+
+def _source_verification_for_submission(
+    *,
+    source: Mapping[str, Any],
+    citation: Mapping[str, Any],
+    source_text: str | None,
+    source_verification: Mapping[str, Any] | None,
+    allow_unverified: bool,
+    approval_basis: str,
+) -> dict[str, Any]:
+    quote = str(
+        citation.get("quote")
+        or citation.get("quoted_text")
+        or citation.get("span")
+        or citation.get("text")
+        or ""
+    ).strip()
+    source_url = str(source.get("url") or citation.get("url") or "")
+    if source_verification:
+        result = dict(source_verification)
+    else:
+        result = verify_quote_against_source(
+            url=canonicalize_url(source_url),
+            quote=quote,
+            source_text=source_text,
+        ).to_row()
+    return _checked_source_verification(
+        result,
+        quote=quote,
+        allow_unverified=allow_unverified,
+        approval_basis=approval_basis,
+    )
+
+
+def _candidate_source_verification(
+    row: Mapping[str, Any],
+    *,
+    source_url: str,
+    quote: str,
+    source_text: str | None,
+    allow_unverified: bool,
+    approval_basis: str,
+) -> dict[str, Any]:
+    if row.get("quote_verified_against_source"):
+        result = {
+            "verification_status": row.get("verification_status") or "verified",
+            "quote_verified_against_source": True,
+            "source_retrieved_at": row.get("source_retrieved_at"),
+            "source_retrieval_method": row.get("source_retrieval_method"),
+            "source_content_hash": row.get("source_content_hash"),
+            "quote_hash": row.get("quote_hash"),
+            "quote_locator_type": row.get("quote_locator_type"),
+            "quote_locator_value": row.get("quote_locator_value"),
+        }
+    else:
+        result = verify_quote_against_source(
+            url=canonicalize_url(source_url),
+            quote=quote,
+            source_text=source_text,
+        ).to_row()
+    return _checked_source_verification(
+        result,
+        quote=quote,
+        allow_unverified=allow_unverified,
+        approval_basis=approval_basis,
+    )
+
+
+def _checked_source_verification(
+    result: Mapping[str, Any],
+    *,
+    quote: str,
+    allow_unverified: bool,
+    approval_basis: str,
+) -> dict[str, Any]:
+    verified = bool(result.get("quote_verified_against_source"))
+    status = str(result.get("verification_status") or result.get("status") or "")
+    if verified or status == "override":
+        return dict(result)
+    if allow_unverified:
+        return override_source_verification(
+            quote=quote,
+            reason=approval_basis or "Operator approved unverified citation.",
+        ).to_row()
+    raise BadRequest(
+        "Promotion requires citation_quote verification against the cited source "
+        "or an explicit allow_unverified override."
+    )
+
+
+def _candidate_verification_update(result: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "verification_status": result.get("verification_status"),
+        "quote_verified_against_source": result.get("quote_verified_against_source"),
+        "source_retrieved_at": result.get("source_retrieved_at")
+        or result.get("retrieved_at"),
+        "source_retrieval_method": result.get("source_retrieval_method")
+        or result.get("retrieval_method"),
+        "source_content_hash": result.get("source_content_hash"),
+        "quote_hash": result.get("quote_hash"),
+        "quote_locator_type": result.get("quote_locator_type"),
+        "quote_locator_value": result.get("quote_locator_value"),
+    }
+
+
+def _clean_review_text(value: str | None) -> str | None:
+    text = " ".join(str(value or "").split())
+    return text or None
+
+
 def _promotion_submission_id(result: Mapping[str, Any]) -> Any:
     if result.get("submission_id"):
         return result.get("submission_id")
@@ -578,6 +788,9 @@ def _public_submission(row: Mapping[str, Any]) -> dict[str, Any]:
         "evidence_id": row.get("evidence_id"),
         "event_id": row.get("event_id"),
         "claim_hash": row.get("claim_hash"),
+        "verification_status": row.get("verification_status"),
+        "review_decision_code": row.get("review_decision_code"),
+        "promotion_policy_version": row.get("promotion_policy_version"),
         "submitted_at": row.get("submitted_at"),
         "promoted_at": row.get("promoted_at"),
     }
@@ -606,6 +819,14 @@ def _public_policy_candidate(row: Mapping[str, Any]) -> dict[str, Any]:
         "confidence": row.get("confidence"),
         "duplicate_of": row.get("duplicate_of"),
         "related_evidence_ids": row.get("related_evidence_ids") or [],
+        "verification_status": row.get("verification_status"),
+        "quote_verified_against_source": row.get("quote_verified_against_source"),
+        "source_retrieved_at": row.get("source_retrieved_at"),
+        "source_retrieval_method": row.get("source_retrieval_method"),
+        "quote_locator_type": row.get("quote_locator_type"),
+        "review_decision_code": row.get("review_decision_code"),
+        "approval_basis": row.get("approval_basis"),
+        "promotion_policy_version": row.get("promotion_policy_version"),
         "reviewed_at": row.get("reviewed_at"),
         "promoted_submission_id": row.get("promoted_submission_id"),
         "promotion_result": row.get("promotion_result") or {},

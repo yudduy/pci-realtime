@@ -82,6 +82,10 @@ def submit(
     claim: str = typer.Option(..., "--claim"),
     idempotency_key: str = typer.Option(..., "--idempotency-key"),
     agent_run_id: str | None = typer.Option(None, "--agent-run-id"),
+    reviewed_by: str = typer.Option(..., "--reviewed-by"),
+    review_decision_code: str = typer.Option(..., "--decision-code"),
+    approval_basis: str = typer.Option(..., "--approval-basis"),
+    allow_unverified: bool = typer.Option(False, "--allow-unverified"),
     json_out: bool = typer.Option(False, "--json"),
 ) -> None:
     """Submit citeable public evidence into the registry."""
@@ -95,6 +99,10 @@ def submit(
             claim=claim,
             idempotency_key=idempotency_key,
             agent_run_id=agent_run_id,
+            reviewed_by=reviewed_by,
+            review_decision_code=review_decision_code,
+            approval_basis=approval_basis,
+            allow_unverified=allow_unverified,
         ),
         as_json=json_out,
         table=_submission_table,

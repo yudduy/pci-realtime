@@ -148,6 +148,21 @@ def citation() -> dict[str, Any]:
     }
 
 
+def source_text() -> str:
+    return (
+        "IRS guidance page. The credit applies to qualified clean hydrogen "
+        "production. Additional implementation details follow."
+    )
+
+
+def review_kwargs() -> dict[str, str]:
+    return {
+        "reviewed_by": "test-reviewer",
+        "review_decision_code": "unit_test_approval",
+        "approval_basis": "Fixture quote matched the provided source text.",
+    }
+
+
 def test_canonicalize_url_removes_tracking_and_sorts_query() -> None:
     assert (
         canonicalize_url("HTTPS://Example.COM/path?utm_source=x&b=2&a=1#frag")
@@ -178,6 +193,37 @@ def test_build_agent_evidence_rows_promotes_cited_scoreable_evidence() -> None:
     assert result.rows_by_table["scored_deltas"][0]["specificity_delta"] == 0.2
     assert result.rows_by_table["policy_events"][0]["data_origin"] == "agent_evidence"
     assert result.rows_by_table["pci_weekly"]
+
+
+def test_build_agent_evidence_rows_stores_source_verification_fields() -> None:
+    result = build_agent_evidence_rows(
+        provision="45V",
+        source=source(),
+        citation=citation(),
+        claim="IRS guidance clarifies 45V eligibility mechanics.",
+        idempotency_key="verified-build",
+        scorer=FixedScorer(),
+        submitted_at="2026-06-15T00:00:00Z",
+        source_verification={
+            "verification_status": "verified",
+            "quote_verified_against_source": True,
+            "source_retrieved_at": "2026-06-15T00:00:00Z",
+            "source_retrieval_method": "provided_text",
+            "source_content_hash": "hash:source",
+            "quote_locator_type": "text_match",
+            "quote_locator_value": "normalized_offset:18",
+        },
+        **review_kwargs(),
+    )
+
+    source_row = result.rows_by_table["source_documents"][0]
+    evidence_row = result.rows_by_table["evidence_items"][0]
+    submission_row = result.rows_by_table["evidence_submissions"][0]
+    assert source_row["source_content_hash"] == "hash:source"
+    assert evidence_row["quote_verified_against_source"] is True
+    assert evidence_row["quote_locator_type"] == "text_match"
+    assert submission_row["verification_status"] == "verified"
+    assert submission_row["reviewed_by"] == "test-reviewer"
 
 
 def test_agent_evidence_seed_fixture_promotes_all_payloads() -> None:
@@ -299,6 +345,8 @@ def test_service_writes_promoted_rows_in_dependency_order() -> None:
         idempotency_key="new-key",
         client=client,  # type: ignore[arg-type]
         scorer=FixedScorer(),
+        source_text=source_text(),
+        **review_kwargs(),
     )
 
     assert result["status"] == "promoted"
@@ -312,6 +360,40 @@ def test_service_writes_promoted_rows_in_dependency_order() -> None:
         "source_links",
         "evidence_submissions",
     ]
+    rows_by_table = {table: rows for table, rows, _ in client.upserts}
+    evidence = rows_by_table["evidence_items"][0]
+    submission = rows_by_table["evidence_submissions"][0]
+    assert evidence["quote_verified_against_source"] is True
+    assert submission["review_decision_code"] == "unit_test_approval"
+
+
+def test_service_blocks_unverified_quote_without_override() -> None:
+    with pytest.raises(BadRequest, match="citation_quote verification"):
+        service.submit_policy_evidence(
+            provision="45V",
+            source=source(),
+            citation=citation(),
+            claim="IRS guidance clarifies 45V eligibility mechanics.",
+            idempotency_key="unverified-key",
+            client=RecordingClient(),  # type: ignore[arg-type]
+            scorer=FixedScorer(),
+            source_text="This page does not contain the quoted sentence.",
+            **review_kwargs(),
+        )
+
+
+def test_service_requires_reviewer_accountability_for_new_promotion() -> None:
+    with pytest.raises(BadRequest, match="reviewed_by"):
+        service.submit_policy_evidence(
+            provision="45V",
+            source=source(),
+            citation=citation(),
+            claim="IRS guidance clarifies 45V eligibility mechanics.",
+            idempotency_key="missing-review",
+            client=RecordingClient(),  # type: ignore[arg-type]
+            scorer=FixedScorer(),
+            source_text=source_text(),
+        )
 
 
 def test_service_reports_missing_agent_intake_migration_cleanly() -> None:
@@ -326,6 +408,8 @@ def test_service_reports_missing_agent_intake_migration_cleanly() -> None:
             idempotency_key="migration-missing",
             client=client,  # type: ignore[arg-type]
             scorer=FixedScorer(),
+            source_text=source_text(),
+            **review_kwargs(),
         )
 
 
