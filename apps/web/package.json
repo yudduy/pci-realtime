@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
+    "build": "next build",
+    "check": "npm run typecheck && npm run lint",
     "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:e2e",
     "test:e2e": "playwright test",
     "test:e2e:live": "playwright test -c playwright.live.config.ts"
   },
