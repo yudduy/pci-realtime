@@ -253,6 +253,7 @@ def build_policy_brief_rows(
         provision_context = [row for row in context if row.get("provision") == code]
         provision_updates = [row for row in updates if row.get("provision") == code]
         health_summary = _source_health_summary(health)
+        intelligence_gaps = _source_intelligence_gaps(health)
         readiness = _brief_readiness(
             verified_evidence=provision_evidence,
             readiness_evidence=provision_readiness_evidence,
@@ -301,12 +302,14 @@ def build_policy_brief_rows(
                     ],
                     "source_health_summary": {
                         **health_summary,
+                        "intelligence_gaps": intelligence_gaps,
                         "readiness": readiness,
                     },
                     "raw_public_metadata": {
                         "verified_evidence_count": len(provision_evidence),
                         "reviewed_context_count": len(provision_context),
                         "belief_update_count": len(provision_updates),
+                        "intelligence_gaps": intelligence_gaps,
                         "readiness": readiness,
                     },
                     "raw_private_metadata": {},
@@ -447,6 +450,28 @@ def _source_health_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         status = str(row.get("status") or "unknown")
         statuses[status] = statuses.get(status, 0) + 1
     return {"statuses": statuses}
+
+
+def _source_intelligence_gaps(
+    rows: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    gaps: list[dict[str, Any]] = []
+    for row in rows:
+        status = str(row.get("status") or "").lower()
+        if status not in {"failed", "stale", "disabled"}:
+            continue
+        source = str(row.get("source") or "unknown_source")
+        severity = "critical" if status == "failed" else "warning"
+        summary = row.get("last_error_summary") or row.get("source_name") or source
+        gaps.append(
+            {
+                "source": source,
+                "status": status,
+                "severity": severity,
+                "message": f"{source} source health is {status}: {summary}",
+            }
+        )
+    return gaps
 
 
 def _brief_readiness(

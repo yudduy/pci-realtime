@@ -260,6 +260,15 @@ def test_policy_brief_readiness_caps_stale_source_health() -> None:
     readiness = rows["policy_briefs"][0]["raw_public_metadata"]["readiness"]
     assert readiness["status"] == "review_needed"
     assert readiness["caps"] == ["stale_or_failed_source"]
+    gaps = rows["policy_briefs"][0]["source_health_summary"]["intelligence_gaps"]
+    assert gaps == [
+        {
+            "source": "treasury",
+            "status": "stale",
+            "severity": "warning",
+            "message": "treasury source health is stale: treasury",
+        }
+    ]
 
 
 def test_policy_brief_readiness_blocks_conflict_or_high_public_harm() -> None:
