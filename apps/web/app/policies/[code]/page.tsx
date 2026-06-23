@@ -117,7 +117,7 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
           </article>
           <article className="policy-dossier-panel">
             <p className="eyebrow">Reviewed Leads</p>
-            <h2>Context, Not PCI Movement</h2>
+            <h2>Reviewed Watchlist</h2>
             <LeadList leads={reviewedLeads} />
           </article>
         </section>

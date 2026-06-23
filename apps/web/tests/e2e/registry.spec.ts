@@ -41,12 +41,12 @@ test("renders a policy dossier with briefs, theses, and cited answers", async ({
   await expect(page.getByText("weakens implementation timing thesis").first()).toBeVisible()
   await expect(page.getByText("Primary Sources")).toBeVisible()
   await expect(page.getByText("Clean hydrogen production credit guidance").first()).toBeVisible()
-  await expect(page.getByText("Context, Not PCI Movement")).toBeVisible()
+  await expect(page.getByText("Reviewed Watchlist")).toBeVisible()
   await expect(
-    page.locator(".policy-dossier-panel", { hasText: "Context, Not PCI Movement" }),
+    page.locator(".policy-dossier-panel", { hasText: "Reviewed Watchlist" }),
   ).toContainText("Hydrogen implementation analysis")
   await expect(
-    page.locator(".policy-dossier-panel", { hasText: "Context, Not PCI Movement" }),
+    page.locator(".policy-dossier-panel", { hasText: "Reviewed Watchlist" }),
   ).toContainText("reviewed analysis; not used in scoring")
   await expect(page.getByText("Answers From The Ledger")).toBeVisible()
   await expect(page.getByText("Why did this move?")).toBeVisible()
