@@ -71,7 +71,7 @@ def submit_policy_evidence(
     approval_basis: str | None = None,
     allow_unverified: bool = False,
 ) -> dict[str, Any]:
-    """Submit citeable public policy evidence for automatic promotion."""
+    """Submit verified official policy evidence for governed promotion."""
     return _safe(
         lambda: service.submit_policy_evidence(
             provision=provision,
@@ -103,7 +103,7 @@ def ingest_source_url(
     review_decision_code: str | None = None,
     approval_basis: str | None = None,
 ) -> dict[str, Any]:
-    """Fetch a public URL and submit its text as policy evidence."""
+    """Fetch an official URL and submit matched text as policy evidence."""
     return _safe(
         lambda: service.ingest_source_url(
             provision=provision,

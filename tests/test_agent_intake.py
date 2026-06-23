@@ -382,6 +382,45 @@ def test_service_blocks_unverified_quote_without_override() -> None:
         )
 
 
+def test_service_blocks_unverified_override_from_pci_writes() -> None:
+    client = RecordingClient()
+
+    with pytest.raises(BadRequest, match="cannot be promoted into PCI-moving"):
+        service.submit_policy_evidence(
+            provision="45V",
+            source=source(),
+            citation=citation(),
+            claim="IRS guidance clarifies 45V eligibility mechanics.",
+            idempotency_key="unverified-override-key",
+            client=client,  # type: ignore[arg-type]
+            scorer=FixedScorer(),
+            source_text="This page does not contain the quoted sentence.",
+            allow_unverified=True,
+            **review_kwargs(),
+        )
+
+    assert client.upserts == []
+
+
+def test_service_blocks_non_official_sources_from_pci_writes() -> None:
+    with pytest.raises(BadRequest, match="official primary-source domain"):
+        service.submit_policy_evidence(
+            provision="45V",
+            source={
+                **source(),
+                "url": "https://example.com/analysis/45v",
+                "source_name": "Policy Analysis",
+            },
+            citation={**citation(), "url": "https://example.com/analysis/45v"},
+            claim="Analysis discusses possible 45V implementation mechanics.",
+            idempotency_key="non-official-key",
+            client=RecordingClient(),  # type: ignore[arg-type]
+            scorer=FixedScorer(),
+            source_text=source_text(),
+            **review_kwargs(),
+        )
+
+
 def test_service_requires_reviewer_accountability_for_new_promotion() -> None:
     with pytest.raises(BadRequest, match="reviewed_by"):
         service.submit_policy_evidence(
@@ -393,6 +432,25 @@ def test_service_requires_reviewer_accountability_for_new_promotion() -> None:
             client=RecordingClient(),  # type: ignore[arg-type]
             scorer=FixedScorer(),
             source_text=source_text(),
+        )
+
+
+def test_ingest_source_url_requires_explicit_reviewer_accountability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_fetch(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("ingest_source_url should validate before fetching")
+
+    monkeypatch.setattr(service.httpx, "get", fail_fetch)
+
+    with pytest.raises(BadRequest, match="reviewed_by"):
+        service.ingest_source_url(
+            provision="45V",
+            url="https://www.irs.gov/credits",
+            rationale="IRS page discusses 45V.",
+            idempotency_key="ingest-missing-review",
+            client=RecordingClient(),  # type: ignore[arg-type]
+            scorer=FixedScorer(),
         )
 
 

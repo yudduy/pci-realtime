@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Mapping
+from urllib.parse import urlparse
 
 import httpx
 import pandas as pd
@@ -30,10 +31,7 @@ from pci_realtime.service_errors import (
     UpstreamTimeout,
     UpstreamUnavailable,
 )
-from pci_realtime.source_verification import (
-    override_source_verification,
-    verify_quote_against_source,
-)
+from pci_realtime.source_verification import verify_quote_against_source
 
 
 _READ_UNAVAILABLE = (
@@ -43,6 +41,19 @@ _WRITE_UNAVAILABLE = (
     "Evidence intake requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
 )
 PROMOTION_POLICY_VERSION = "policy-intel-review-v2"
+OFFICIAL_LEDGER_DOMAINS = (
+    "congress.gov",
+    "energy.gov",
+    "federalregister.gov",
+    "govinfo.gov",
+    "home.treasury.gov",
+    "irs.gov",
+    "lpo.energy.gov",
+    "reginfo.gov",
+    "regulations.gov",
+    "treasury.gov",
+    "whitehouse.gov",
+)
 
 
 def status() -> dict[str, Any]:
@@ -121,7 +132,11 @@ def policy_dossier(code: str) -> dict[str, Any]:
     client = _require_read_client()
     current = current_pci(code)
     events = _select(client, "v_policy_events", params={"provision": f"eq.{code}"})
-    evidence = _select(client, "v_evidence_items", params={"provision": f"eq.{code}"})
+    evidence = _select(
+        client,
+        "v_policy_evidence_items",
+        params={"provision": f"eq.{code}"},
+    )
     submissions = _safe_select(
         client,
         "v_agent_evidence_submissions",
@@ -224,7 +239,6 @@ def promote_policy_source_candidate(
         quote=quote,
         source_text=source_text,
         allow_unverified=allow_unverified,
-        approval_basis=str(approval_basis or ""),
     )
 
     result = submit_policy_evidence(
@@ -281,7 +295,7 @@ def get_evidence_trace(
     params = {"provision": f"eq.{code}"}
     if evidence_id:
         params["evidence_id"] = f"eq.{evidence_id}"
-    evidence = _select(client, "v_evidence_items", params=params)
+    evidence = _select(client, "v_policy_evidence_items", params=params)
     links = _select(client, "v_source_links")
     events = _select(client, "v_policy_events", params={"provision": f"eq.{code}"})
     evidence_ids = {str(row.get("evidence_id")) for row in evidence}
@@ -332,13 +346,13 @@ def submit_policy_evidence(
         review_decision_code=review_decision_code,
         approval_basis=approval_basis,
     )
+    _validate_official_ledger_source(source.get("url") or citation.get("url"))
     verified = _source_verification_for_submission(
         source=source,
         citation=citation,
         source_text=source_text,
         source_verification=source_verification,
         allow_unverified=allow_unverified,
-        approval_basis=str(approval_basis or ""),
     )
 
     result = build_agent_evidence_rows(
@@ -378,6 +392,12 @@ def ingest_source_url(
     approval_basis: str | None = None,
 ) -> dict[str, Any]:
     canonical_url = canonicalize_url(url)
+    _validate_review_accountability(
+        reviewed_by=reviewed_by,
+        review_decision_code=review_decision_code,
+        approval_basis=approval_basis,
+    )
+    _validate_official_ledger_source(canonical_url)
     try:
         response = httpx.get(canonical_url, timeout=30, follow_redirects=True)
         response.raise_for_status()
@@ -414,10 +434,9 @@ def ingest_source_url(
         client=client,
         scorer=scorer,
         source_text=text,
-        reviewed_by=reviewed_by or agent_name or "source-url-ingest",
-        review_decision_code=review_decision_code or "source_url_ingest",
-        approval_basis=approval_basis
-        or "Fetched source text and used matching excerpt from the cited URL.",
+        reviewed_by=reviewed_by,
+        review_decision_code=review_decision_code,
+        approval_basis=approval_basis,
     )
 
 
@@ -620,6 +639,9 @@ def _validate_promotable_policy_candidate(row: Mapping[str, Any]) -> None:
         raise BadRequest(
             f"Candidate is already {row.get('review_state')} and cannot be promoted."
         )
+    _validate_official_ledger_source(
+        row.get("resolved_primary_url") or row.get("canonical_url")
+    )
 
 
 def _validate_review_accountability(
@@ -652,7 +674,6 @@ def _source_verification_for_submission(
     source_text: str | None,
     source_verification: Mapping[str, Any] | None,
     allow_unverified: bool,
-    approval_basis: str,
 ) -> dict[str, Any]:
     quote = str(
         citation.get("quote")
@@ -672,9 +693,7 @@ def _source_verification_for_submission(
         ).to_row()
     return _checked_source_verification(
         result,
-        quote=quote,
         allow_unverified=allow_unverified,
-        approval_basis=approval_basis,
     )
 
 
@@ -685,7 +704,6 @@ def _candidate_source_verification(
     quote: str,
     source_text: str | None,
     allow_unverified: bool,
-    approval_basis: str,
 ) -> dict[str, Any]:
     if row.get("quote_verified_against_source"):
         result = {
@@ -706,31 +724,42 @@ def _candidate_source_verification(
         ).to_row()
     return _checked_source_verification(
         result,
-        quote=quote,
         allow_unverified=allow_unverified,
-        approval_basis=approval_basis,
     )
 
 
 def _checked_source_verification(
     result: Mapping[str, Any],
     *,
-    quote: str,
     allow_unverified: bool,
-    approval_basis: str,
 ) -> dict[str, Any]:
     verified = bool(result.get("quote_verified_against_source"))
     status = str(result.get("verification_status") or result.get("status") or "")
-    if verified or status == "override":
+    if verified and status != "override":
         return dict(result)
     if allow_unverified:
-        return override_source_verification(
-            quote=quote,
-            reason=approval_basis or "Operator approved unverified citation.",
-        ).to_row()
+        raise BadRequest(
+            "Unverified citations can be reviewed as context, but cannot be "
+            "promoted into PCI-moving ledger evidence."
+        )
     raise BadRequest(
         "Promotion requires citation_quote verification against the cited source "
-        "or an explicit allow_unverified override."
+        "before writing PCI-moving ledger evidence."
+    )
+
+
+def _validate_official_ledger_source(value: Any) -> None:
+    canonical_url = canonicalize_url(str(value or ""))
+    host = urlparse(canonical_url).hostname or ""
+    if any(
+        host == domain or host.endswith(f".{domain}")
+        for domain in OFFICIAL_LEDGER_DOMAINS
+    ):
+        return
+    allowed = ", ".join(OFFICIAL_LEDGER_DOMAINS)
+    raise BadRequest(
+        "PCI-moving ledger evidence must come from an official primary-source "
+        f"domain. Allowed domains: {allowed}."
     )
 
 
@@ -825,7 +854,6 @@ def _public_policy_candidate(row: Mapping[str, Any]) -> dict[str, Any]:
         "source_retrieval_method": row.get("source_retrieval_method"),
         "quote_locator_type": row.get("quote_locator_type"),
         "review_decision_code": row.get("review_decision_code"),
-        "approval_basis": row.get("approval_basis"),
         "promotion_policy_version": row.get("promotion_policy_version"),
         "reviewed_at": row.get("reviewed_at"),
         "promoted_submission_id": row.get("promoted_submission_id"),

@@ -57,6 +57,11 @@ def test_public_views_filter_policy_relevant_clear_public_forecasts() -> None:
     assert "view v_evidence_items" in sql
     assert "view v_market_discovery_candidates" in sql
     assert "view v_policy_source_candidates" in sql
+    agent_submission_view = sql.split(
+        "create or replace view v_agent_evidence_submissions",
+        1,
+    )[1].split("create or replace view v_policy_source_candidates", 1)[0]
+    assert "s.approval_basis" not in agent_submission_view
     policy_candidate_view = sql.rsplit(
         "create or replace view v_policy_source_candidates",
         1,
@@ -64,6 +69,7 @@ def test_public_views_filter_policy_relevant_clear_public_forecasts() -> None:
     assert "raw_private_metadata" not in policy_candidate_view
     assert "c.reviewer_note" not in policy_candidate_view
     assert "c.reviewed_by" not in policy_candidate_view
+    assert "c.approval_basis" not in policy_candidate_view
     assert "where c.review_state = 'approved'" in policy_candidate_view
     assert "create or replace view v_policy_evidence_items" in sql
     policy_evidence_view = sql.split(
@@ -72,6 +78,7 @@ def test_public_views_filter_policy_relevant_clear_public_forecasts() -> None:
     )[1].split("create or replace view v_agent_evidence_submissions", 1)[0]
     assert "where provision is not null" in policy_evidence_view
     assert "evidence_type not in ('market_snapshot')" in policy_evidence_view
+    assert "quote_verified_against_source = true" in policy_evidence_view
     belief_view = sql.split("create or replace view v_belief_updates", 1)[1].split(
         "create or replace view v_policy_briefs",
         1,

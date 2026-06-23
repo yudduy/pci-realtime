@@ -374,11 +374,14 @@ def _belief_update_row(
         for row in markets
         if row.get("snapshot_id") and _looks_like_uuid(str(row.get("snapshot_id")))
     ]
+    market_metadata = _market_public_metadata(markets)
     replay_hash = _replay_hash(
         thesis_id=str(thesis["thesis_id"]),
         evidence=evidence,
         prior_probability=prior_probability,
         likelihood_ratio=float(signal["likelihood_ratio"]),
+        market_snapshot_ids=market_ids,
+        market_metadata=market_metadata,
     )
     return json_clean(
         {
@@ -405,7 +408,7 @@ def _belief_update_row(
             "replay_hash": replay_hash,
             "adjudication_state": "approved",
             "created_at": created_at,
-            "raw_public_metadata": _market_public_metadata(markets),
+            "raw_public_metadata": market_metadata,
             "raw_private_metadata": {},
         }
     )
@@ -628,6 +631,8 @@ def _replay_hash(
     evidence: Mapping[str, Any],
     prior_probability: float,
     likelihood_ratio: float,
+    market_snapshot_ids: Sequence[str],
+    market_metadata: Mapping[str, Any],
 ) -> str:
     payload = {
         "thesis_id": thesis_id,
@@ -637,6 +642,8 @@ def _replay_hash(
         "normalized_signal": evidence.get("normalized_signal"),
         "prior_probability": round(prior_probability, 4),
         "likelihood_ratio": round(likelihood_ratio, 4),
+        "market_snapshot_ids": sorted(market_snapshot_ids),
+        "market_metadata": dict(sorted(market_metadata.items())),
         "updater_version": UPDATER_VERSION,
     }
     return stable_hash(json.dumps(payload, sort_keys=True, default=str))

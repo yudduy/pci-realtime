@@ -238,7 +238,8 @@ create or replace view v_policy_evidence_items as
 select *
 from v_evidence_items
 where provision is not null
-  and evidence_type not in ('market_snapshot');
+  and evidence_type not in ('market_snapshot')
+  and quote_verified_against_source = true;
 
 create or replace view v_agent_evidence_submissions as
 select
@@ -256,7 +257,6 @@ select
   s.rejection_reason,
   s.verification_status,
   s.review_decision_code,
-  s.approval_basis,
   s.promotion_policy_version,
   s.promotion_result,
   s.submitted_at,
@@ -303,7 +303,6 @@ select
   c.source_retrieval_method,
   c.quote_locator_type,
   c.review_decision_code,
-  c.approval_basis,
   c.promotion_policy_version,
   c.reviewed_at,
   c.promoted_submission_id,

@@ -87,7 +87,6 @@ const policySourceCandidates = [
     source_retrieval_method: null,
     quote_locator_type: null,
     review_decision_code: "context_review",
-    approval_basis: "Reviewed context lead for staff follow-up.",
     promotion_policy_version: "policy-intel-review-v2",
     reviewed_at: now,
     promoted_submission_id: null,
@@ -415,7 +414,6 @@ const agentEvidenceSubmissions = [
     rejection_reason: null,
     verification_status: "verified",
     review_decision_code: "fixture_review",
-    approval_basis: "Fixture quote matched source text.",
     promotion_policy_version: "policy-intel-review-v2",
     promotion_result: {
       week: "2026-W21",

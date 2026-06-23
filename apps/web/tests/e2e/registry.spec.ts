@@ -45,9 +45,13 @@ test("renders a policy dossier with briefs, theses, and cited answers", async ({
   await expect(
     page.locator(".policy-dossier-panel", { hasText: "Context, Not PCI Movement" }),
   ).toContainText("Hydrogen implementation analysis")
+  await expect(
+    page.locator(".policy-dossier-panel", { hasText: "Context, Not PCI Movement" }),
+  ).toContainText("reviewed analysis; not used in scoring")
   await expect(page.getByText("Answers From The Ledger")).toBeVisible()
   await expect(page.getByText("Why did this move?")).toBeVisible()
   await expect(page.getByText("What source proves it?")).toBeVisible()
+  await expect(page.getByText(/belief:/i)).toHaveCount(0)
   await expect(page.getByText("Unreviewed news")).toHaveCount(0)
 })
 
@@ -199,7 +203,7 @@ test("renders the policy credibility terminal without fake market fields", async
   await expect(page.locator(".terminal-updates-carousel")).not.toContainText("Advanced Manufacturing Production Credit")
   await expect(page.getByRole("button", { name: "Previous PCI update" })).toBeVisible()
   await expect(page.getByRole("button", { name: "Next PCI update" })).toBeVisible()
-  const sourceLink = page.getByRole("link", { name: "View source" })
+  const sourceLink = page.getByRole("link", { name: "Open cited source" })
   await expect(sourceLink).toBeVisible()
   await expect(sourceLink).toHaveAttribute(
     "href",

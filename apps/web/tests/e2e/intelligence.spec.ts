@@ -174,7 +174,6 @@ function policySourceCandidate(policyCode: string) {
     source_retrieval_method: null,
     quote_locator_type: null,
     review_decision_code: "context_review",
-    approval_basis: "Reviewed context lead.",
     promotion_policy_version: "policy-intel-review-v2",
     reviewed_at: freshAt,
     promoted_submission_id: null,

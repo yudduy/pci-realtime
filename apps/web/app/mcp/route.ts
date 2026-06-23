@@ -4,11 +4,7 @@ import type { EvidenceItem, PolicyEvent, RegistryData } from "@/lib/data"
 import { getRegistryData } from "@/lib/data"
 import { buildPolicyIntelligence } from "@/lib/intelligence"
 import { POLICIES } from "@/lib/policy-copy"
-import {
-  citationHref,
-  citationHrefForPolicyEvent,
-  evidenceForPolicyEvent,
-} from "@/lib/source-links"
+import { citationHref } from "@/lib/source-links"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -204,12 +200,15 @@ function evidenceForPolicy(data: RegistryData, code: string) {
       )
       .map((link) => link.evidence_id),
   )
-  return data.evidenceItems.filter(
-    (item) => item.provision === code || evidenceIds.has(item.evidence_id),
+  return data.policyEvidenceItems.filter(
+    (item) =>
+      item.quote_verified_against_source === true &&
+      (item.provision === code || evidenceIds.has(item.evidence_id)),
   )
 }
 
 function eventPayload(event: PolicyEvent, data: RegistryData) {
+  const evidence = verifiedEvidenceForEvent(event, data)
   return {
     event_id: event.event_id,
     provision: event.provision,
@@ -219,9 +218,28 @@ function eventPayload(event: PolicyEvent, data: RegistryData) {
     title: event.title,
     pci_delta: event.pci_delta,
     dimension_deltas: event.dimension_deltas,
-    source_url: citationHrefForPolicyEvent(event, data) ?? event.url,
-    evidence_ids: evidenceForPolicyEvent(event, data).map((item) => item.evidence_id),
+    source_url:
+      evidence
+        .map((item) => citationHref(item.canonical_url ?? item.url ?? event.url, item))
+        .find((href): href is string => Boolean(href)) ?? event.url,
+    evidence_ids: evidence.map((item) => item.evidence_id),
   }
+}
+
+function verifiedEvidenceForEvent(event: PolicyEvent, data: RegistryData) {
+  const evidenceIds = new Set(
+    data.sourceLinks
+      .filter(
+        (link) =>
+          link.target_table === "policy_events" && link.target_id === event.event_id,
+      )
+      .map((link) => link.evidence_id),
+  )
+  return data.policyEvidenceItems.filter(
+    (item) =>
+      item.quote_verified_against_source === true &&
+      evidenceIds.has(item.evidence_id),
+  )
 }
 
 function evidencePayload(item: EvidenceItem) {
@@ -235,6 +253,7 @@ function evidencePayload(item: EvidenceItem) {
     score_dimension: item.score_dimension,
     normalized_signal: item.normalized_signal,
     confidence: item.confidence,
+    quote_verified_against_source: item.quote_verified_against_source,
     source_url: citationHref(item.canonical_url ?? item.url, item),
     published_at: item.published_at,
     created_at: item.created_at,

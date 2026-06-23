@@ -136,7 +136,6 @@ export type PolicySourceCandidate = {
   source_retrieval_method?: string | null
   quote_locator_type?: string | null
   review_decision_code?: string | null
-  approval_basis?: string | null
   promotion_policy_version?: string | null
   reviewed_at: string | null
   promoted_submission_id: string | null

@@ -49,11 +49,13 @@ export function buildPolicyDossier(data: RegistryData, code: string): PolicyDoss
     data.policyBriefs
       .filter((brief) => brief.provision === policy.code)
       .sort(compareNewest)[0] ?? null
-  const evidenceSource = data.policyEvidenceItems.length
-    ? data.policyEvidenceItems
-    : data.evidenceItems
-  const evidence = evidenceSource
-    .filter((item) => item.provision === policy.code && item.evidence_type !== "market_snapshot")
+  const evidence = data.policyEvidenceItems
+    .filter(
+      (item) =>
+        item.provision === policy.code &&
+        item.evidence_type !== "market_snapshot" &&
+        item.quote_verified_against_source === true,
+    )
     .sort(compareNewest)
   const reviewedLeads = data.policySourceCandidates
     .filter((candidate) => candidate.provision === policy.code)
@@ -101,7 +103,7 @@ function buildStaffQuestions({
         latestBrief?.what_changed ??
         "No approved belief update is available for this policy in the current window.",
       citations: latestUpdate
-        ? [{ label: latestUpdate.update_id, href: null }]
+        ? [{ label: beliefUpdateLabel(latestUpdate), href: null }]
         : latestBrief
           ? [{ label: latestBrief.brief_id, href: null }]
           : [],
@@ -147,6 +149,24 @@ function marketMatchesPolicy(market: MarketSnapshot, code: string): boolean {
     market.ticker,
     market.event_ticker,
   ].some((value) => typeof value === "string" && value.toUpperCase().includes(code))
+}
+
+function beliefUpdateLabel(update: BeliefUpdate): string {
+  const date = shortDate(update.created_at)
+  const direction = update.direction === "neutral" ? "held" : update.direction
+  return date === "n/a"
+    ? `Belief update: ${direction}`
+    : `Belief update: ${direction} on ${date}`
+}
+
+function shortDate(value: string | null | undefined): string {
+  if (!value) return "n/a"
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(value))
 }
 
 function compareNewest(a: SortableDateRow, b: SortableDateRow): number {

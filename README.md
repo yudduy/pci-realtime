@@ -239,8 +239,10 @@ Expected agent loop:
 
 1. Call `status` and stop if `write_configured` is false.
 2. Call `list_policies` and map evidence only to the six tracked codes.
-3. Search official sources, then call `submit_policy_evidence` with a public URL,
-   source title, short quote anchor, claim, and deterministic idempotency key.
+3. Search official sources, then call `submit_policy_evidence` with an official
+   source URL, source title, short quote anchor, reviewer fields, claim, and
+   deterministic idempotency key. Unverified or non-official sources remain
+   review/context leads and do not move PCI.
 4. Call `get_evidence_trace` to verify the evidence, source link, and event row.
 5. Call `policy_dossier` or `current_pci` to confirm the score surface updated.
 
@@ -262,13 +264,16 @@ Example tool payload:
   "claim": "IRS current guidance confirms the section 45V credit remains tied to qualified clean hydrogen production, emissions intensity, and wage/apprenticeship compliance.",
   "idempotency_key": "irs-clean-hydrogen-credit-page-2025-12-31",
   "agent_name": "policy-research-agent",
-  "question": "Does current IRS guidance change the 45V credibility state?"
+  "question": "Does current IRS guidance change the 45V credibility state?",
+  "reviewed_by": "operator@example.org",
+  "review_decision_code": "official_source_quote_match",
+  "approval_basis": "Operator checked the cited IRS quote against the source page."
 }
 ```
 
-Use `ingest_source_url` only when the agent cannot reliably extract a citation
-anchor itself. Prefer `submit_policy_evidence` because it forces the agent to
-name the exact quote that supports the claim.
+Use `ingest_source_url` only for official-source URLs and only with explicit
+reviewer fields. Prefer `submit_policy_evidence` because it forces the agent to
+name the exact quote that supports the claim before any PCI-moving write.
 
 Run the daily research scout in dry-run mode:
 
@@ -293,7 +298,7 @@ cron / external worker / supervised Codex automation
   -> scripts/run_agent_research_intake.py --since <date> --output-path <json>
   -> review exact quotes, source URLs, policy mapping, and idempotency keys
   -> rerun with --write only when status.write_configured is true
-  -> service.submit_policy_evidence scores the cited claim and writes Supabase rows
+  -> service.submit_policy_evidence verifies the official quote, scores the cited claim, and writes Supabase rows
   -> Vercel renders the updated ledger from public Supabase views
 ```
 

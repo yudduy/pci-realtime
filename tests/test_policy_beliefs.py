@@ -139,6 +139,42 @@ def test_policy_beliefs_replay_hash_ignores_submission_idempotency() -> None:
     )
 
 
+def test_policy_beliefs_replay_hash_changes_with_market_context() -> None:
+    first = build_policy_belief_rows(
+        since=date(2026, 6, 1),
+        through=date(2026, 6, 23),
+        run_id=FIXED_RUN_ID,
+        provisions=("45V",),
+        evidence_items=[_verified_evidence()],
+        market_snapshots=[
+            {
+                "snapshot_id": "11111111-1111-1111-1111-111111111111",
+                "query_name": "45V public market",
+                "market_probability": 0.42,
+            }
+        ],
+    )
+    second = build_policy_belief_rows(
+        since=date(2026, 6, 1),
+        through=date(2026, 6, 23),
+        run_id=FIXED_RUN_ID,
+        provisions=("45V",),
+        evidence_items=[_verified_evidence()],
+        market_snapshots=[
+            {
+                "snapshot_id": "22222222-2222-2222-2222-222222222222",
+                "query_name": "45V public market",
+                "market_probability": 0.64,
+            }
+        ],
+    )
+
+    assert (
+        first["belief_updates"][0]["replay_hash"]
+        != second["belief_updates"][0]["replay_hash"]
+    )
+
+
 def test_policy_beliefs_ignore_unverified_and_market_evidence() -> None:
     rows = build_policy_belief_rows(
         since=date(2026, 6, 1),

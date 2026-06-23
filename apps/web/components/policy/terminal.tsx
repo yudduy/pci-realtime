@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { SiteHeader } from "@/components/layout/site-header"
 import {
   deltaToneClass,
-  formatDate,
   formatDelta,
   formatScore,
 } from "@/components/market/format"
@@ -287,7 +286,7 @@ function UpdateCarousel({
             {formatDelta(current.delta)}
           </strong>
           <a href={current.href} target="_blank" rel="noreferrer">
-            View source
+            Open cited source
           </a>
         </div>
       </article>
@@ -619,19 +618,19 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
               cy={point.y}
               r={point.attributions.length ? "5" : "4"}
               className={active?.key === point.key ? "active" : ""}
-              aria-label={`${formatDate(point.date)} score ${formatScore(point.value)}`}
+              aria-label={`${formatPolicyDate(point.date)} score ${formatScore(point.value)}`}
               onFocus={() => setActiveKey(point.key)}
               onMouseEnter={() => setActiveKey(point.key)}
             >
-              <title>{`${formatDate(point.date)} score ${formatScore(point.value)}`}</title>
+              <title>{`${formatPolicyDate(point.date)} score ${formatScore(point.value)}`}</title>
             </circle>
           )
         })}
         <text x="24" y="192">
-          {points[0] ? formatDate(points[0].date) : ""}
+          {points[0] ? formatPolicyDate(points[0].date) : ""}
         </text>
         <text x="696" y="192" textAnchor="end">
-          {points.at(-1) ? formatDate(points.at(-1)?.date) : ""}
+          {points.at(-1) ? formatPolicyDate(points.at(-1)?.date) : ""}
         </text>
       </svg>
 
@@ -677,7 +676,7 @@ function PointAttribution({
   return (
     <div className="policy-point-attribution">
       <div className="policy-point-meta">
-        <span>{formatDate(point.date)}</span>
+        <span>{formatPolicyDate(point.date)}</span>
         <em className={deltaToneClass(point.delta)}>{formatDelta(point.delta)}</em>
       </div>
 
@@ -768,8 +767,13 @@ function filterPolicies(policies: TerminalPolicy[], query: string) {
 }
 
 function formatPolicyDate(value: string | null | undefined) {
-  const formatted = formatDate(value)
-  return formatted === "-" ? "--" : formatted
+  if (!value) return "--"
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(value))
 }
 
 function policyDelta(policy: TerminalPolicy) {

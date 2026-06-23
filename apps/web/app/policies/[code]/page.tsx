@@ -71,12 +71,12 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
             <p className="eyebrow">Current Belief Move</p>
             {latestUpdate ? (
               <>
-                <h2>{percent(latestUpdate.posterior_probability)}</h2>
+                <h2>{percent(latestUpdate.posterior_probability)} now</h2>
                 <p>{latestUpdate.rationale}</p>
                 <div className="policy-dossier-belief-delta">
-                  <span>{percent(latestUpdate.prior_probability)} prior</span>
-                  <span>{latestUpdate.direction}</span>
-                  <span>{latestUpdate.magnitude}</span>
+                  <span>was {percent(latestUpdate.prior_probability)}</span>
+                  <span>{beliefMove(latestUpdate)}</span>
+                  <span>{latestUpdate.reliability} reliability</span>
                 </div>
               </>
             ) : (
@@ -181,9 +181,12 @@ function EvidenceList({ evidence }: { evidence: NonNullable<ReturnType<typeof bu
     <ul className="policy-dossier-list">
       {evidence.slice(0, 5).map((item) => (
         <li key={item.evidence_id}>
-          <span>{item.source_title ?? item.snippet ?? item.evidence_id}</span>
+          <span className="policy-dossier-item-copy">
+            <b>{item.source_title ?? item.snippet ?? item.evidence_id}</b>
+            <small>{evidenceMeta(item)}</small>
+          </span>
           {item.canonical_url || item.url ? (
-            <a href={item.canonical_url ?? item.url ?? "#"}>Source</a>
+            <a href={item.canonical_url ?? item.url ?? "#"}>Open source</a>
           ) : (
             <strong>{item.quote_verified_against_source ? "verified" : "reviewed"}</strong>
           )}
@@ -199,12 +202,50 @@ function LeadList({ leads }: { leads: NonNullable<ReturnType<typeof buildPolicyD
     <ul className="policy-dossier-list">
       {leads.slice(0, 5).map((lead) => (
         <li key={lead.candidate_id}>
-          <span>{lead.title}</span>
-          <strong>{lead.source_class} / {lead.promotability}</strong>
+          <span className="policy-dossier-item-copy">
+            <b>{lead.title}</b>
+            <small>{lead.why_it_matters ?? "Reviewed context for staff monitoring."}</small>
+          </span>
+          <strong>{leadLabel(lead)}</strong>
         </li>
       ))}
     </ul>
   )
+}
+
+function evidenceMeta(
+  item: NonNullable<ReturnType<typeof buildPolicyDossier>>["evidence"][number],
+) {
+  const issuer = item.source_name ?? item.agency ?? "Official source"
+  const date = formatDate(item.published_at ?? item.created_at)
+  const status = item.quote_verified_against_source ? "quote verified" : "reviewed"
+  return `${issuer} · ${date} · ${status}`
+}
+
+function leadLabel(
+  lead: NonNullable<ReturnType<typeof buildPolicyDossier>>["reviewedLeads"][number],
+) {
+  const classLabel =
+    lead.source_class === "official"
+      ? "official source"
+      : lead.source_class === "news"
+        ? "reviewed news lead"
+        : lead.source_class === "analysis"
+          ? "reviewed analysis"
+          : "mixed source"
+  const useLabel =
+    lead.promotability === "ledger_candidate"
+      ? "ready for evidence review"
+      : "not used in scoring"
+  return `${classLabel}; ${useLabel}`
+}
+
+function beliefMove(
+  update: NonNullable<ReturnType<typeof buildPolicyDossier>>["beliefUpdates"][number],
+) {
+  const delta = update.posterior_probability - update.prior_probability
+  if (!Number.isFinite(delta) || Math.abs(delta) < 0.005) return "no material move"
+  return `${delta > 0 ? "up" : "down"} ${Math.abs(Math.round(delta * 100))} pts`
 }
 
 function percent(value: number | null | undefined): string {

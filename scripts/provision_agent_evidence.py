@@ -183,7 +183,7 @@ def promote(payloads: list[dict[str, Any]]) -> dict[str, Any]:
             reviewed_by="agent-coi-seed",
             review_decision_code="seed_fixture",
             approval_basis="Seed fixture reviewed for local provisioning.",
-            allow_unverified=True,
+            source_text=str(item["citation"]["quote"]),
         )
         for item in payloads
     ]
