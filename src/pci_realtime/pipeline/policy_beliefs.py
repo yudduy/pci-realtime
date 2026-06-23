@@ -106,6 +106,13 @@ def build_policy_belief_rows(
         if _is_verified_policy_evidence(row)
         and _date_in_window(_row_date(row), since=since, through=through)
     ]
+    readiness_evidence = [
+        dict(row)
+        for row in evidence_items
+        if row.get("provision")
+        and row.get("evidence_type") != "market_snapshot"
+        and _date_in_window(_row_date(row), since=since, through=through)
+    ]
     reviewed_context = [
         dict(row)
         for row in context_candidates
@@ -126,6 +133,7 @@ def build_policy_belief_rows(
         since=since,
         through=through,
         evidence_items=verified_evidence,
+        readiness_evidence=readiness_evidence,
         context_candidates=reviewed_context,
         belief_updates=updates,
         source_health=source_health,
@@ -223,10 +231,15 @@ def build_policy_brief_rows(
     context_candidates: Iterable[Mapping[str, Any]],
     belief_updates: Iterable[Mapping[str, Any]],
     source_health: Iterable[Mapping[str, Any]] = (),
+    readiness_evidence: Iterable[Mapping[str, Any]] | None = None,
     brief_type: str = "daily",
 ) -> list[dict[str, Any]]:
     generated = utc_now_iso()
     evidence = [dict(row) for row in evidence_items]
+    readiness_rows = [
+        dict(row)
+        for row in (readiness_evidence if readiness_evidence is not None else evidence)
+    ]
     context = [dict(row) for row in context_candidates]
     updates = [dict(row) for row in belief_updates]
     health = [dict(row) for row in source_health]
@@ -234,8 +247,18 @@ def build_policy_brief_rows(
     for provision in provisions:
         code = normalize_provision(provision)
         provision_evidence = [row for row in evidence if row.get("provision") == code]
+        provision_readiness_evidence = [
+            row for row in readiness_rows if row.get("provision") == code
+        ]
         provision_context = [row for row in context if row.get("provision") == code]
         provision_updates = [row for row in updates if row.get("provision") == code]
+        health_summary = _source_health_summary(health)
+        readiness = _brief_readiness(
+            verified_evidence=provision_evidence,
+            readiness_evidence=provision_readiness_evidence,
+            context=provision_context,
+            source_health=health,
+        )
         title = f"{code} policy intelligence brief"
         rows.append(
             json_clean(
@@ -276,11 +299,15 @@ def build_policy_brief_rows(
                         for row in provision_updates
                         if row.get("update_id")
                     ],
-                    "source_health_summary": _source_health_summary(health),
+                    "source_health_summary": {
+                        **health_summary,
+                        "readiness": readiness,
+                    },
                     "raw_public_metadata": {
                         "verified_evidence_count": len(provision_evidence),
                         "reviewed_context_count": len(provision_context),
                         "belief_update_count": len(provision_updates),
+                        "readiness": readiness,
                     },
                     "raw_private_metadata": {},
                 }
@@ -420,6 +447,97 @@ def _source_health_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         status = str(row.get("status") or "unknown")
         statuses[status] = statuses.get(status, 0) + 1
     return {"statuses": statuses}
+
+
+def _brief_readiness(
+    *,
+    verified_evidence: Sequence[Mapping[str, Any]],
+    readiness_evidence: Sequence[Mapping[str, Any]],
+    context: Sequence[Mapping[str, Any]],
+    source_health: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    caps: list[str] = []
+    if not verified_evidence:
+        caps.append("no_verified_quote")
+    if any(not row.get("quote_verified_against_source") for row in readiness_evidence):
+        caps.append("unverified_source")
+    if any(not _has_quote_text(row) for row in readiness_evidence):
+        caps.append("missing_quote")
+    if (
+        context
+        and not verified_evidence
+        and all(str(row.get("source_class") or "").lower() == "news" for row in context)
+    ):
+        caps.append("news_only_basis")
+    if any(
+        str(row.get("status") or "").lower() in {"failed", "stale"}
+        for row in source_health
+    ):
+        caps.append("stale_or_failed_source")
+
+    review_rows = [*readiness_evidence, *context]
+    if any(
+        _has_marker(row, {"conflicting_authority", "authority_conflict"})
+        for row in review_rows
+    ):
+        caps.append("conflicting_authority")
+    if any(
+        _has_marker(
+            row,
+            {
+                "high_public_harm",
+                "high_public_harm_concern",
+                "public_harm_high",
+            },
+        )
+        for row in review_rows
+    ):
+        caps.append("high_public_harm_concern")
+
+    unique_caps = sorted(set(caps))
+    status = "ready" if verified_evidence and not unique_caps else "review_needed"
+    if {"conflicting_authority", "high_public_harm_concern"} & set(unique_caps):
+        status = "blocked"
+    return {
+        "status": status,
+        "caps": unique_caps,
+        "verified_evidence_count": len(verified_evidence),
+        "reviewed_context_count": len(context),
+        "review_evidence_count": len(readiness_evidence),
+    }
+
+
+def _has_quote_text(row: Mapping[str, Any]) -> bool:
+    return bool(str(row.get("citation_quote") or row.get("snippet") or "").strip())
+
+
+def _has_marker(row: Mapping[str, Any], names: set[str]) -> bool:
+    containers: list[Mapping[str, Any]] = [row]
+    for key in ("raw_public_metadata", "details", "metadata"):
+        value = row.get(key)
+        if isinstance(value, dict):
+            containers.append(value)
+
+    for container in containers:
+        for name in names:
+            value = container.get(name)
+            if isinstance(value, str) and value.strip().lower() in {
+                "true",
+                "yes",
+                "high",
+            }:
+                return True
+            if value is True:
+                return True
+        flags = container.get("risk_flags")
+        if isinstance(flags, str):
+            if any(name in flags.lower() for name in names):
+                return True
+        elif isinstance(flags, (list, tuple, set)):
+            normalized = {str(flag).lower() for flag in flags}
+            if any(name in normalized for name in names):
+                return True
+    return False
 
 
 def _brief_summary(
@@ -600,7 +718,7 @@ def _update_rationale(
     market_note = ""
     market_meta = _market_public_metadata(markets)
     if market_meta["market_probability"] is not None:
-        market_note = f" Market anchor: {market_meta['market_probability']:.0%}."
+        market_note = f" Market read-through: {market_meta['market_probability']:.0%}."
     return (
         f"{signal['direction']} {thesis['thesis_type']} thesis based on cited source: "
         f"{title}.{market_note}"

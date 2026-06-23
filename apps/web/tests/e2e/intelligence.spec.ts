@@ -21,7 +21,7 @@ test.describe("PolicyIntelligence evidence derivation", () => {
         latestRefreshAt: freshAt,
         scanned: 100,
       }),
-    ).toBe("market_attached")
+    ).toBe("market_context")
 
     expect(
       deriveEvidenceStatus({
@@ -77,7 +77,7 @@ test.describe("PolicyIntelligence evidence derivation", () => {
     expect(hydrogen?.reviewCandidates).toHaveLength(0)
   })
 
-  test("uses actual market snapshots only for attached market state", () => {
+  test("uses actual market snapshots only for contextual market state", () => {
     const policies = buildPolicyIntelligence(
       registryData({
         marketSnapshots: [marketSnapshot("45Q")],
@@ -87,8 +87,22 @@ test.describe("PolicyIntelligence evidence derivation", () => {
 
     const carbonCapture = policies.find((policy) => policy.code === "45Q")
 
-    expect(carbonCapture?.evidenceStatus).toBe("market_attached")
+    expect(carbonCapture?.evidenceStatus).toBe("source_review")
     expect(carbonCapture?.marketSignals).toHaveLength(1)
+  })
+
+  test("verified policy evidence outranks market context", () => {
+    const policies = buildPolicyIntelligence(
+      registryData({
+        marketSnapshots: [marketSnapshot("45V")],
+        policyEvidenceItems: [evidenceItem("45V")],
+      }),
+    )
+
+    const hydrogen = policies.find((policy) => policy.code === "45V")
+
+    expect(hydrogen?.evidenceStatus).toBe("documented")
+    expect(hydrogen?.marketSignals).toHaveLength(1)
   })
 
   test("adds source references to every tracked policy", () => {
@@ -251,5 +265,42 @@ function marketSnapshot(policyCode: string): MarketSnapshot {
     policy_relevant: true,
     resolution_text: "Test resolution",
     query_name: policyCode,
+  }
+}
+
+function evidenceItem(policyCode: string) {
+  return {
+    evidence_id: `evidence:${policyCode}`,
+    source_doc_id: `source:${policyCode}`,
+    provision: policyCode,
+    provision_name: "Policy evidence",
+    evidence_type: "policy_evidence_citation",
+    snippet: "Verified quote-backed evidence.",
+    normalized_signal: "+0.10 PCI",
+    score_dimension: "specificity",
+    confidence: 0.8,
+    extractor_version: "test",
+    created_at: freshAt,
+    citation_quote: "Verified quote-backed evidence.",
+    citation_section: null,
+    citation_page: null,
+    citation_url_fragment: null,
+    claim_hash: `claim:${policyCode}`,
+    quote_hash: `quote:${policyCode}`,
+    quote_verified_against_source: true,
+    quote_locator_type: "text",
+    quote_locator_value: null,
+    submitted_by_agent_run_id: null,
+    extraction_confidence: 0.8,
+    raw_public_metadata: {},
+    source: "treasury",
+    source_name: "Treasury",
+    source_type: "official",
+    source_title: "Official guidance",
+    agency: "Treasury",
+    url: "https://example.com/guidance",
+    canonical_url: "https://example.com/guidance",
+    published_at: freshAt,
+    fetched_at: freshAt,
   }
 }

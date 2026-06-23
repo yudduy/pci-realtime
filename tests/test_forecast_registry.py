@@ -5,12 +5,8 @@ from pathlib import Path
 import pytest
 
 from pci_realtime.forecast_registry.engine import (
-    RiskLimits,
-    RiskState,
     build_abstentions,
     build_forecasts,
-    build_trade_proposal,
-    build_trade_proposals,
     build_outcomes,
     compute_forecast_metrics,
     generate_signals,
@@ -18,8 +14,6 @@ from pci_realtime.forecast_registry.engine import (
 )
 from pci_realtime.forecast_registry.discovery import market_candidate_row
 from pci_realtime.forecast_registry.kalshi import (
-    ExecutionGateError,
-    create_signed_order_request,
     parse_market_snapshot,
     read_jsonl,
     snapshots_from_fixture,
@@ -257,86 +251,6 @@ def test_settlement_and_metrics_from_finalized_kalshi_fixture() -> None:
     assert metrics["model"]["brier_score"] is not None
     assert metrics["baselines"]["market_prior"]["log_loss"] is not None
     assert metrics["calibration_ready"] is True
-
-
-def test_private_risk_and_execution_remain_internal_gated() -> None:
-    _, _, _, forecasts = _forecast_rows()
-    proposal = build_trade_proposal(forecasts[0])
-
-    assert proposal["approval_status"] == "pending_human_approval"
-    assert proposal["estimated_exposure_usd"] <= 10.01
-
-    approval = {"approved_proposal_ids": [proposal["proposal_id"]]}
-    with pytest.raises(ExecutionGateError, match="PCI_ENABLE_LIVE_TRADING"):
-        create_signed_order_request(
-            proposal,
-            approval_payload=approval,
-            credentials=None,
-            enable_live_trading=False,
-        )
-
-
-def test_private_risk_engine_rejects_bad_trade_inputs() -> None:
-    forecast = {
-        "schema_version": "forecast-registry-v1.0.0",
-        "generated_at": FIXED_NOW,
-        "forecast_id": "forecast:test",
-        "venue": "kalshi",
-        "market_ticker": "KXTEST",
-        "edge": 0.09,
-        "confidence": 0.4,
-        "private_info_used": False,
-        "market_snapshot": {
-            "ticker": "KXTEST",
-            "yes_bid": 0.2,
-            "yes_ask": 0.4,
-            "bid_ask_spread": 0.2,
-            "liquidity_dollars": 20.0,
-        },
-        "match": {"policy_relevant": True, "resolution_clear": True},
-    }
-
-    proposal = build_trade_proposal(forecast)
-
-    assert proposal["risk_passed"] is False
-    assert {"spread", "liquidity", "confidence"} <= set(proposal["rejection_reasons"])
-
-    passing_forecast = {
-        **forecast,
-        "confidence": 0.8,
-        "market_snapshot": {
-            **forecast["market_snapshot"],
-            "yes_bid": 0.45,
-            "yes_ask": 0.49,
-            "bid_ask_spread": 0.04,
-            "liquidity_dollars": 250.0,
-        },
-    }
-    state = RiskState(total_exposure_usd=249.0)
-    limited = build_trade_proposal(
-        passing_forecast,
-        limits=RiskLimits(max_total_exposure_usd=250.0),
-        state=state,
-    )
-    assert limited["risk_passed"] is False
-    assert "total_exposure" in limited["rejection_reasons"]
-
-
-def test_private_risk_engine_accumulates_batch_exposure() -> None:
-    _, _, _, forecasts = _forecast_rows()
-    batch = [
-        {**forecasts[0], "forecast_id": f"forecast:test:{index}"} for index in range(6)
-    ]
-
-    proposals = build_trade_proposals(
-        batch,
-        limits=RiskLimits(max_market_exposure_usd=50.0),
-        include_rejected=True,
-    )
-
-    assert sum(1 for proposal in proposals if proposal["risk_passed"]) == 5
-    assert proposals[-1]["risk_passed"] is False
-    assert "market_exposure" in proposals[-1]["rejection_reasons"]
 
 
 def test_end_to_end_debug_artifacts_contain_no_private_fields(

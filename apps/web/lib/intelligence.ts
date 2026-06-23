@@ -12,7 +12,7 @@ import type {
 import { buildMarketCoverage } from "@/lib/market-coverage"
 
 export type PolicyEvidenceStatus =
-  | "market_attached"
+  | "market_context"
   | "documented"
   | "source_review"
   | "source_refresh"
@@ -65,6 +65,7 @@ export function deriveEvidenceStatus({
   marketSignals,
   reviewCandidates,
   sourceLeads = [],
+  verifiedEvidenceCount = 0,
   latestRefreshAt,
   scanned,
   now = new Date(),
@@ -72,14 +73,16 @@ export function deriveEvidenceStatus({
   marketSignals: unknown[]
   reviewCandidates: unknown[]
   sourceLeads?: unknown[]
+  verifiedEvidenceCount?: number
   latestRefreshAt: string | null
   scanned: number
   now?: Date
 }): PolicyEvidenceStatus {
   if (!latestRefreshAt && !scanned) return "source_refresh"
   if (latestRefreshAt && hoursBetween(latestRefreshAt, now) > SOURCE_STALE_HOURS) return "stale"
-  if (marketSignals.length) return "market_attached"
+  if (verifiedEvidenceCount > 0) return "documented"
   if (reviewCandidates.length || sourceLeads.length) return "source_review"
+  if (marketSignals.length) return "market_context"
   return scanned ? "documented" : "source_refresh"
 }
 
@@ -104,6 +107,9 @@ function buildPolicy(data: RegistryData, code: string): PolicyIntelligence {
   const sourceLeads = data.policySourceCandidates
     .filter((candidate) => candidate.provision === code)
     .sort(compareNewest)
+  const verifiedEvidenceCount = data.policyEvidenceItems.filter(
+    (item) => item.provision === code && item.quote_verified_against_source === true,
+  ).length
   const coverage = buildMarketCoverage(data)
   const sourceHealthLatest = latestDate(
     data.sourceHealth
@@ -115,6 +121,7 @@ function buildPolicy(data: RegistryData, code: string): PolicyIntelligence {
     marketSignals,
     reviewCandidates,
     sourceLeads,
+    verifiedEvidenceCount,
     latestRefreshAt,
     scanned: coverage.scanned,
   })

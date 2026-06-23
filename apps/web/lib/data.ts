@@ -490,9 +490,6 @@ export async function getRegistryData(): Promise<RegistryData> {
 
   const [
     currentPciResult,
-    openForecastsResult,
-    resolvedForecastsResult,
-    tradeProposalsResult,
     marketSnapshotsResult,
     marketDiscoveryCandidatesResult,
     policySourceCandidatesResult,
@@ -502,7 +499,6 @@ export async function getRegistryData(): Promise<RegistryData> {
     policyEventsResult,
     pipelineRunsResult,
     provisionTimelinesResult,
-    forecastPerformanceResult,
     evidenceItemsResult,
     policyEvidenceItemsResult,
     sourceDocumentsResult,
@@ -511,9 +507,6 @@ export async function getRegistryData(): Promise<RegistryData> {
     agentEvidenceSubmissionsResult,
   ] = await Promise.all([
     fetchView<CurrentPci>("v_current_pci", "select=*&order=code.asc"),
-    fetchView<Forecast>("v_open_forecasts", "select=*&order=created_at.desc"),
-    fetchView<ResolvedForecast>("v_resolved_forecasts", "select=*&order=resolved_at.desc"),
-    fetchView<TradeProposal>("v_trade_proposals", "select=*&order=created_at.desc"),
     fetchView<MarketSnapshot>("v_market_snapshots", "select=*&order=generated_at.desc"),
     fetchView<MarketDiscoveryCandidate>(
       "v_market_discovery_candidates",
@@ -532,7 +525,6 @@ export async function getRegistryData(): Promise<RegistryData> {
       "v_provision_timelines",
       "select=*&order=provision.asc,week_start.asc",
     ),
-    fetchView<ForecastPerformance>("v_forecast_performance", "select=*&limit=1"),
     fetchView<EvidenceItem>("v_evidence_items", "select=*&order=created_at.desc"),
     fetchView<EvidenceItem>("v_policy_evidence_items", "select=*&order=created_at.desc"),
     fetchView<SourceDocument>("v_source_documents", "select=*&order=fetched_at.desc"),
@@ -545,9 +537,6 @@ export async function getRegistryData(): Promise<RegistryData> {
   ])
   const viewErrors = [
     currentPciResult.error,
-    openForecastsResult.error,
-    resolvedForecastsResult.error,
-    tradeProposalsResult.error,
     marketSnapshotsResult.error,
     marketDiscoveryCandidatesResult.error,
     policySourceCandidatesResult.error,
@@ -557,7 +546,6 @@ export async function getRegistryData(): Promise<RegistryData> {
     policyEventsResult.error,
     pipelineRunsResult.error,
     provisionTimelinesResult.error,
-    forecastPerformanceResult.error,
     evidenceItemsResult.error,
     policyEvidenceItemsResult.error,
     sourceDocumentsResult.error,
@@ -567,9 +555,9 @@ export async function getRegistryData(): Promise<RegistryData> {
   ].filter((error): error is string => Boolean(error))
 
   const currentPci = currentPciResult.rows
-  const openForecasts = openForecastsResult.rows
-  const resolvedForecasts = resolvedForecastsResult.rows
-  const tradeProposals = tradeProposalsResult.rows
+  const openForecasts: Forecast[] = []
+  const resolvedForecasts: ResolvedForecast[] = []
+  const tradeProposals: TradeProposal[] = []
   const marketSnapshots = marketSnapshotsResult.rows
   const marketDiscoveryCandidates = marketDiscoveryCandidatesResult.rows
   const policySourceCandidates = policySourceCandidatesResult.rows
@@ -582,7 +570,7 @@ export async function getRegistryData(): Promise<RegistryData> {
     source: "registry",
   }))
   const provisionTimelines = provisionTimelinesResult.rows
-  const forecastPerformance = forecastPerformanceResult.rows[0] ?? null
+  const forecastPerformance: ForecastPerformance | null = null
   const evidenceItems = evidenceItemsResult.rows
   const policyEvidenceItems = policyEvidenceItemsResult.rows
   const sourceDocuments = sourceDocumentsResult.rows

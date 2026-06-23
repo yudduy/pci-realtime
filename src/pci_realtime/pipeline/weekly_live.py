@@ -13,15 +13,7 @@ from typing import Any
 import pandas as pd
 
 from pci_realtime.config import PROCESSED_DATA_ROOT, RAW_DATA_ROOT
-from pci_realtime.forecast_registry.engine import (
-    build_abstentions,
-    build_forecasts,
-    build_trade_proposals,
-    compute_forecast_metrics,
-    generate_signals,
-    match_signals_to_markets,
-    utc_now_iso,
-)
+from pci_realtime.forecast_registry.engine import utc_now_iso
 from pci_realtime.forecast_registry.discovery import market_candidate_row
 from pci_realtime.forecast_registry.evidence import (
     evidence_rows_from_market_snapshots,
@@ -29,7 +21,6 @@ from pci_realtime.forecast_registry.evidence import (
     source_document_rows_from_markets,
     source_document_rows_from_raw_docs,
     source_health_row,
-    source_links_from_forecasts,
     source_links_from_market_snapshots,
     source_links_from_policy_events,
 )
@@ -41,10 +32,8 @@ from pci_realtime.forecast_registry.polymarket import fetch_polymarket_snapshot_
 from pci_realtime.forecast_registry.store import (
     SupabaseRestClient,
     build_seed_rows,
-    forecast_to_row,
     market_to_row,
     scored_delta_to_row,
-    trade_proposal_to_row,
     write_json,
     write_supabase_rows as store_write_supabase_rows,
 )
@@ -364,12 +353,6 @@ def build_weekly_live_rows(
     scored_events = scored_for_pci
     raw_docs = _load_raw_documents(raw_root)
     policy_events = _policy_events_from_scored(scored_events, raw_docs=raw_docs)
-    signal_events = [
-        event
-        for event in policy_events
-        if abs(float(event.get("pci_delta") or 0.0)) > 0
-    ]
-    signals = generate_signals(signal_events)
 
     weekly = build_weekly_index(scored_for_pci, end_week=week)
     weekly_rows = _weekly_table_rows(
@@ -431,15 +414,6 @@ def build_weekly_live_rows(
     else:
         markets = []
 
-    matches = match_signals_to_markets(signals, markets)
-    forecasts = build_forecasts(signals=signals, markets=markets, matches=matches)
-    trade_proposals = build_trade_proposals(forecasts)
-    abstentions = build_abstentions(signals=signals, matches=matches)
-    metrics = compute_forecast_metrics(
-        forecasts=forecasts,
-        outcomes=[],
-        abstentions=abstentions,
-    )
     seed_rows = build_seed_rows()
     pipeline_runs = [
         {
@@ -451,14 +425,10 @@ def build_weekly_live_rows(
                 "week": week,
                 "ingest_sources": list(ingest_sources),
                 "policy_events": len(policy_events),
-                "signals": len(signals),
                 "markets": len(markets),
                 "market_scan": market_scan,
-                "matches": len(matches),
-                "forecasts": len(forecasts),
-                "trade_proposals": len(trade_proposals),
-                "abstentions": len(abstentions),
-                "metrics": metrics,
+                "market_discovery_candidates": len(market_candidates),
+                "forecast_generation": "disabled_policy_desk",
             },
         }
     ]
@@ -481,17 +451,11 @@ def build_weekly_live_rows(
         ],
         "source_links": [
             *source_links_from_policy_events(policy_events),
-            *source_links_from_forecasts(forecasts),
             *source_links_from_market_snapshots(markets),
         ],
         "source_health": source_health or [],
-        "forecasts": [
-            forecast_to_row(forecast, run_id=run_id) for forecast in forecasts
-        ],
-        "trade_proposals": [
-            trade_proposal_to_row(proposal, run_id=run_id)
-            for proposal in trade_proposals
-        ],
+        "forecasts": [],
+        "trade_proposals": [],
         "forecast_outcomes": [],
     }
 

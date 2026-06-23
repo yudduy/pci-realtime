@@ -17,22 +17,7 @@ class RecordingSupabaseClient:
         columns: str = "*",
         params: dict[str, str] | None = None,
     ) -> list[dict[str, Any]]:
-        if table == "forecast_outcomes":
-            assert "settlement_value" in columns
-            return []
-        assert table == "forecasts"
-        assert "pci_rule_probability" in columns
-        assert params == {"private_info_used": "eq.false"}
-        return [
-            {
-                "forecast_id": "forecast:45v:KX45V-SETTLE",
-                "venue": "kalshi",
-                "market_ticker": "KX45V-SETTLE",
-                "market_probability": 0.55,
-                "pci_rule_probability": 0.62,
-                "model_probability": 0.68,
-            }
-        ]
+        raise AssertionError(f"daily_refresh should not read {table}")
 
     def insert_rows(self, table: str, rows: list[dict[str, Any]]) -> None:
         self.inserts.append((table, rows))
@@ -47,11 +32,10 @@ class RecordingSupabaseClient:
         self.upserts.append((table, rows, on_conflict))
 
 
-def test_daily_refresh_reads_supabase_and_writes_outcomes() -> None:
+def test_daily_refresh_writes_context_without_forecast_outcomes() -> None:
     client = RecordingSupabaseClient()
 
-    def fetch_markets(forecasts: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        assert forecasts[0]["market_ticker"] == "KX45V-SETTLE"
+    def fetch_markets() -> list[dict[str, Any]]:
         return [
             {
                 "generated_at": "2026-05-25T14:00:00Z",
@@ -87,7 +71,6 @@ def test_daily_refresh_reads_supabase_and_writes_outcomes() -> None:
     assert counts == {
         "pipeline_runs": 1,
         "market_snapshots": 1,
-        "forecast_outcomes": 1,
         "source_health": 1,
         "source_documents": 0,
         "evidence_items": 0,
@@ -95,6 +78,9 @@ def test_daily_refresh_reads_supabase_and_writes_outcomes() -> None:
     }
     assert client.inserts[0][0] == "pipeline_runs"
     assert client.inserts[1][0] == "market_snapshots"
-    assert client.upserts[0][0] == "forecast_outcomes"
-    assert client.upserts[0][2] == "outcome_id"
-    assert client.upserts[0][1][0]["settlement_value"] == 1.0
+    assert [table for table, *_ in client.upserts] == [
+        "source_health",
+        "source_documents",
+        "evidence_items",
+        "source_links",
+    ]

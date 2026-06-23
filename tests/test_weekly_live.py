@@ -119,16 +119,16 @@ def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
     assert len(rows["market_discovery_candidates"]) == 1
     assert len(rows["source_documents"]) == 2
     assert len(rows["evidence_items"]) == 2
-    assert len(rows["source_links"]) >= 3
-    assert len(rows["forecasts"]) == 1
-    assert len(rows["trade_proposals"]) == 1
-    assert rows["pipeline_runs"][0]["metadata"]["forecasts"] == 1
-    assert rows["pipeline_runs"][0]["metadata"]["trade_proposals"] == 1
+    assert len(rows["source_links"]) >= 2
+    assert rows["forecasts"] == []
+    assert rows["trade_proposals"] == []
+    assert (
+        rows["pipeline_runs"][0]["metadata"]["forecast_generation"]
+        == "disabled_policy_desk"
+    )
+    assert rows["pipeline_runs"][0]["metadata"]["market_discovery_candidates"] == 1
     assert rows["scored_deltas"][0]["week"] == "2025-W23"
     assert rows["scored_deltas"][0]["doc_id"] == "federal_register:45v-guidance"
-    assert rows["forecasts"][0]["run_id"] == FIXED_RUN_ID
-    assert rows["forecasts"][0]["provision"] == "45V"
-    assert rows["trade_proposals"][0]["approval_status"] == "pending_human_approval"
     assert rows["market_discovery_candidates"][0]["eligible_snapshot"] is True
     assert (
         rows["source_documents"][0]["source_doc_id"] == "federal_register:45v-guidance"
@@ -193,7 +193,10 @@ def test_weekly_live_can_publish_market_scan_without_fake_forecasts(
     assert len(rows["evidence_items"]) == 1
     assert rows["forecasts"] == []
     assert rows["trade_proposals"] == []
-    assert rows["pipeline_runs"][0]["metadata"]["signals"] == 0
+    assert (
+        rows["pipeline_runs"][0]["metadata"]["forecast_generation"]
+        == "disabled_policy_desk"
+    )
 
 
 class RecordingSupabaseClient:
@@ -235,7 +238,7 @@ def test_write_supabase_rows_uses_upserts_for_current_state_tables(
         for call in client.calls
     )
     assert ("upsert", "policy_events", 1, "event_id") in client.calls
-    assert ("insert", "forecasts", 1, None) in client.calls
+    assert ("insert", "forecasts", 0, None) in client.calls
     assert (
         "upsert",
         "market_discovery_candidates",
@@ -260,7 +263,7 @@ def test_write_supabase_rows_uses_upserts_for_current_state_tables(
         len(rows["source_links"]),
         "link_id",
     ) in client.calls
-    assert ("insert", "trade_proposals", 1, None) in client.calls
+    assert ("insert", "trade_proposals", 0, None) in client.calls
 
 
 def test_weekly_live_dry_run_writes_payload_without_supabase(
@@ -291,6 +294,6 @@ def test_weekly_live_dry_run_writes_payload_without_supabase(
         output_path=output_path,
     )
 
-    assert result.counts["forecasts"] == 1
-    assert result.counts["trade_proposals"] == 1
+    assert result.counts["forecasts"] == 0
+    assert result.counts["trade_proposals"] == 0
     assert output_path.exists()

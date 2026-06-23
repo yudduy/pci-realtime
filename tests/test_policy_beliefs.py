@@ -111,6 +111,9 @@ def test_policy_beliefs_build_verified_updates_and_briefs() -> None:
     brief = rows["policy_briefs"][0]
     assert brief["candidate_ids"] == ["candidate:context"]
     assert "verified belief update" in brief["summary"]
+    readiness = brief["raw_public_metadata"]["readiness"]
+    assert readiness["status"] == "ready"
+    assert readiness["caps"] == []
 
 
 def test_policy_beliefs_replay_hash_ignores_submission_idempotency() -> None:
@@ -193,6 +196,96 @@ def test_policy_beliefs_ignore_unverified_and_market_evidence() -> None:
 
     assert rows["belief_updates"] == []
     assert rows["policy_briefs"][0]["evidence_ids"] == []
+
+
+def test_policy_brief_readiness_caps_unverified_missing_quote() -> None:
+    rows = build_policy_belief_rows(
+        since=date(2026, 6, 1),
+        through=date(2026, 6, 23),
+        run_id=FIXED_RUN_ID,
+        provisions=("45V",),
+        evidence_items=[
+            _verified_evidence(
+                quote_verified_against_source=False,
+                citation_quote="",
+                snippet="",
+            )
+        ],
+    )
+
+    readiness = rows["policy_briefs"][0]["raw_public_metadata"]["readiness"]
+    assert readiness["status"] == "review_needed"
+    assert set(readiness["caps"]) == {
+        "missing_quote",
+        "no_verified_quote",
+        "unverified_source",
+    }
+
+
+def test_policy_brief_readiness_caps_news_only_basis() -> None:
+    rows = build_policy_belief_rows(
+        since=date(2026, 6, 1),
+        through=date(2026, 6, 23),
+        run_id=FIXED_RUN_ID,
+        provisions=("45V",),
+        context_candidates=[
+            {
+                "candidate_id": "candidate:news",
+                "provision": "45V",
+                "review_state": "approved",
+                "promotability": "context_only",
+                "source_class": "news",
+                "title": "News lead",
+                "decision_relevance": "Find the primary source.",
+                "discovered_at": "2026-06-21T00:00:00Z",
+            }
+        ],
+    )
+
+    readiness = rows["policy_briefs"][0]["raw_public_metadata"]["readiness"]
+    assert readiness["status"] == "review_needed"
+    assert {"news_only_basis", "no_verified_quote"} <= set(readiness["caps"])
+
+
+def test_policy_brief_readiness_caps_stale_source_health() -> None:
+    rows = build_policy_belief_rows(
+        since=date(2026, 6, 1),
+        through=date(2026, 6, 23),
+        run_id=FIXED_RUN_ID,
+        provisions=("45V",),
+        evidence_items=[_verified_evidence()],
+        source_health=[{"source": "treasury", "status": "stale"}],
+    )
+
+    readiness = rows["policy_briefs"][0]["raw_public_metadata"]["readiness"]
+    assert readiness["status"] == "review_needed"
+    assert readiness["caps"] == ["stale_or_failed_source"]
+
+
+def test_policy_brief_readiness_blocks_conflict_or_high_public_harm() -> None:
+    rows = build_policy_belief_rows(
+        since=date(2026, 6, 1),
+        through=date(2026, 6, 23),
+        run_id=FIXED_RUN_ID,
+        provisions=("45V",),
+        evidence_items=[
+            _verified_evidence(
+                raw_public_metadata={
+                    "risk_flags": [
+                        "conflicting_authority",
+                        "high_public_harm_concern",
+                    ]
+                }
+            )
+        ],
+    )
+
+    readiness = rows["policy_briefs"][0]["raw_public_metadata"]["readiness"]
+    assert readiness["status"] == "blocked"
+    assert set(readiness["caps"]) == {
+        "conflicting_authority",
+        "high_public_harm_concern",
+    }
 
 
 def test_policy_belief_write_order() -> None:
