@@ -141,5 +141,47 @@ def test_codex_policy_intake_status_ignores_newer_smoke_runs(tmp_path: Path) -> 
     assert module.latest_run_dir(log_root, include_smoke=True) == smoke_run
 
 
+def test_codex_policy_intake_status_infers_legacy_payload_window(
+    tmp_path: Path,
+) -> None:
+    module = _load_status_module()
+    repo_root = tmp_path / "repo"
+    log_root = repo_root / "data" / "private" / "codex-daemon"
+    run_dir = log_root / "20260624T033914Z"
+    run_dir.mkdir(parents=True)
+    _write_json(
+        run_dir / "policy_discovery_payload.json",
+        {
+            "run_id": "legacy-run",
+            "rows": {
+                "pipeline_runs": [
+                    {
+                        "metadata": {
+                            "window_start": "2026-05-25",
+                            "window_end": "2026-06-24",
+                        }
+                    }
+                ],
+                "policy_source_candidates": [],
+                "source_health": [],
+            },
+        },
+    )
+
+    status = module.build_status(
+        repo_root=repo_root,
+        log_root=log_root,
+        launch_agent_path=tmp_path / "missing.plist",
+        check_launchctl=False,
+    )
+    rendered = module.render_status(status)
+
+    assert status["latest_run"]["state"] == "completed_legacy"
+    assert status["latest_run"]["since_date"] == "2026-05-25"
+    assert status["latest_run"]["through_date"] == "2026-06-24"
+    assert "State: `completed_legacy`" in rendered
+    assert "Through date: `2026-06-24`" in rendered
+
+
 def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
