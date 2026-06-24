@@ -301,8 +301,8 @@ The command sources `.env`, defaults to the previous complete Monday-Sunday week
 
 | Route | Purpose |
 |---|---|
-| `/` | Live policy-market tracker landing with cited official-source updates |
-| `/dashboard` | registry for PCI, policy events, reviewed leads, evidence, and source health |
+| `/` | Policy Intelligence Desk for reviewed leads, verified evidence, source freshness, and derived PCI context |
+| `/dashboard` | registry surface for policy events, reviewed leads, evidence, and source health |
 
 The UI reads from Supabase public views:
 
@@ -394,6 +394,6 @@ GitHub CLI access currently needs re-authentication before pushing under `yudduy
 ## Release Rules
 
 - Code is MIT licensed.
-- Public outputs are PCI values, public market snapshots, forecasts, outcomes, proposal status summaries, and aggregate metrics.
+- Public outputs are reviewed policy leads, verified evidence, source freshness, policy events, and derived PCI context.
 - Licensed or private firm-level inputs never enter this repository.
 - Backfills that may exceed the configured model-cost ceiling require `--confirm-cost`.

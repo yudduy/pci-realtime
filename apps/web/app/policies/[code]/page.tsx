@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { SiteHeader } from "@/components/layout/site-header"
-import { formatDate, formatScore } from "@/components/market/format"
+import { deltaToneClass, formatDate, formatDelta, formatPciValue, formatScore } from "@/components/market/format"
 import { getRegistryData } from "@/lib/data"
 import { buildPolicyDossier } from "@/lib/policy-dossier"
 
@@ -21,10 +21,13 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
 
   const {
     policy,
+    weeklyMove,
     evidence,
     reviewedLeads,
     staffQuestions,
   } = dossier
+  // Same threshold formatDelta rounds at, so we never render "+0.00 this week".
+  const move = weeklyMove && Math.abs(weeklyMove) >= 0.005 ? weeklyMove : 0
 
   return (
     <div className="tracker-page policy-dossier-page">
@@ -35,13 +38,27 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
           <p className="eyebrow">Policy Intelligence Desk</p>
           <h1>{policy.name}</h1>
           <p>{policy.formalName}</p>
-          <div className="policy-dossier-metrics" aria-label="Policy status metrics">
-            <Metric label="Evidence" value={String(policy.evidenceCount)} />
-            <Metric label="Last refresh" value={formatDate(policy.latestRefreshAt)} />
-            <Metric label="Derived PCI" value={formatScore(policy.currentPci)} />
+          <div className="policy-dossier-metrics" aria-label="Policy credibility breakdown">
+            <Metric
+              label="Derived PCI"
+              value={formatPciValue(policy.currentPci)}
+              sub={move ? `${formatDelta(move)} this week` : "No move this week"}
+              subClassName={deltaToneClass(move)}
+              primary
+            />
+            <Metric label="Specificity" value={formatScore(policy.specificity)} gauge={policy.specificity} />
+            <Metric label="Durability" value={formatScore(policy.durability)} gauge={policy.durability} />
+            <Metric label="Enforceability" value={formatScore(policy.enforceability)} gauge={policy.enforceability} />
           </div>
+          <p className="policy-dossier-meta-caption">
+            <span>
+              {policy.evidenceCount} verified {policy.evidenceCount === 1 ? "source" : "sources"}
+            </span>
+            {policy.latestRefreshAt ? (
+              <span>Refreshed {formatDate(policy.latestRefreshAt)}</span>
+            ) : null}
+          </p>
         </section>
-
 
         <section className="policy-dossier-grid">
           <article className="policy-dossier-panel">
@@ -54,9 +71,6 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
             <h2>Reviewed Watchlist</h2>
             <LeadList leads={reviewedLeads} />
           </article>
-        </section>
-
-        <section className="policy-dossier-grid">
           <article className="policy-dossier-panel">
             <p className="eyebrow">Staff Q&A</p>
             <h2>Answers From The Ledger</h2>
@@ -86,17 +100,46 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  sub,
+  subClassName,
+  primary,
+  gauge,
+}: {
+  label: string
+  value: string
+  sub?: string
+  subClassName?: string
+  primary?: boolean
+  gauge?: number | null
+}) {
   return (
-    <div>
+    <div className={primary ? "policy-dossier-metric-primary" : undefined}>
       <span>{label}</span>
       <strong>{value}</strong>
+      {typeof gauge === "number" && Number.isFinite(gauge) ? (
+        <div className="policy-dossier-gauge" aria-hidden="true">
+          {[1, 2, 3, 4, 5].map((step) => (
+            <span key={step} className={step <= Math.round(gauge) ? "on" : ""} />
+          ))}
+        </div>
+      ) : null}
+      {sub ? (
+        <div className={`policy-dossier-metric-sub ${subClassName ?? ""}`.trim()}>{sub}</div>
+      ) : null}
     </div>
   )
 }
 
 function EvidenceList({ evidence }: { evidence: PolicyDossierData["evidence"] }) {
-  if (!evidence.length) return <p>No verified policy-evidence citation is available yet.</p>
+  if (!evidence.length)
+    return (
+      <p className="policy-dossier-empty">
+        Monitoring official sources — no verified citation in this window yet.
+      </p>
+    )
   return (
     <ul className="policy-dossier-list">
       {evidence.slice(0, 5).map((item) => (
@@ -117,7 +160,12 @@ function EvidenceList({ evidence }: { evidence: PolicyDossierData["evidence"] })
 }
 
 function LeadList({ leads }: { leads: PolicyDossierData["reviewedLeads"] }) {
-  if (!leads.length) return <p>No reviewed context leads are published for this policy.</p>
+  if (!leads.length)
+    return (
+      <p className="policy-dossier-empty">
+        Monitoring — no reviewed context leads in this window yet.
+      </p>
+    )
   return (
     <ul className="policy-dossier-list">
       {leads.slice(0, 5).map((lead) => (

@@ -31,7 +31,9 @@ def fetch_text(url: str, *, headers: dict[str, str] | None = None) -> str:
     return body
 
 
-def fetch_json(url: str, key: str, view: str, query: dict[str, str]) -> list[dict[str, Any]]:
+def fetch_json(
+    url: str, key: str, view: str, query: dict[str, str]
+) -> list[dict[str, Any]]:
     rest_url = f"{url.rstrip('/')}/rest/v1/{view}?{urlencode(query)}"
     text = fetch_text(
         rest_url,
@@ -66,8 +68,8 @@ def parse_timestamp(value: Any) -> datetime | None:
 
 def check_pages(base_url: str) -> None:
     expectations = {
-        "/": ["Live odds for climate policy credibility.", "Live policy data"],
-        "/dashboard": ["IRA credibility markets", "Policy Market Tracker"],
+        "/": ["Policy Intelligence Desk", "Daily Staff Desk"],
+        "/dashboard": ["Policy Intelligence Desk", "reviewed leads"],
         "/about": ["Industrial policy reshapes venture capital", "BibTeX"],
     }
     for path, terms in expectations.items():
@@ -79,15 +81,25 @@ def check_pages(base_url: str) -> None:
 
 
 def check_supabase(url: str, key: str, *, max_stale_hours: float) -> None:
-    current_pci = fetch_json(url, key, "v_current_pci", {"select": "*", "order": "code.asc"})
-    require(len(current_pci) >= 6, f"v_current_pci has {len(current_pci)} rows, expected >= 6")
+    current_pci = fetch_json(
+        url, key, "v_current_pci", {"select": "*", "order": "code.asc"}
+    )
+    require(
+        len(current_pci) >= 6,
+        f"v_current_pci has {len(current_pci)} rows, expected >= 6",
+    )
 
     runs = fetch_json(url, key, "v_pipeline_status", {"select": "*", "limit": "1"})
     require(runs, "v_pipeline_status returned no rows")
     latest = runs[0]
-    require(latest.get("status") == "success", f"latest pipeline is not successful: {latest}")
+    require(
+        latest.get("status") == "success",
+        f"latest pipeline is not successful: {latest}",
+    )
 
-    completed_at = parse_timestamp(latest.get("completed_at") or latest.get("started_at"))
+    completed_at = parse_timestamp(
+        latest.get("completed_at") or latest.get("started_at")
+    )
     require(completed_at is not None, "latest pipeline timestamp is missing or invalid")
     age_hours = (datetime.now(timezone.utc) - completed_at).total_seconds() / 3600
     require(
@@ -109,8 +121,12 @@ def check_supabase(url: str, key: str, *, max_stale_hours: float) -> None:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Smoke test the production PCIndex deployment.")
-    parser.add_argument("--base-url", default=os.getenv("PRODUCTION_URL", DEFAULT_BASE_URL))
+    parser = argparse.ArgumentParser(
+        description="Smoke test the production PCIndex deployment."
+    )
+    parser.add_argument(
+        "--base-url", default=os.getenv("PRODUCTION_URL", DEFAULT_BASE_URL)
+    )
     parser.add_argument("--supabase-url", default=os.getenv("SUPABASE_URL"))
     parser.add_argument(
         "--supabase-key",
@@ -145,4 +161,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

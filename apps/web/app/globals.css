@@ -26,8 +26,11 @@
 
 @theme inline {
   --font-sans:
-    "IBM Plex Sans", "Aptos", ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+    var(--font-plex-sans), "IBM Plex Sans", "Aptos", ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:
+    var(--font-plex-mono), "IBM Plex Mono", ui-monospace, "SF Mono",
+    "JetBrains Mono", "Roboto Mono", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -608,9 +611,7 @@ input {
 
 .tracker-page {
   min-height: 100vh;
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.78), rgb(242 245 248 / 0.96)),
-    repeating-linear-gradient(90deg, rgb(15 23 42 / 0.025) 0, rgb(15 23 42 / 0.025) 1px, transparent 1px, transparent 80px);
+  background: var(--background);
   color: #111827;
 }
 
@@ -982,7 +983,9 @@ input {
 }
 
 .delta-value {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;
+  letter-spacing: -0.01em;
 }
 
 .delta-neutral {
@@ -2130,9 +2133,10 @@ input {
 .terminal-hero h1 {
   margin: 0;
   color: #0f172a;
-  font-size: clamp(1.9rem, 3.2vw, 3rem);
+  font-size: clamp(1.65rem, 2.2vw, 2.05rem);
   font-weight: 600;
-  line-height: 1.05;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
 }
 
 .terminal-title-row {
@@ -2179,6 +2183,7 @@ input {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.03);
   margin-bottom: 10px;
   padding: 12px;
 }
@@ -2218,6 +2223,16 @@ input {
 .terminal-carousel-controls button {
   width: 30px;
   height: 30px;
+}
+
+.terminal-carousel-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.terminal-carousel-controls button:disabled:hover {
+  border-color: var(--border);
+  color: #334155;
 }
 
 .terminal-carousel-controls span {
@@ -2408,6 +2423,7 @@ input {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.03);
 }
 
 .terminal-table-wrap {
@@ -2575,13 +2591,41 @@ input {
   top: 52px;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) 76px 104px 24px;
+  grid-template-columns: clamp(210px, 24vw, 340px) minmax(12px, 1fr) 156px 76px 92px 18px;
   gap: 14px;
   align-items: end;
   margin-bottom: -4px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--background);
+}
+
+/* A flexible spacer absorbs slack after the (capped) name so the numeric band
+   stays a tight, right-grouped cluster instead of stranded islands. */
+.register-spacer {
+  min-width: 0;
+}
+
+/* Spec / Dur / Enf column labels — sit above the inline row dimensions and share
+   their 3-up sub-grid so labels and gauges align. */
+.register-dims-head {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.register-dims-head span {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.register-trend-label {
+  text-align: center;
 }
 
 .register-sort {
@@ -2807,7 +2851,7 @@ input {
 
 .policy-accordion-trigger {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) 76px 104px 24px;
+  grid-template-columns: clamp(210px, 24vw, 340px) minmax(12px, 1fr) 156px 76px 92px 18px;
   gap: 14px;
   align-items: center;
   width: 100%;
@@ -2815,8 +2859,52 @@ input {
   background: #ffffff;
   color: #111827;
   cursor: pointer;
-  padding: 12px;
+  padding: 11px 12px;
   text-align: left;
+}
+
+/* Inline Spec/Dur/Enf so the six policies are head-to-head scannable without
+   expanding — the whole point of a register. Value + 5-segment micro-gauge. */
+.policy-row-dims {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.policy-row-dim {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.policy-row-dim-value {
+  color: #334155;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.policy-row-dim-gauge {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  width: 100%;
+  max-width: 48px;
+}
+
+/* Solid square pips (not thin pills) so a filled 1–5 gauge reads as data, not a
+   dashed/loading line. Shared visual language with the dossier gauge. */
+.policy-row-dim-gauge span {
+  height: 6px;
+  border-radius: 1.5px;
+  background: #dce3ec;
+}
+
+/* Neutral slate fill — blue is reserved for interactive elements. */
+.policy-row-dim-gauge span.on {
+  background: #475569;
 }
 
 .row-spark {
@@ -2828,14 +2916,21 @@ input {
 
 .row-spark path {
   fill: none;
-  stroke: #1652f0;
+  stroke: #64748b;
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .row-spark circle {
-  fill: #1652f0;
+  fill: #64748b;
+}
+
+/* Faint baseline at the starting value so the slope reads positionally. */
+.row-spark-base {
+  stroke: #cdd6e0;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
 }
 
 .row-spark-empty {
@@ -2858,15 +2953,17 @@ input {
 
 .policy-accordion-title strong {
   color: #111827;
+  font-family: var(--font-mono);
   font-size: 14px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .policy-accordion-title span {
   overflow: hidden;
   color: #475467;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2907,10 +3004,12 @@ input {
 }
 
 .policy-score-cluster > strong {
-  color: #111827;
-  font-size: 24px;
+  color: #0f172a;
+  font-family: var(--font-mono);
+  font-size: 22px;
   font-weight: 600;
-  letter-spacing: 0;
+  font-variant-numeric: tabular-nums slashed-zero;
+  letter-spacing: -0.02em;
   line-height: 0.95;
 }
 
@@ -3013,17 +3112,32 @@ input {
   stroke: none;
 }
 
-.policy-score-trend path {
+.policy-score-trend path:not(.trend-area) {
   fill: none;
-  stroke: #1652f0;
+  stroke: #1e293b;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2.5;
 }
 
+/* Faint area fill under the line — depth without adding ink weight. */
+.policy-score-trend .trend-area {
+  fill: #1e293b;
+  fill-opacity: 0.06;
+  stroke: none;
+}
+
+/* Y-axis reference labels (5 / 3 / 1) so absolute level is readable. */
+.policy-score-trend .trend-axis {
+  fill: #94a3b8;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .policy-score-trend circle {
   fill: #ffffff;
-  stroke: #1652f0;
+  stroke: #1e293b;
   stroke-width: 2;
   cursor: pointer;
   outline: none;
@@ -3031,7 +3145,7 @@ input {
 
 .policy-score-trend circle.active,
 .policy-score-trend circle:focus {
-  fill: #1652f0;
+  fill: #1e293b;
   stroke: #0f172a;
   stroke-width: 3;
 }
@@ -3046,8 +3160,9 @@ input {
 
 .policy-score-trend text {
   fill: #5b6776;
-  font-size: 12px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 /* Honest low-data state: the index is holding at baseline, shown as a labeled
@@ -3210,7 +3325,7 @@ input {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--blue);
+  background: #64748b;
 }
 
 .policy-source-card.compact {
@@ -4125,12 +4240,15 @@ input {
   }
 
   .policy-accordion-trigger {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 12px;
   }
 
   .row-spark,
-  .row-spark-empty {
+  .row-spark-empty,
+  .policy-row-dims,
+  .register-dims-head,
+  .register-spacer {
     display: none;
   }
 
@@ -4141,6 +4259,10 @@ input {
 
   .register-col-label {
     display: none;
+  }
+
+  .policy-accordion-title .policy-accordion-context {
+    white-space: normal;
   }
 
   .skeleton-row {
@@ -4473,8 +4595,9 @@ input {
 .policy-dossier-section,
 .policy-dossier-panel {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--card);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.03);
 }
 
 .policy-dossier-hero {
@@ -4486,9 +4609,9 @@ input {
 .policy-dossier-hero h1 {
   max-width: 880px;
   margin: 0;
-  font-size: clamp(2rem, 5vw, 4.25rem);
-  line-height: 0.98;
-  letter-spacing: 0;
+  font-size: clamp(1.65rem, 2.2vw, 2.05rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
 }
 
 .policy-dossier-hero p {
@@ -4499,22 +4622,76 @@ input {
 
 .policy-dossier-back {
   width: fit-content;
-  color: var(--accent);
-  font-size: 0.9rem;
+  color: var(--blue);
+  font-size: 0.85rem;
+  font-weight: 600;
   text-decoration: none;
+}
+
+.policy-dossier-back:hover {
+  text-decoration: underline;
 }
 
 .policy-dossier-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  grid-template-columns: 1.5fr repeat(3, 1fr);
   gap: 10px;
   margin-top: 12px;
 }
 
-.policy-dossier-metrics div {
+/* Evidence count + refresh recede to a caption so the KPI tiles stay focused on
+   the index and its three scored dimensions. */
+.policy-dossier-meta-caption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 12px 0 0;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.policy-dossier-meta-caption span {
+  position: relative;
+}
+
+.policy-dossier-meta-caption span + span::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transform: translateY(-50%);
+}
+
+/* Empty panels read as "actively monitored, just quiet" (a live status dot),
+   not as missing/broken data. */
+.policy-dossier-empty {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 2px 0 0;
+  color: var(--muted-foreground);
+}
+
+.policy-dossier-empty::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--green-fill);
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+
+.policy-dossier-metrics > div {
   min-width: 0;
-  border: 1px solid var(--border);
+  border: 1px solid #e7edf3;
   border-radius: 6px;
+  background: #f8fafc;
   padding: 12px;
 }
 
@@ -4524,15 +4701,57 @@ input {
 .policy-dossier-thesis div span:last-child {
   display: block;
   color: var(--muted-foreground);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .policy-dossier-metrics strong {
   display: block;
   margin-top: 6px;
+  font-family: var(--font-mono);
   font-size: 1.2rem;
-  font-weight: 650;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.policy-dossier-metric-primary {
+  border-color: #c7d7fb;
+  border-left: 3px solid var(--blue);
+  background: var(--blue-soft);
+}
+
+.policy-dossier-metric-primary strong {
+  font-size: 1.7rem;
+  line-height: 1.1;
+}
+
+/* 5-segment gauge under each dimension value so "4 of 5" reads at a glance.
+   Same solid-pip language as the register gauge (one component, two sizes). */
+.policy-dossier-gauge {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.policy-dossier-gauge span {
+  height: 6px;
+  border-radius: 1.5px;
+  background: #dce3ec;
+}
+
+/* Neutral slate fill (matches the register gauge); blue stays interactive-only. */
+.policy-dossier-gauge span.on {
+  background: #475569;
+}
+
+.policy-dossier-metric-sub {
+  margin-top: 2px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .policy-dossier-grid {
@@ -4545,10 +4764,6 @@ input {
 .policy-dossier-panel,
 .policy-dossier-section {
   padding: 22px;
-}
-
-.policy-dossier-panel-wide {
-  min-height: 280px;
 }
 
 .policy-dossier-panel h2,
@@ -4576,7 +4791,7 @@ input {
 
 .policy-dossier-brief-list dt {
   color: var(--foreground);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .policy-dossier-brief-list dd {
@@ -4603,25 +4818,23 @@ input {
 
 .policy-dossier-section-head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  align-items: baseline;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 2px;
   margin-bottom: 14px;
 }
 
+.policy-dossier-section-head .eyebrow,
 .policy-dossier-section-head h2 {
   margin: 0;
 }
 
 .policy-dossier-theses {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
 }
 
 .policy-dossier-thesis {
-  min-height: 148px;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 14px;
@@ -4644,24 +4857,32 @@ input {
 
 .policy-dossier-thesis div span:first-child {
   font-size: 1.35rem;
-  font-weight: 700;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .policy-dossier-list,
 .policy-dossier-qa {
   display: grid;
-  gap: 10px;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* Divider rows instead of nested boxes — one bordered surface (the panel), not
+   a box inside a box inside a box. */
 .policy-dossier-list li,
 .policy-dossier-qa article {
   min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px;
+  border-top: 1px solid var(--border);
+  padding: 14px 0;
+}
+
+.policy-dossier-list li:first-child,
+.policy-dossier-qa article:first-child {
+  border-top: 0;
+  padding-top: 2px;
 }
 
 .policy-dossier-list li {
@@ -4694,10 +4915,25 @@ input {
 }
 
 .policy-dossier-list a,
-.policy-dossier-citations a,
-.policy-dossier-citations span {
-  color: var(--accent);
+.policy-dossier-citations a {
+  color: var(--blue);
   font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.policy-dossier-list a {
+  white-space: nowrap;
+}
+
+.policy-dossier-list a:hover,
+.policy-dossier-citations a:hover {
+  text-decoration: underline;
+}
+
+.policy-dossier-citations span {
+  color: var(--muted-foreground);
+  font-size: 0.86rem;
+  font-weight: 600;
 }
 
 .policy-dossier-qa h3 {
@@ -4719,9 +4955,16 @@ input {
 
 @media (max-width: 900px) {
   .policy-dossier-grid,
-  .policy-dossier-theses,
-  .policy-dossier-metrics {
+  .policy-dossier-theses {
     grid-template-columns: 1fr;
+  }
+
+  .policy-dossier-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .policy-dossier-metric-primary {
+    grid-column: 1 / -1;
   }
 
   .policy-dossier-hero,
@@ -4729,4 +4972,30 @@ input {
   .policy-dossier-section {
     padding: 18px;
   }
+}
+
+/* ============================================================
+   Monospace data layer. Numbers, codes, and data-column labels
+   render in IBM Plex Mono so the "data voice" is visually
+   distinct from the IBM Plex Sans prose voice — the Bloomberg /
+   Linear convention for a credibility terminal.
+   ============================================================ */
+.register-sort,
+.register-col-label,
+.policy-accordion-context,
+.policy-compare-table thead th,
+.policy-code,
+.compare-policy strong,
+.policy-score-trend-head strong,
+.trend-baseline strong,
+.policy-point-meta strong,
+.policy-score-part strong,
+.kpi-chip strong {
+  font-family: var(--font-mono);
+}
+
+.policy-compare-table td.num,
+.compare-pci {
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
 }

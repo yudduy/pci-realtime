@@ -13,6 +13,13 @@ export function formatScore(value: number | null | undefined) {
   return value.toFixed(value % 1 === 0 ? 0 : 2)
 }
 
+// The derived PCI is always rendered to a fixed 2 decimals so it shares a decimal
+// axis when stacked in a column (tabular alignment). Dimensions stay integers.
+export function formatPciValue(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "-"
+  return value.toFixed(2)
+}
+
 export function formatDelta(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value) || value === 0) {
     return "—"

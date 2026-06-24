@@ -14,6 +14,7 @@ SUMMARY_FILE="$RUN_DIR/summary.md"
 EVENT_LOG="$RUN_DIR/events.jsonl"
 DISCOVERY_PAYLOAD="$RUN_DIR/policy_discovery_payload.json"
 REPORT_FILE="$RUN_DIR/policy_intake_report.md"
+STATUS_FILE="$RUN_DIR/status.json"
 
 mkdir -p "$RUN_DIR"
 cd "$REPO_ROOT"
@@ -65,7 +66,53 @@ Expected flow:
 5. Report real intake details, not just counts: concrete titles, URLs, claims, source quotes, source-health failures/staleness, disabled sources, and review actions.
 PROMPT
 
+export RUN_TS RUN_DIR SINCE_DATE PROMPT_FILE SUMMARY_FILE EVENT_LOG DISCOVERY_PAYLOAD REPORT_FILE STATUS_FILE
+python3 - <<'PY'
+import json
+import os
+from datetime import datetime, timezone
+
+status_path = os.environ["STATUS_FILE"]
+payload = {
+    "state": "started",
+    "started_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    "run_timestamp": os.environ["RUN_TS"],
+    "run_dir": os.environ["RUN_DIR"],
+    "since_date": os.environ["SINCE_DATE"],
+    "artifacts": {
+        "prompt": os.environ["PROMPT_FILE"],
+        "summary": os.environ["SUMMARY_FILE"],
+        "events": os.environ["EVENT_LOG"],
+        "policy_discovery_payload": os.environ["DISCOVERY_PAYLOAD"],
+        "policy_intake_report": os.environ["REPORT_FILE"],
+    },
+}
+with open(status_path, "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, indent=2, sort_keys=True)
+    fh.write("\n")
+PY
+
 if [[ "${PCI_CODEX_DAEMON_SMOKE:-}" == "1" ]]; then
+  python3 - <<'PY'
+import json
+import os
+from datetime import datetime, timezone
+
+status_path = os.environ["STATUS_FILE"]
+with open(status_path, encoding="utf-8") as fh:
+    payload = json.load(fh)
+payload.update(
+    {
+        "state": "smoke",
+        "completed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "codex_exit_code": 0,
+        "report_exit_code": None,
+    }
+)
+with open(status_path, "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, indent=2, sort_keys=True)
+    fh.write("\n")
+PY
   printf 'smoke ok: prompt=%s summary=%s events=%s report=%s\n' \
     "$PROMPT_FILE" "$SUMMARY_FILE" "$EVENT_LOG" "$REPORT_FILE"
   exit 0
@@ -83,15 +130,42 @@ codex --ask-for-approval never exec \
 CODEX_STATUS=$?
 set -e
 
+REPORT_STATUS=""
 if [[ -f "$DISCOVERY_PAYLOAD" ]]; then
   if uv run --extra dev python scripts/render_policy_intake_report.py \
     --payload "$DISCOVERY_PAYLOAD" \
     --output-path "$REPORT_FILE"; then
+    REPORT_STATUS=0
     {
       printf '\n\n## Deterministic Staff Intake Report\n\n'
       cat "$REPORT_FILE"
     } >>"$SUMMARY_FILE"
+  else
+    REPORT_STATUS=1
   fi
 fi
+
+export CODEX_STATUS REPORT_STATUS
+python3 - <<'PY'
+import json
+import os
+from datetime import datetime, timezone
+
+status_path = os.environ["STATUS_FILE"]
+with open(status_path, encoding="utf-8") as fh:
+    payload = json.load(fh)
+report_status = os.environ.get("REPORT_STATUS")
+payload.update(
+    {
+        "state": "completed" if os.environ["CODEX_STATUS"] == "0" else "failed",
+        "completed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "codex_exit_code": int(os.environ["CODEX_STATUS"]),
+        "report_exit_code": int(report_status) if report_status else None,
+    }
+)
+with open(status_path, "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, indent=2, sort_keys=True)
+    fh.write("\n")
+PY
 
 exit "$CODEX_STATUS"

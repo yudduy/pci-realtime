@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/layout/site-header"
 import {
   deltaToneClass,
   formatDelta,
+  formatPciValue,
   formatScore,
 } from "@/components/market/format"
 import type { PolicyHeadline } from "@/lib/headlines"
@@ -261,13 +262,25 @@ function UpdateCarousel({
           <h2>Reviewed evidence for decisions</h2>
         </div>
         <div className="terminal-carousel-controls" aria-label="Update carousel controls">
-          <button type="button" onClick={previous} aria-label="Previous staff update">
+          <button
+            type="button"
+            onClick={previous}
+            disabled={updates.length <= 1}
+            aria-label="Previous staff update"
+          >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </button>
-          <span>
-            {active + 1} / {updates.length}
-          </span>
-          <button type="button" onClick={next} aria-label="Next staff update">
+          {updates.length > 1 && (
+            <span>
+              {active + 1} / {updates.length}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={next}
+            disabled={updates.length <= 1}
+            aria-label="Next staff update"
+          >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
@@ -291,18 +304,20 @@ function UpdateCarousel({
         </div>
       </article>
 
-      <div className="terminal-update-dots" aria-label="Select staff update">
-        {updates.map((update, index) => (
-          <button
-            key={update.id}
-            type="button"
-            className={index === active ? "active" : ""}
-            onClick={() => setActive(index)}
-            aria-label={`Show update for ${update.code}`}
-            aria-pressed={index === active}
-          />
-        ))}
-      </div>
+      {updates.length > 1 && (
+        <div className="terminal-update-dots" aria-label="Select staff update">
+          {updates.map((update, index) => (
+            <button
+              key={update.id}
+              type="button"
+              className={index === active ? "active" : ""}
+              onClick={() => setActive(index)}
+              aria-label={`Show update for ${update.code}`}
+              aria-pressed={index === active}
+            />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
@@ -355,7 +370,13 @@ function RegisterHeader({
   return (
     <div className="policy-register-head" role="row">
       {sortButton("Policy", "code")}
-      <span className="register-col-label">Source trace</span>
+      <span className="register-spacer" aria-hidden="true" />
+      <div className="register-dims-head" aria-hidden="true">
+        <span>Spec</span>
+        <span>Dur</span>
+        <span>Enf</span>
+      </div>
+      <span className="register-col-label register-trend-label">Trend</span>
       <div className="register-sort-cluster">
         {sortButton("Derived PCI", "pci")}
         {sortButton("Latest move", "move")}
@@ -424,7 +445,7 @@ function PolicyCompareTable({
                 <td className="num">{formatScore(policy.specificity)}</td>
                 <td className="num">{formatScore(policy.durability)}</td>
                 <td className="num">{formatScore(policy.enforceability)}</td>
-                <td className="num compare-pci">{formatScore(policy.currentPci)}</td>
+                <td className="num compare-pci">{formatPciValue(policy.currentPci)}</td>
                 <td className="num">
                   <span className={deltaToneClass(delta)}>{formatDelta(delta)}</span>
                 </td>
@@ -482,14 +503,19 @@ function PolicyAccordion({
                   {policy.latestEvidenceAt ? ` / ${formatPolicyDate(policy.latestEvidenceAt)}` : ""}
                 </span>
               </span>
+              <span className="register-spacer" aria-hidden="true" />
+              <span
+                className="policy-row-dims"
+                aria-label={`Specificity ${formatScore(policy.specificity)}, durability ${formatScore(policy.durability)}, enforceability ${formatScore(policy.enforceability)} out of 5`}
+              >
+                <RowDim value={policy.specificity} />
+                <RowDim value={policy.durability} />
+                <RowDim value={policy.enforceability} />
+              </span>
               <RowSpark timeline={policy.timeline} />
               <span className="policy-score-cluster">
-                <span className="policy-score-label">Derived PCI</span>
-                <strong>{formatScore(policy.currentPci)}</strong>
-                <span className={deltaToneClass(delta)}>
-                  <span className="policy-score-label">Latest move</span>
-                  {formatDelta(delta)}
-                </span>
+                <strong>{formatPciValue(policy.currentPci)}</strong>
+                <span className={deltaToneClass(delta)}>{formatDelta(delta)}</span>
               </span>
               <ChevronDown className="policy-accordion-icon h-4 w-4" aria-hidden="true" />
             </button>
@@ -520,33 +546,61 @@ function PolicyAccordion({
   )
 }
 
+// A dimension as value + 5-segment micro-gauge, so a column scan across the six
+// policies surfaces which provision is weak on a dimension (the same gauge the
+// dossier uses, kept in sync for cross-surface consistency).
+function RowDim({ value }: { value: number | null }) {
+  const filled = value && Number.isFinite(value) ? Math.round(value) : 0
+  return (
+    <span className="policy-row-dim">
+      <span className="policy-row-dim-value">{formatScore(value)}</span>
+      <span className="policy-row-dim-gauge" aria-hidden="true">
+        {[1, 2, 3, 4, 5].map((step) => (
+          <span key={step} className={step <= filled ? "on" : ""} />
+        ))}
+      </span>
+    </span>
+  )
+}
+
 function RowSpark({ timeline }: { timeline: TerminalPolicyPoint[] }) {
   const points = useMemo(() => {
     const sorted = timeline
       .filter((point) => typeof point.value === "number" && Number.isFinite(point.value))
       .sort((a, b) => dateValue(a.date) - dateValue(b.date))
       .slice(-12)
-    const distinct = new Set(sorted.map((point) => point.value)).size
+    const values = sorted.map((point) => Number(point.value))
+    const distinct = new Set(values).size
     if (sorted.length < 2 || distinct < 2) return null
     const width = 72
     const height = 26
     const pad = 4
     const step = (width - pad * 2) / (sorted.length - 1)
-    return sorted.map((point, index) => ({
+    // Local min/max scaling so a small move is legible (the big expanded chart
+    // keeps the fixed 1–5 domain for cross-policy comparison).
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const range = max - min || 1
+    return values.map((value, index) => ({
       x: pad + index * step,
-      y: height - pad - ((Number(point.value) - 1) / 4) * (height - pad * 2),
+      y: height - pad - ((value - min) / range) * (height - pad * 2),
     }))
   }, [timeline])
 
   // No movement yet — a flat spark would imply a measured trend that isn't there.
   if (!points) return <span className="row-spark-empty" aria-hidden="true">—</span>
 
+  // Neutral stroke: direction/sign is already carried by the coloured delta in
+  // the same row, so the spark only needs to show the shape of the trajectory.
+  // A faint baseline at the starting value anchors the slope positionally.
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
     .join(" ")
   const last = points[points.length - 1]
+  const baseY = points[0].y.toFixed(1)
   return (
     <svg className="row-spark" viewBox="0 0 72 26" width="72" height="26" aria-hidden="true">
+      <line className="row-spark-base" x1="4" x2="68" y1={baseY} y2={baseY} />
       <path d={path} />
       <circle cx={last.x} cy={last.y} r="2.4" />
     </svg>
@@ -554,7 +608,10 @@ function RowSpark({ timeline }: { timeline: TerminalPolicyPoint[] }) {
 }
 
 function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
-  const points = useMemo(() => largeTrendPoints(policy.timeline), [policy.timeline])
+  const { points, domain } = useMemo(
+    () => largeTrendSeries(policy.timeline),
+    [policy.timeline],
+  )
   const distinctValues = useMemo(
     () => new Set(points.map((point) => point.value)).size,
     [points],
@@ -590,14 +647,29 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ")
+  // Close the line down to the baseline for a faint area fill (depth without ink).
+  const area =
+    points.length >= 2
+      ? `${path} L ${points.at(-1)!.x} 140 L ${points[0].x} 140 Z`
+      : ""
+  // Adaptive, labeled y-axis: the line uses the vertical space (a 0.3 move is
+  // visible) while the printed bounds keep it honest about absolute level.
+  const fmtAxis = (value: number) =>
+    Number.isInteger(value) ? String(value) : value.toFixed(1)
 
   return (
     <section className="policy-score-trend" aria-label={`${policy.code} derived PCI signal trend`}>
-      <svg viewBox="0 0 720 200" role="img" aria-label={`${policy.code} derived PCI chart`}>
-        <rect className="trend-band" x="24" y="24" width="672" height="144" rx="4" />
-        <line x1="24" x2="696" y1="24" y2="24" />
-        <line x1="24" x2="696" y1="96" y2="96" />
-        <line x1="24" x2="696" y1="168" y2="168" />
+      <svg viewBox="0 0 720 168" role="img" aria-label={`${policy.code} derived PCI chart`}>
+        <rect className="trend-band" x="44" y="20" width="656" height="120" rx="4" />
+        <line x1="44" x2="700" y1="20" y2="20" />
+        <line x1="44" x2="700" y1="80" y2="80" />
+        <line x1="44" x2="700" y1="140" y2="140" />
+        <text className="trend-axis" x="34" y="24" textAnchor="end">{fmtAxis(domain.hi)}</text>
+        <text className="trend-axis" x="34" y="84" textAnchor="end">
+          {fmtAxis((domain.lo + domain.hi) / 2)}
+        </text>
+        <text className="trend-axis" x="34" y="144" textAnchor="end">{fmtAxis(domain.lo)}</text>
+        {area && <path className="trend-area" d={area} />}
         {path && <path d={path} />}
         {points.map((point, index) => {
           const endpoint = index === 0 || index === points.length - 1
@@ -626,10 +698,10 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
             </circle>
           )
         })}
-        <text x="24" y="192">
+        <text x="44" y="160">
           {points[0] ? formatPolicyDate(points[0].date) : ""}
         </text>
-        <text x="696" y="192" textAnchor="end">
+        <text x="700" y="160" textAnchor="end">
           {points.at(-1) ? formatPolicyDate(points.at(-1)?.date) : ""}
         </text>
       </svg>
@@ -646,24 +718,48 @@ type LargeTrendPoint = TerminalPolicyPoint & {
   date: string
 }
 
-function largeTrendPoints(points: TerminalPolicyPoint[]): LargeTrendPoint[] {
+// Adaptive y-domain (rounded to 0.5, clamped to the valid 1–5 PCI range) padded
+// around the data so the trajectory uses the vertical space instead of hugging
+// the top of a fixed 1–5 axis. The printed bounds keep the chart honest.
+function trendDomain(values: number[]): { lo: number; hi: number } {
+  if (!values.length) return { lo: 1, hi: 5 }
+  let lo = Math.min(...values)
+  let hi = Math.max(...values)
+  const pad = Math.max(0.5, (hi - lo) * 0.6)
+  lo = Math.max(1, Math.floor((lo - pad) * 2) / 2)
+  hi = Math.min(5, Math.ceil((hi + pad) * 2) / 2)
+  if (hi - lo < 1) {
+    const mid = (hi + lo) / 2
+    lo = Math.max(1, Math.min(mid - 0.5, 4))
+    hi = Math.min(5, lo + 1)
+  }
+  return { lo, hi }
+}
+
+function largeTrendSeries(points: TerminalPolicyPoint[]): {
+  points: LargeTrendPoint[]
+  domain: { lo: number; hi: number }
+} {
   const sorted = points
     .filter((point) => typeof point.value === "number" && Number.isFinite(point.value))
     .sort((a, b) => dateValue(a.date) - dateValue(b.date))
     .slice(-24)
 
-  if (!sorted.length) return []
-  const xStep = sorted.length === 1 ? 0 : 672 / (sorted.length - 1)
+  if (!sorted.length) return { points: [], domain: { lo: 1, hi: 5 } }
+  const xStep = sorted.length === 1 ? 0 : 656 / (sorted.length - 1)
+  const domain = trendDomain(sorted.map((point) => Number(point.value)))
+  const span = domain.hi - domain.lo || 1
 
-  // Fixed 1–5 domain so a 0.2 move and a 2.0 move stay proportional across every
-  // policy. The plot band y∈[24,168] matches the gridlines drawn at value 5/3/1.
-  return sorted.map((point, index) => ({
+  // The plot band y∈[20,140] maps the adaptive domain; x starts at 44 to clear
+  // the y-axis labels.
+  const mapped = sorted.map((point, index) => ({
     ...point,
     date: point.date ?? "2022-08-16",
     value: Number(point.value),
-    x: 24 + index * xStep,
-    y: 168 - ((Number(point.value) - 1) / 4) * 144,
+    x: 44 + index * xStep,
+    y: 140 - ((Number(point.value) - domain.lo) / span) * 120,
   }))
+  return { points: mapped, domain }
 }
 
 function PointAttribution({

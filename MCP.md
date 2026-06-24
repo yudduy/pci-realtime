@@ -119,6 +119,35 @@ uv run --extra dev python scripts/run_agent_research_intake.py --write
 Run this manually from a trusted local or server environment. Keep it dry-run
 unless `status.write_configured` is true and you explicitly pass `--write`.
 
+### Scheduler And Agent Shape
+
+The safe automated loop is:
+
+```text
+external scheduler
+  -> dry-run official-source scout
+  -> inspect candidates and exact citation quotes
+  -> write through local MCP/service only after readiness checks pass
+  -> read back get_evidence_trace and policy_dossier
+```
+
+Codex automations, Claude Code, Omnigent, or another trusted agent can perform
+the research and parsing step when they have MCP access and a narrow prompt.
+They should search official public sources first, use news only as a pointer to
+primary evidence, and never submit unsupported summaries. The database write
+still belongs to the local write-capable MCP or `service.submit_policy_evidence`
+running with server-side credentials.
+
+Required acceptance checks for an automated candidate:
+
+- `status.registry_configured` is true.
+- `status.write_configured` is true before any write.
+- The provision is one of `45X`, `45V`, `45Q`, `30D`, `50144`, or `50141`.
+- The source URL is public HTTP(S), canonicalized, and not a local/private host.
+- The citation includes an exact quote or visible section anchor.
+- The idempotency key is deterministic for the source, provision, claim, and quote.
+- `get_evidence_trace` shows the promoted evidence and source link after write.
+
 ## Transport Modes
 
 Local stdio is the default:

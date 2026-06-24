@@ -13,6 +13,7 @@ export type StaffQuestion = {
 
 export type PolicyDossier = {
   policy: PolicyIntelligence
+  weeklyMove: number | null
   evidence: EvidenceItem[]
   reviewedLeads: PolicySourceCandidate[]
   staffQuestions: StaffQuestion[]
@@ -42,8 +43,10 @@ export function buildPolicyDossier(data: RegistryData, code: string): PolicyDoss
   const reviewedLeads = data.policySourceCandidates
     .filter((candidate) => candidate.provision === policy.code)
     .sort(compareNewest)
+
   return {
     policy,
+    weeklyMove: timelineMove(data, policy.code, policy.weeklyDelta),
     evidence,
     reviewedLeads,
     staffQuestions: buildStaffQuestions({
@@ -108,6 +111,21 @@ function buildStaffQuestions({
         : [],
     },
   ]
+}
+
+// Mirror the home register's move (terminal.tsx policyDelta): the change across
+// the last two timeline PCI points, so both surfaces report the same number.
+// Falls back to the stored weekly delta when fewer than two points exist.
+function timelineMove(data: RegistryData, code: string, fallback: number | null): number | null {
+  const values = data.provisionTimelines
+    .filter((row) => row.provision === code)
+    .sort((a, b) => new Date(a.week_start).getTime() - new Date(b.week_start).getTime())
+    .map((row) => row.pci)
+    .filter((value) => typeof value === "number" && Number.isFinite(value))
+  if (values.length >= 2) {
+    return values[values.length - 1] - values[values.length - 2]
+  }
+  return fallback
 }
 
 function compareNewest(a: SortableDateRow, b: SortableDateRow): number {
