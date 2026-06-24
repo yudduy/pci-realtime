@@ -13,6 +13,7 @@ PROMPT_FILE="$RUN_DIR/prompt.md"
 SUMMARY_FILE="$RUN_DIR/summary.md"
 EVENT_LOG="$RUN_DIR/events.jsonl"
 DISCOVERY_PAYLOAD="$RUN_DIR/policy_discovery_payload.json"
+REPORT_FILE="$RUN_DIR/policy_intake_report.md"
 
 mkdir -p "$RUN_DIR"
 cd "$REPO_ROOT"
@@ -50,21 +51,27 @@ Use this date window:
 Use this dry-run output path:
 - $DISCOVERY_PAYLOAD
 
+Use this staff report output path:
+- $REPORT_FILE
+
 Expected flow:
 1. Inspect \`git status --short\` and the current intake guidance in README.md or AGENT.md.
 2. Run:
    \`uv run --extra dev python -m pci_realtime.pipeline.policy_discovery --since $SINCE_DATE --dry-run --output-path $DISCOVERY_PAYLOAD\`
-3. If dry-run succeeds and Supabase/OpenAI writes are configured, run:
+3. Render the staff-facing intake report:
+   \`uv run --extra dev python scripts/render_policy_intake_report.py --payload $DISCOVERY_PAYLOAD --output-path $REPORT_FILE\`
+4. If dry-run succeeds and Supabase/OpenAI writes are configured, run:
    \`uv run --extra dev python -m pci_realtime.pipeline.policy_discovery --since $SINCE_DATE\`
-4. Report the commands used, whether Supabase writes were configured, row counts, source-health failures/staleness, and queued candidates needing human review.
+5. Report real intake details, not just counts: concrete titles, URLs, claims, source quotes, source-health failures/staleness, disabled sources, and review actions.
 PROMPT
 
 if [[ "${PCI_CODEX_DAEMON_SMOKE:-}" == "1" ]]; then
-  printf 'smoke ok: prompt=%s summary=%s events=%s\n' \
-    "$PROMPT_FILE" "$SUMMARY_FILE" "$EVENT_LOG"
+  printf 'smoke ok: prompt=%s summary=%s events=%s report=%s\n' \
+    "$PROMPT_FILE" "$SUMMARY_FILE" "$EVENT_LOG" "$REPORT_FILE"
   exit 0
 fi
 
+set +e
 codex --ask-for-approval never exec \
   --ephemeral \
   --json \
@@ -73,3 +80,18 @@ codex --ask-for-approval never exec \
   -C "$REPO_ROOT" \
   --output-last-message "$SUMMARY_FILE" \
   - <"$PROMPT_FILE" >"$EVENT_LOG" 2>&1
+CODEX_STATUS=$?
+set -e
+
+if [[ -f "$DISCOVERY_PAYLOAD" ]]; then
+  if uv run --extra dev python scripts/render_policy_intake_report.py \
+    --payload "$DISCOVERY_PAYLOAD" \
+    --output-path "$REPORT_FILE"; then
+    {
+      printf '\n\n## Deterministic Staff Intake Report\n\n'
+      cat "$REPORT_FILE"
+    } >>"$SUMMARY_FILE"
+  fi
+fi
+
+exit "$CODEX_STATUS"
