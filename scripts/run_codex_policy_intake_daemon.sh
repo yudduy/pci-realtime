@@ -23,13 +23,16 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
   set +a
 fi
 
-SINCE_DATE="$(
-  python3 - <<'PY'
+SINCE_DAYS="${PCI_CODEX_DAEMON_SINCE_DAYS:-2}"
+SINCE_DATE="${PCI_CODEX_DAEMON_SINCE_DATE:-$(
+  PCI_CODEX_DAEMON_SINCE_DAYS="$SINCE_DAYS" python3 - <<'PY'
+import os
 from datetime import date, timedelta
 
-print((date.today() - timedelta(days=2)).isoformat())
+days = int(os.environ["PCI_CODEX_DAEMON_SINCE_DAYS"])
+print((date.today() - timedelta(days=days)).isoformat())
 PY
-)"
+)}"
 
 cat >"$PROMPT_FILE" <<PROMPT
 Run the PCI policy-intelligence intake sweep.
