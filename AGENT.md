@@ -2,11 +2,11 @@
 
 Repository orientation for agents working on `pci-realtime`.
 
-Last repo survey: 2026-05-26.
+Last repo survey: 2026-06-23.
 
 ## Purpose
 
-This repo implements a Policy Credibility Index (PCI) registry for IRA-related climate policy provisions. It ingests official public policy documents, screens and scores document-level PCI deltas, builds a sticky weekly PCI time series, matches policy signals to public prediction markets, records forecasts and gated trade proposals, and exposes a read-only public web app backed by Supabase views.
+This repo implements a Policy Credibility Index (PCI) registry for IRA-related climate policy provisions. It ingests official public policy documents, screens and scores document-level PCI deltas, builds a sticky weekly PCI time series, tracks reviewed policy-source leads, and exposes a read-only public web app backed by Supabase views.
 
 The public app is a research companion. It must never place trades, expose private execution payloads, leak API keys, publish raw model responses, or include private firm-level data.
 
@@ -21,13 +21,14 @@ official policy documents
   -> relevance screening
   -> PCI delta scoring
   -> weekly PCI series
-  -> market discovery
-  -> forecast registry
-  -> gated trade proposal
-  -> outcome tracking
+  -> source documents / evidence links / source health
+reviewed public leads
+  -> policy discovery
+  -> governed evidence promotion
+  -> quote-verified policy evidence
 ```
 
-`pci_realtime.pipeline.weekly_live` owns the weekly end-to-end path. `pci_realtime.pipeline.daily_refresh` owns market/outcome refresh and public context refresh. Supabase Edge Functions only proxy to an external Python runner; they do not run the pandas/parquet/LLM pipeline themselves.
+`pci_realtime.pipeline.weekly_live` owns the weekly official-source path. `pci_realtime.pipeline.policy_discovery` owns source-lead review and promotion support. Supabase Edge Functions only proxy to an external Python runner; they do not run the pandas/parquet/LLM pipeline themselves.
 
 ## Repo Layout
 
@@ -103,28 +104,18 @@ Run the weekly registry loop:
 uv run --extra dev python -m pci_realtime.pipeline.weekly_live \
   --start-date 2026-05-18 \
   --end-date 2026-05-24 \
-  --confirm-cost \
-  --fetch-markets \
-  --fetch-polymarket
+  --confirm-cost
 ```
 
 Use `--dry-run --output-path data/debug/weekly_live_payload.json` to inspect payloads without writing Supabase.
 
-Run standalone market discovery:
+Run policy source discovery:
 
 ```bash
-uv run --extra dev python -m pci_realtime.pipeline.market_discovery --dry-run \
-  --output-path data/debug/market_discovery_payload.json
-uv run --extra dev python -m pci_realtime.pipeline.market_discovery
-```
-
-Use `--include-all-candidates` only for bounded absence audits; the normal production job persists eligible markets and near-miss candidates instead of every sports/crypto/noise market.
-The scheduled default scans 5,000 open Kalshi markets plus 1,000 active Polymarket events. Raise `--polymarket-limit` only for one-off deeper absence checks.
-
-Refresh outcomes and context:
-
-```bash
-uv run --extra dev python -m pci_realtime.pipeline.daily_refresh --supabase
+uv run --extra dev python -m pci_realtime.pipeline.policy_discovery \
+  --since 2026-06-01 \
+  --dry-run \
+  --output-path data/debug/policy_discovery_payload.json
 ```
 
 Local all-in-one registry run:
@@ -133,7 +124,7 @@ Local all-in-one registry run:
 ./scripts/run_registry.sh
 ```
 
-`run_registry.sh` sources `.env`, starts local Supabase if needed, seeds anchors, runs weekly ingest/scoring/market matching, optionally runs daily refresh, builds the web app, and serves it on port `8510` unless overridden.
+`run_registry.sh` sources `.env`, starts local Supabase if needed, seeds anchors, runs weekly ingest/scoring, builds the web app, and serves it on port `8510` unless overridden.
 
 ## Environment Boundaries
 
@@ -222,35 +213,31 @@ The baseline anchor is immutable repo data in `data/baseline/pci_baseline.csv`. 
 
 `src/pci_realtime/forecast_registry/`
 
-- `policy.py`: provision metadata, market keywords, exposure channels, policy relevance and orientation helpers.
-- `discovery.py`: market-candidate audit rows, policy/provision term matching, resolution clarity checks, and scan result contracts.
-- `kalshi.py`: public Kalshi market reads, fixture parsing, signed order request construction, and execution gates.
-- `polymarket.py`: read-only Polymarket Gamma event/market snapshots.
-- `engine.py`: policy events -> signals -> market matches -> forecasts -> trade proposals/outcomes/metrics.
+- `policy.py`: provision metadata, policy keywords, exposure channels, relevance and orientation helpers.
+- `discovery.py`, `kalshi.py`, `polymarket.py`, `engine.py`: legacy market/forecast compatibility helpers. They are not part of the default policy-desk pipeline.
 - `store.py`: Supabase REST client, public payload safety checks, seed rows, row adapters, and write ordering.
 - `evidence.py`: source documents, evidence items, source links, source health rows.
-- `context.py`: daily public context rows from EIA, FRED, CourtListener, RegInfo/OIRA, and USAspending.
+- `context.py`: optional public context rows from EIA, FRED, CourtListener, RegInfo/OIRA, and USAspending.
 
 `src/pci_realtime/pipeline/`
 
 - `seed_supabase.py`: writes paper anchors.
-- `weekly_live.py`: official ingest, scoring, PCI build, market scan, forecast/proposal generation, evidence rows, Supabase writes.
-- `market_discovery.py`: standalone public Kalshi/Polymarket discovery with candidate/rejection audit rows.
-- `daily_refresh.py`: reads open forecasts, refreshes market snapshots, writes outcomes/performance/context rows.
+- `weekly_live.py`: official ingest, scoring, PCI build, evidence/source rows, source health, Supabase writes.
+- `policy_discovery.py`: official-source and web-search lead discovery, source-health rows, candidate review, and governed promotion commands.
 
-## Forecast And Trading Rules
+Agent evidence automation:
 
-Market snapshots are public/read-only. Forecasts blend:
+- `src/pci_realtime/agent_research.py`: OpenAI web-search scout restricted by default to official public domains. It returns structured `EvidenceCandidate` rows with policy code, source metadata, exact quote, claim, evidence type, and stable idempotency key.
+- `scripts/run_agent_research_intake.py`: CLI wrapper for the scout. Default mode is dry-run JSON output. `--write` submits candidates only after `service.status().write_configured` is true.
+- `src/pci_realtime/agent_intake.py`: validates tracked policy units, canonicalizes public URLs, rejects private hosts and missing quotes, scores cited evidence, builds agent runs, submissions, source docs, evidence items, scored deltas, policy events, PCI weekly rows, and source links.
+- `src/pci_realtime/service.py`: agent-facing read/write service. It dedupes by idempotency-key hash, loads historical scored deltas before recomputing PCI rows, writes in dependency order, and reports missing migration `005` cleanly.
+- `src/pci_realtime/mcp_server.py`: local write-capable MCP tools plus read tools. Hosted `/mcp` in `apps/web/app/mcp/route.ts` is read-only.
 
-```text
-market prior: 0.60
-PCI rule:    0.25
-LLM/audit:   0.15
-```
+## Legacy Forecast And Trading Compatibility
 
-The default forecast client is an offline, paper-grounded heuristic. `StructuredLLMForecastClient` exists for structured public-evidence forecasting.
+Forecast/trading tables and helpers remain for schema and regression compatibility, but they are not product-facing and the default policy-desk pipeline must not create new forecast, outcome, market-snapshot, or trade-proposal rows. Markets, where used manually, are read-only context and never make evidence ready or imply a trading edge.
 
-Trade proposals are not orders. `RiskLimits` enforce edge, spread, liquidity, confidence, policy relevance, clear resolution wording, public-only evidence, and exposure limits. `build_trade_proposals` returns only risk-passing proposals by default.
+Trade proposals, if exercised in a manual legacy path, are not orders. `RiskLimits` enforce edge, spread, liquidity, confidence, policy relevance, clear resolution wording, public-only evidence, and exposure limits.
 
 Actual Kalshi execution requires all of the following:
 
@@ -266,21 +253,23 @@ Never weaken these gates or expose signed request payloads in public web data.
 
 Migrations live in `supabase/migrations/`.
 
-Core tables:
+Active product tables:
 
 ```text
-provisions, pipeline_runs, scored_deltas, pci_weekly, policy_events, market_snapshots,
-market_discovery_candidates, forecasts, trade_proposals, forecast_outcomes,
-source_documents, evidence_items, source_links, source_health
+provisions, pipeline_runs, scored_deltas, pci_weekly, policy_events,
+policy_source_candidates, source_documents, evidence_items, source_links,
+source_health, agent_runs, evidence_submissions
 ```
 
-Public views:
+Legacy compatibility tables include `market_snapshots`, `market_discovery_candidates`, `forecasts`, `trade_proposals`, `forecast_outcomes`, `policy_theses`, `belief_updates`, and `policy_briefs`; do not drop them without a consumer/data audit.
+
+Active public views:
 
 ```text
-v_current_pci, v_provision_timelines, v_policy_events, v_open_forecasts,
-v_resolved_forecasts, v_market_snapshots, v_market_discovery_candidates,
-v_trade_proposals, v_forecast_performance, v_pipeline_status,
-v_source_documents, v_evidence_items, v_source_links, v_source_health
+v_current_pci, v_provision_timelines, v_policy_events, v_pipeline_status,
+v_policy_source_candidates, v_source_documents, v_evidence_items,
+v_policy_evidence_items, v_source_links, v_source_health,
+v_agent_evidence_submissions
 ```
 
 Public forecast/proposal views deliberately require:
@@ -289,7 +278,7 @@ Public forecast/proposal views deliberately require:
 - `reasoning -> match -> policy_relevant = true`
 - `reasoning -> match -> resolution_clear = true`
 
-`v_market_snapshots` filters to `policy_relevant = true`. `v_market_discovery_candidates` exposes the latest public near-misses and eligible candidates so a zero-forecast run can be audited. Tests assert these filters and contracts exist. If changing migrations, update the Python row adapters and web TypeScript types together.
+Legacy forecast/market views keep their public filters for compatibility. The public web read model should prefer verified policy evidence, reviewed source candidates, and source freshness over legacy market attachment. If changing migrations, update the Python row adapters and web TypeScript types together.
 
 ## Web App Map
 
@@ -304,7 +293,9 @@ Routes:
 Key files:
 
 - `apps/web/lib/data.ts`: typed public-view fetcher. Reads only public/publishable Supabase keys and paginates REST view results.
-- `apps/web/lib/market-model.ts`: merges forecasts, market snapshots, policy rows, resolved rows, and source counts into UI-ready `PolicyMarket` rows.
+- `apps/web/lib/intelligence.ts`: builds source-led policy status from PCI rows, reviewed leads, verified evidence, source health, and pipeline runs.
+- `apps/web/lib/policy-dossier.ts`: builds policy detail pages from verified evidence, reviewed leads, and ledger Q&A.
+- `apps/web/lib/terminal-data.ts`: builds the current desk feed and policy timeline data.
 - `apps/web/lib/policy-copy.ts`: policy-specific display copy.
 - `apps/web/components/registry-dashboard.tsx`: dashboard filters, search, KPIs, cards/table/detail.
 - `apps/web/components/market/*`: market cards, tables, details, activity, source health, policy trends, formatting.
@@ -320,9 +311,10 @@ Backend:
 - `tests/test_federal_register.py`, `test_treasury.py`, `test_omb.py`, `test_congress.py`, `test_public_sources.py`: source normalization and public client behavior.
 - `tests/test_screener.py`, `test_scorer.py`, `test_scoring_cache.py`, `test_calibrate.py`: LLM parsing, caching, scoring contracts, calibration gates.
 - `tests/test_builder.py`: sticky PCI weekly index and clipping/decay.
-- `tests/test_forecast_registry.py`: signal generation, market parsing/matching, forecasts, outcomes, risk gates, public payload safety.
+- `tests/test_forecast_registry.py`: legacy market/forecast helper contracts and public payload safety.
 - `tests/test_weekly_live.py`: weekly payload materialization and Supabase write semantics.
-- `tests/test_daily_refresh.py`: Supabase daily refresh write behavior.
+- `tests/test_policy_discovery.py`: source discovery, candidate review, and governed promotion behavior.
+- `tests/test_agent_intake.py`, `test_agent_research.py`: governed evidence intake and official-source scout behavior.
 - `tests/test_supabase_contract.py`: public-view privacy/relevance filters.
 
 Web:
@@ -332,14 +324,45 @@ Web:
 
 ## Source And Evidence Layer
 
-The evidence layer turns raw public docs and public market snapshots into:
+The evidence layer turns raw public docs and governed source submissions into:
 
-- `source_documents`: normalized public document/market source metadata.
+- `source_documents`: normalized public document source metadata.
 - `evidence_items`: snippets or rationale tied to provisions and dimensions.
-- `source_links`: trace links to policy events, forecasts, and market snapshots.
+- `source_links`: trace links to policy events and verified evidence.
 - `source_health`: per-source success/disabled/failed state with row counts and errors.
 
-`daily_refresh` also builds public context rows from EIA, FRED, CourtListener, RegInfo/OIRA, and USAspending. Missing optional keys and source failures should be represented through source-health rows rather than breaking the whole refresh when the source is non-critical.
+Missing optional keys and non-critical source failures should be represented through source-health rows rather than breaking the whole refresh when the source is non-critical.
+
+## Automated Research Scout
+
+The backend can support an automatic evidence-scout loop without adding GitHub
+Actions:
+
+```text
+external cron / trusted worker / supervised Codex automation
+  -> uv run --extra dev python scripts/run_agent_research_intake.py --since <date> --output-path data/debug/agent_research_intake.json
+  -> human or narrow agent review of exact quotes and policy mapping
+  -> rerun with --write only when status.write_configured is true
+  -> get_evidence_trace and policy_dossier verify the promoted evidence
+```
+
+Codex, Claude Code, Omnigent, or a similar agent should be treated as a research
+operator or parser, not as the source of truth. It may search the web, parse
+official updates, and prepare submissions, but the accepted write path is still
+`submit_policy_evidence` through the local MCP/service layer. Production writes
+need server-side `SUPABASE_SERVICE_ROLE_KEY` and `OPENAI_API_KEY`; hosted write
+access is intentionally absent until scoped auth, rate limits, and submitter
+audit are designed.
+
+Use news only as a lead to primary evidence. PCI is not a news sentiment index:
+score movement requires a public, citeable policy source with an exact quote or
+visible section anchor. If an item only has commentary or unattributed claims,
+keep it in review/context and do not promote it to `scored_deltas`.
+
+The "automatic rendering" path is data-driven. Backend jobs write Supabase rows,
+public views filter and sanitize them, and the Next.js app renders current state
+from those views. There is no separate static render artifact to regenerate for
+normal updates.
 
 ## Cost And Live Data Behavior
 
@@ -357,11 +380,16 @@ If the estimate exceeds `PCI_LLM_RUN_COST_CEILING_USD`, a live scoring run must 
 
 GitHub Actions CI/CD workflows are intentionally not configured in this repository. Run checks and production registry commands manually from a trusted local or server environment, or attach an external scheduler outside the repo when needed.
 
+Recommended external scheduled jobs:
+
+- Weekly official-source pipeline: `pci_realtime.pipeline.weekly_live` with cost confirmation.
+- Policy source discovery: `pci_realtime.pipeline.policy_discovery --since <date>` dry-run first, then reviewed writes.
+- Agent evidence scout: `scripts/run_agent_research_intake.py` dry-run first, then governed writes only after readiness checks and review.
+
 Supabase functions:
 
 - `trigger-weekly-pipeline`: proxies a weekly request to `PYTHON_PIPELINE_WEBHOOK_URL`.
-- `trigger-daily-refresh`: proxies a daily refresh request.
-- Both public Edge Function triggers require `x-pci-pipeline-secret` matching `PYTHON_PIPELINE_TRIGGER_SECRET` or `PYTHON_PIPELINE_WEBHOOK_SECRET`.
+- Public Edge Function triggers require `x-pci-pipeline-secret` matching `PYTHON_PIPELINE_TRIGGER_SECRET` or `PYTHON_PIPELINE_WEBHOOK_SECRET`.
 
 Vercel serves `apps/web`; it should receive only public Supabase URL/key values.
 
@@ -375,7 +403,7 @@ Vercel serves `apps/web`; it should receive only public Supabase URL/key values.
 - Do not edit immutable baseline/fixture data unless explicitly asked and tests/docs are updated.
 - Keep Schema A/B/C, Supabase migrations, row adapters, TypeScript types, and tests aligned.
 - Keep public payloads clean: no API key names or OpenAI-style `sk-*` secrets, `KALSHI_PRIVATE_KEY`, `raw_response`, private company identifiers, local `/Users/` paths, or signed trade data.
-- Do not add fake forecasts when there are no eligible signals or markets. Tests expect baseline-only runs to produce no synthetic forecasts/proposals.
+- Do not add fake forecasts, market snapshots, or trade proposals to the default policy desk path.
 - Treat `apps/web/node_modules`, `.next`, `.venv`, `.pytest_cache`, `.ruff_cache`, `data/raw`, `data/processed`, `data/cache`, `data/debug`, and `data/private` as generated or local state.
 
 ## Common Safe Workflows
@@ -387,9 +415,17 @@ uv run --extra dev python -m pci_realtime.pipeline.weekly_live \
   --start-date 2026-05-18 \
   --end-date 2026-05-24 \
   --confirm-cost \
-  --fetch-markets \
   --dry-run \
   --output-path data/debug/weekly_live_payload.json
+```
+
+Dry-run policy source discovery:
+
+```bash
+uv run --extra dev python -m pci_realtime.pipeline.policy_discovery \
+  --since 2026-06-01 \
+  --dry-run \
+  --output-path data/debug/policy_discovery_payload.json
 ```
 
 Rebuild only the weekly PCI parquet from scored files:
@@ -401,7 +437,7 @@ uv run --extra dev python -m pci_realtime.pci.builder --rebuild
 Run focused tests after backend contract changes:
 
 ```bash
-uv run --extra dev pytest -q tests/test_weekly_live.py tests/test_supabase_contract.py tests/test_forecast_registry.py
+uv run --extra dev pytest -q tests/test_weekly_live.py tests/test_policy_discovery.py tests/test_supabase_contract.py
 ```
 
 Run focused web checks after UI/data changes:

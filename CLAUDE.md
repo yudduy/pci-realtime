@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Supabase-backed registry for the **Policy Credibility Index (PCI)** — institutional-design quality (specificity, durability, enforceability, each 1–5) for six IRA tax/loan provisions: `45X 45V 45Q 30D 50144 50141`. The system ingests **official public policy documents**, LLM-scores per-document PCI deltas, builds a sticky weekly PCI series, matches provisions to **public prediction markets** (Kalshi/Polymarket, read-only), and records forecasts, gated trade proposals, and outcomes. A read-only Next.js app (`apps/web`) renders Supabase public *views*.
+A Supabase-backed registry for the **Policy Credibility Index (PCI)** — institutional-design quality (specificity, durability, enforceability, each 1–5) for six IRA tax/loan provisions: `45X 45V 45Q 30D 50144 50141`. The system ingests **official public policy documents**, LLM-scores per-document PCI deltas, builds a sticky weekly PCI series, tracks reviewed policy-source leads, and exposes verified evidence/source freshness through a read-only Next.js app (`apps/web`).
 
 Two things are intentionally out of scope and must stay that way: PCI is **not** a news/sentiment index (general news scraping is excluded from index updates), and the app **never** executes trades or exposes private execution payloads.
 
@@ -40,23 +40,28 @@ Pipelines (entry points are Python modules under `pci_realtime.pipeline`):
 # seed paper anchors into Supabase (always dry-run first)
 uv run --extra dev python -m pci_realtime.pipeline.seed_supabase --dry-run
 
-# full weekly loop: ingest -> score -> build PCI -> market scan -> forecasts/proposals -> write
+# weekly official-source loop: ingest -> score -> build PCI -> source/evidence rows -> write
 uv run --extra dev python -m pci_realtime.pipeline.weekly_live \
-  --start-date 2026-05-18 --end-date 2026-05-24 --confirm-cost --fetch-markets --fetch-polymarket
+  --start-date 2026-05-18 --end-date 2026-05-24 --confirm-cost
 # add: --dry-run --output-path data/debug/weekly_live_payload.json  (inspect, no writes)
 
-# standalone public market discovery + absence audit
-uv run --extra dev python -m pci_realtime.pipeline.market_discovery --dry-run
+# reviewed source-lead discovery
+uv run --extra dev python -m pci_realtime.pipeline.policy_discovery \
+  --since 2026-06-01 \
+  --dry-run \
+  --output-path data/debug/policy_discovery_payload.json
 
-# refresh open forecasts, market results, settlements, public context
-uv run --extra dev python -m pci_realtime.pipeline.daily_refresh --supabase
+# official-source evidence scout for trusted agents, dry-run first
+uv run --extra dev python scripts/run_agent_research_intake.py \
+  --since 2026-06-01 \
+  --output-path data/debug/agent_research_intake.json
 ```
 
 `./scripts/run_registry.sh` runs the whole loop locally and serves the web app on `:8510`. The `pci` console script (`pci_realtime.cli`) is a thin read/submit client over the registry service.
 
 ## Architecture
 
-**Two pipelines own the loop.** `weekly_live` owns the full forward path (ingest → score → build → discover → forecast → propose → write). `daily_refresh` owns the backward path (refresh market results, record settlements, refresh public context + source health). Nothing else should write registry rows.
+**Two pipelines own the active loop.** `weekly_live` owns official-source ingest, scoring, weekly PCI, evidence/source rows, and source health. `policy_discovery` owns reviewed source-lead discovery and governed promotion support. Legacy forecast/market helpers remain compatibility-only and should not become product-facing.
 
 **The data flows through three file-level schema contracts** — keep them and their consumers in lockstep:
 
@@ -72,8 +77,11 @@ The PCI update is **sticky**: `PCI[p,t] = clip(PCI[p,t-1] + Σ_doc(mean of the t
 - `src/pci_realtime/ingest/` — one client per official source (Federal Register, Treasury/IRS, Congress, OMB, plus `public_sources.py` for Regulations.gov, RegInfo/OIRA, USAspending, GovInfo, EIA, FRED, CourtListener). All normalize to Schema A.
 - `src/pci_realtime/scoring/` — `screener.py` (relevant/irrelevant/ambiguous) → `scorer.py` (dimension deltas, cost-ceilinged) → Schema B. `cache.py` keys by stable JSON; `prompts.py` holds schemas; `calibrate.py` gates on verified human-scored rows.
 - `src/pci_realtime/pci/builder.py` — Schema B → sticky Schema C.
-- `src/pci_realtime/forecast_registry/` — `policy.py`/`discovery.py` (market matching, resolution-clarity), `kalshi.py`/`polymarket.py` (public reads + execution gates), `engine.py` (events→signals→matches→forecasts→proposals→outcomes), `evidence.py` (source docs/items/links/health), `store.py` (Supabase REST + **public-payload safety checks** + write ordering).
-- `apps/web` — Next 16 / React 19, App Router. `lib/data.ts` fetches public views with publishable keys only; `lib/market-model.ts` merges rows into UI `PolicyMarket` objects. Routes: `/`, `/dashboard`, `/about`, plus hosted `/mcp`, `/connect`, `/llms.txt`.
+- `src/pci_realtime/forecast_registry/` — active source/evidence/store helpers plus legacy market/forecast compatibility modules. The default policy-desk path does not create new market snapshots, forecasts, outcomes, or trade proposals.
+- `src/pci_realtime/pipeline/policy_discovery.py` — source discovery, source-health rows, candidate review commands, and governed promotion support.
+- `src/pci_realtime/agent_research.py` + `scripts/run_agent_research_intake.py` — official-source web-search scout. Default is dry-run candidate JSON; `--write` submits only through governed agent intake after `status.write_configured` passes.
+- `src/pci_realtime/agent_intake.py` + `service.py` + `mcp_server.py` — local write-capable evidence intake. It requires a tracked policy code, public canonical URL, exact quote, claim, and deterministic idempotency key, then scores and promotes the evidence into the ledger.
+- `apps/web` — Next 16 / React 19, App Router. `lib/data.ts` fetches public views with publishable keys only; `lib/intelligence.ts`, `lib/policy-dossier.ts`, and `lib/terminal-data.ts` build the source-led desk read models. Routes: `/`, `/dashboard`, `/about`, plus hosted `/mcp`, `/connect`, `/llms.txt`.
 - `supabase/migrations/` — core tables + `v_*` public views. `supabase/functions/` Edge triggers only *proxy* to an external Python runner; they do not run the pipeline.
 
 A schema change is a **four-file change**: migration ↔ `store.py`/`evidence.py` row adapters ↔ `apps/web/lib` TypeScript types ↔ tests. `tests/test_supabase_contract.py` asserts the privacy filters exist.
@@ -82,9 +90,10 @@ A schema change is a **four-file change**: migration ↔ `store.py`/`evidence.py
 
 - **Trading is fail-closed.** Live Kalshi execution requires *all of*: `PCI_ENABLE_LIVE_TRADING=true`, risk checks passed, proposal id in an approval file, Kalshi credentials present, and an explicit `--send`. Never relax a gate or surface signed request payloads.
 - **Public views are privacy-filtered.** Forecast/proposal views require `private_info_used=false`, `policy_relevant=true`, `resolution_clear=true`; `v_market_snapshots` filters to `policy_relevant=true`. Never emit into public payloads: API key names, `sk-*`/`KALSHI_PRIVATE_KEY` secrets, `raw_response`, private firm identifiers, local `/Users/` paths, or signed trade data. The string `supabase` must not appear in rendered public pages (e2e checks this).
-- **No synthetic forecasts.** A baseline-only run with no eligible signal/market produces zero forecasts and zero proposals. Tests rely on this.
+- **No default forecasts/trades.** The default policy-desk path produces zero forecasts, outcomes, market snapshots, and trade proposals. Legacy helpers are compatibility-only.
 - **Cost ceiling.** Live scoring whose estimate exceeds `PCI_LLM_RUN_COST_CEILING_USD` must pass `--confirm-cost`.
 - **Core-source failure raises.** `weekly_live` degrades non-core source failures to source-health rows, but raises if all core sources (Federal Register, Congress, Regulations.gov, RegInfo/OIRA) fail.
+- **Agents can scout, but evidence writes are governed.** Codex/Claude/Omnigent-style agents may search and parse official public sources, but accepted writes must go through local MCP/service intake. General news is only a lead to primary sources; do not move PCI from commentary without a citeable public policy source and exact quote.
 - Don't edit `data/baseline/` or `data/fixtures/` unless explicitly asked, with tests/docs updated. Don't read or print `.env`/`.env.local`. `data/{raw,processed,cache,debug,private}`, `.next`, `.venv` are generated state.
 
 ## Conventions
