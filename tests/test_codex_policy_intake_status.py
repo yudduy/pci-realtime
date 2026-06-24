@@ -156,10 +156,11 @@ def test_codex_policy_intake_status_infers_legacy_payload_window(
             "rows": {
                 "pipeline_runs": [
                     {
+                        "status": "failed",
                         "metadata": {
                             "window_start": "2026-05-25",
                             "window_end": "2026-06-24",
-                        }
+                        },
                     }
                 ],
                 "policy_source_candidates": [],
@@ -179,8 +180,10 @@ def test_codex_policy_intake_status_infers_legacy_payload_window(
     assert status["latest_run"]["state"] == "completed_legacy"
     assert status["latest_run"]["since_date"] == "2026-05-25"
     assert status["latest_run"]["through_date"] == "2026-06-24"
+    assert status["latest_run"]["pipeline_status"] == "failed"
     assert "State: `completed_legacy`" in rendered
     assert "Through date: `2026-06-24`" in rendered
+    assert "Pipeline status: `failed`" in rendered
 
 
 def _write_json(path: Path, payload: object) -> None:

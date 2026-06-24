@@ -40,7 +40,8 @@ def build_status(
     artifacts = artifact_status(run_dir, status)
     candidates = candidate_summary(payload)
     source_health = source_health_summary(payload)
-    run_metadata = discovery_metadata(payload)
+    run_row = discovery_run(payload)
+    run_metadata = mapping(run_row.get("metadata"))
     return {
         "scheduler": scheduler_status(
             launch_agent_path,
@@ -54,6 +55,7 @@ def build_status(
             "completed_at": status.get("completed_at"),
             "since_date": status.get("since_date") or run_metadata.get("window_start"),
             "through_date": run_metadata.get("window_end"),
+            "pipeline_status": run_row.get("status"),
             "codex_exit_code": status.get("codex_exit_code"),
             "report_exit_code": status.get("report_exit_code"),
             "artifacts": artifacts,
@@ -113,6 +115,7 @@ def render_status(status: Mapping[str, Any]) -> str:
             f"- State: `{latest_run.get('state') or 'unknown'}`",
             f"- Since date: `{latest_run.get('since_date') or 'unknown'}`",
             f"- Through date: `{latest_run.get('through_date') or 'unknown'}`",
+            f"- Pipeline status: `{latest_run.get('pipeline_status') or 'unknown'}`",
             f"- Started: `{latest_run.get('started_at') or 'unknown'}`",
             f"- Completed: `{latest_run.get('completed_at') or 'unknown'}`",
             f"- Codex exit: `{exit_label(latest_run.get('codex_exit_code'))}`",
@@ -202,10 +205,9 @@ def run_state(status: Mapping[str, Any], payload: Mapping[str, Any]) -> str:
     return "unknown"
 
 
-def discovery_metadata(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+def discovery_run(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     runs = rows_for(payload, "pipeline_runs")
-    first_run = runs[0] if runs else {}
-    return mapping(first_run.get("metadata"))
+    return runs[0] if runs else {}
 
 
 def read_json(path: Path) -> dict[str, Any]:
