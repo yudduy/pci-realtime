@@ -490,12 +490,7 @@ export async function getRegistryData(): Promise<RegistryData> {
 
   const [
     currentPciResult,
-    marketSnapshotsResult,
-    marketDiscoveryCandidatesResult,
     policySourceCandidatesResult,
-    policyThesesResult,
-    beliefUpdatesResult,
-    policyBriefsResult,
     policyEventsResult,
     pipelineRunsResult,
     provisionTimelinesResult,
@@ -507,18 +502,10 @@ export async function getRegistryData(): Promise<RegistryData> {
     agentEvidenceSubmissionsResult,
   ] = await Promise.all([
     fetchView<CurrentPci>("v_current_pci", "select=*&order=code.asc"),
-    fetchView<MarketSnapshot>("v_market_snapshots", "select=*&order=generated_at.desc"),
-    fetchView<MarketDiscoveryCandidate>(
-      "v_market_discovery_candidates",
-      "select=*&order=generated_at.desc&limit=100",
-    ),
     fetchView<PolicySourceCandidate>(
       "v_policy_source_candidates",
       "select=*&order=discovered_at.desc&limit=100",
     ),
-    fetchView<PolicyThesis>("v_policy_theses", "select=*&order=provision.asc"),
-    fetchView<BeliefUpdate>("v_belief_updates", "select=*&order=created_at.desc&limit=200"),
-    fetchView<PolicyBrief>("v_policy_briefs", "select=*&order=period_end.desc&limit=100"),
     fetchView<PolicyEvent>("v_policy_events", "select=*&order=created_at.desc"),
     fetchView<PipelineRun>("v_pipeline_status", "select=*&limit=5"),
     fetchView<ProvisionTimeline>(
@@ -537,12 +524,7 @@ export async function getRegistryData(): Promise<RegistryData> {
   ])
   const viewErrors = [
     currentPciResult.error,
-    marketSnapshotsResult.error,
-    marketDiscoveryCandidatesResult.error,
     policySourceCandidatesResult.error,
-    policyThesesResult.error,
-    beliefUpdatesResult.error,
-    policyBriefsResult.error,
     policyEventsResult.error,
     pipelineRunsResult.error,
     provisionTimelinesResult.error,
@@ -558,12 +540,12 @@ export async function getRegistryData(): Promise<RegistryData> {
   const openForecasts: Forecast[] = []
   const resolvedForecasts: ResolvedForecast[] = []
   const tradeProposals: TradeProposal[] = []
-  const marketSnapshots = marketSnapshotsResult.rows
-  const marketDiscoveryCandidates = marketDiscoveryCandidatesResult.rows
+  const marketSnapshots: MarketSnapshot[] = []
+  const marketDiscoveryCandidates: MarketDiscoveryCandidate[] = []
   const policySourceCandidates = policySourceCandidatesResult.rows
-  const policyTheses = policyThesesResult.rows
-  const beliefUpdates = beliefUpdatesResult.rows
-  const policyBriefs = policyBriefsResult.rows
+  const policyTheses: PolicyThesis[] = []
+  const beliefUpdates: BeliefUpdate[] = []
+  const policyBriefs: PolicyBrief[] = []
   const policyEvents = policyEventsResult.rows
   const pipelineRuns = pipelineRunsResult.rows.map((run) => ({
     ...run,

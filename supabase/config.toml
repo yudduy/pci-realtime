@@ -24,6 +24,3 @@ enable_signup = false
 
 [functions.trigger-weekly-pipeline]
 verify_jwt = false
-
-[functions.trigger-daily-refresh]
-verify_jwt = false

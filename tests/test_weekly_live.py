@@ -50,38 +50,7 @@ def _scored_row() -> dict[str, Any]:
     }
 
 
-def _market_fixture() -> dict[str, Any]:
-    return {
-        "markets": [
-            {
-                "ticker": "KXIRA-45VREPEAL-YES",
-                "event_ticker": "KXIRA-45VREPEAL",
-                "title": "Will Congress repeal or terminate the 45V clean hydrogen tax credit?",
-                "subtitle": "IRA clean energy policy",
-                "yes_sub_title": "45V is repealed",
-                "no_sub_title": "45V remains in force",
-                "status": "active",
-                "result": None,
-                "yes_bid_dollars": "0.4500",
-                "yes_ask_dollars": "0.4900",
-                "volume_fp": "1000.00",
-                "volume_24h_fp": "100.00",
-                "liquidity_dollars": "250.00",
-                "open_interest_fp": "1000.00",
-                "open_time": "2026-05-01T00:00:00Z",
-                "close_time": "2026-12-31T23:59:59Z",
-                "latest_expiration_time": "2027-01-15T00:00:00Z",
-                "rules_primary": (
-                    "This market resolves Yes if a federal law terminates or repeals "
-                    "the Section 45V clean hydrogen production credit before expiration."
-                ),
-                "rules_secondary": "Official federal statute text controls resolution.",
-            }
-        ]
-    }
-
-
-def _write_fixture_inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
+def _write_fixture_inputs(tmp_path: Path) -> tuple[Path, Path]:
     raw_root = tmp_path / "raw"
     raw_dir = raw_root / "federal_register"
     scored_dir = tmp_path / "scored"
@@ -94,42 +63,31 @@ def _write_fixture_inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
         scored_dir / "scored_2025-W23.parquet", index=False
     )
 
-    market_path = tmp_path / "kalshi_markets.json"
-    from pci_realtime.forecast_registry.store import write_json
-
-    write_json(market_path, _market_fixture())
-    return raw_root, scored_dir, market_path
+    return raw_root, scored_dir
 
 
 def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
-    raw_root, scored_dir, market_path = _write_fixture_inputs(tmp_path)
+    raw_root, scored_dir = _write_fixture_inputs(tmp_path)
 
     rows = build_weekly_live_rows(
         week="2025-W23",
         raw_root=raw_root,
         scored_dir=scored_dir,
-        market_fixture_path=market_path,
         run_id=FIXED_RUN_ID,
     )
 
     assert len(rows["provisions"]) == 6
     assert len(rows["scored_deltas"]) == 1
     assert len(rows["policy_events"]) == 1
-    assert len(rows["market_snapshots"]) == 1
-    assert len(rows["market_discovery_candidates"]) == 1
-    assert len(rows["source_documents"]) == 2
-    assert len(rows["evidence_items"]) == 2
-    assert len(rows["source_links"]) >= 2
+    assert rows["market_snapshots"] == []
+    assert rows["market_discovery_candidates"] == []
+    assert len(rows["source_documents"]) == 1
+    assert len(rows["evidence_items"]) == 1
+    assert len(rows["source_links"]) >= 1
     assert rows["forecasts"] == []
     assert rows["trade_proposals"] == []
-    assert (
-        rows["pipeline_runs"][0]["metadata"]["forecast_generation"]
-        == "disabled_policy_desk"
-    )
-    assert rows["pipeline_runs"][0]["metadata"]["market_discovery_candidates"] == 1
     assert rows["scored_deltas"][0]["week"] == "2025-W23"
     assert rows["scored_deltas"][0]["doc_id"] == "federal_register:45v-guidance"
-    assert rows["market_discovery_candidates"][0]["eligible_snapshot"] is True
     assert (
         rows["source_documents"][0]["source_doc_id"] == "federal_register:45v-guidance"
     )
@@ -170,35 +128,6 @@ def test_weekly_live_rows_baseline_only_has_no_fake_forecasts(tmp_path: Path) ->
     assert rows["evidence_items"] == []
 
 
-def test_weekly_live_can_publish_market_scan_without_fake_forecasts(
-    tmp_path: Path,
-) -> None:
-    market_path = tmp_path / "kalshi_markets.json"
-    from pci_realtime.forecast_registry.store import write_json
-
-    write_json(market_path, _market_fixture())
-
-    rows = build_weekly_live_rows(
-        week="2025-W23",
-        raw_root=tmp_path / "raw",
-        scored_dir=tmp_path / "scored",
-        market_fixture_path=market_path,
-        run_id=FIXED_RUN_ID,
-    )
-
-    assert len(rows["market_snapshots"]) == 1
-    assert len(rows["market_discovery_candidates"]) == 1
-    assert rows["scored_deltas"] == []
-    assert len(rows["source_documents"]) == 1
-    assert len(rows["evidence_items"]) == 1
-    assert rows["forecasts"] == []
-    assert rows["trade_proposals"] == []
-    assert (
-        rows["pipeline_runs"][0]["metadata"]["forecast_generation"]
-        == "disabled_policy_desk"
-    )
-
-
 class RecordingSupabaseClient:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, int, str | None]] = []
@@ -219,12 +148,11 @@ class RecordingSupabaseClient:
 def test_write_supabase_rows_uses_upserts_for_current_state_tables(
     tmp_path: Path,
 ) -> None:
-    raw_root, scored_dir, market_path = _write_fixture_inputs(tmp_path)
+    raw_root, scored_dir = _write_fixture_inputs(tmp_path)
     rows = build_weekly_live_rows(
         week="2025-W23",
         raw_root=raw_root,
         scored_dir=scored_dir,
-        market_fixture_path=market_path,
         run_id=FIXED_RUN_ID,
     )
     client = RecordingSupabaseClient()
@@ -270,7 +198,7 @@ def test_weekly_live_dry_run_writes_payload_without_supabase(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    raw_root, scored_dir, market_path = _write_fixture_inputs(tmp_path)
+    raw_root, scored_dir = _write_fixture_inputs(tmp_path)
     output_path = tmp_path / "weekly_live_payload.json"
 
     def record_ingest(**_: Any) -> None:
@@ -289,7 +217,6 @@ def test_weekly_live_dry_run_writes_payload_without_supabase(
         end_date=pd.Timestamp("2025-06-08").date(),
         raw_root=raw_root,
         scored_dir=scored_dir,
-        market_fixture_path=market_path,
         dry_run=True,
         output_path=output_path,
     )

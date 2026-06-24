@@ -31,7 +31,6 @@ fi
 supabase link --project-ref "$SUPABASE_PROJECT_REF"
 supabase db push
 supabase functions deploy trigger-weekly-pipeline
-supabase functions deploy trigger-daily-refresh
 
 cat >&2 <<'EOF'
 Set pipeline secrets next:

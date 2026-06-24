@@ -21,15 +21,10 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
 
   const {
     policy,
-    theses,
-    beliefUpdates,
-    latestBrief,
     evidence,
     reviewedLeads,
-    marketSignals,
     staffQuestions,
   } = dossier
-  const latestUpdate = beliefUpdates[0] ?? null
 
   return (
     <div className="tracker-page policy-dossier-page">
@@ -41,74 +36,12 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
           <h1>{policy.name}</h1>
           <p>{policy.formalName}</p>
           <div className="policy-dossier-metrics" aria-label="Policy status metrics">
-            <Metric label="Staff brief" value={latestBrief ? "Ready" : "Empty"} />
             <Metric label="Evidence" value={String(policy.evidenceCount)} />
-            <Metric label="Theses" value={String(theses.length)} />
             <Metric label="Last refresh" value={formatDate(policy.latestRefreshAt)} />
             <Metric label="Derived PCI" value={formatScore(policy.currentPci)} />
           </div>
         </section>
 
-        <section className="policy-dossier-grid">
-          <article className="policy-dossier-panel policy-dossier-panel-wide">
-            <p className="eyebrow">Latest Staff Brief</p>
-            <h2>{latestBrief?.title ?? `${policy.code} brief`}</h2>
-            <p>{latestBrief?.summary ?? "No generated staff brief is available yet."}</p>
-            <dl className="policy-dossier-brief-list">
-              <div>
-                <dt>What changed</dt>
-                <dd>{latestBrief?.what_changed ?? "No verified ledger change in the current window."}</dd>
-              </div>
-              <div>
-                <dt>Why it matters</dt>
-                <dd>{latestBrief?.why_it_matters ?? policy.question}</dd>
-              </div>
-              <div>
-                <dt>Decision relevance</dt>
-                <dd>{latestBrief?.decision_relevance ?? "No new staff action is suggested by reviewed evidence alone."}</dd>
-              </div>
-            </dl>
-          </article>
-
-          <article className="policy-dossier-panel">
-            <p className="eyebrow">Current Belief Move</p>
-            {latestUpdate ? (
-              <>
-                <h2>{percent(latestUpdate.posterior_probability)} now</h2>
-                <p>{latestUpdate.rationale}</p>
-                <div className="policy-dossier-belief-delta">
-                  <span>was {percent(latestUpdate.prior_probability)}</span>
-                  <span>{beliefMove(latestUpdate)}</span>
-                  <span>{latestUpdate.reliability} reliability</span>
-                </div>
-              </>
-            ) : (
-              <p>No approved belief update is available for this policy.</p>
-            )}
-          </article>
-        </section>
-
-        <section className="policy-dossier-section">
-          <div className="policy-dossier-section-head">
-            <p className="eyebrow">Tracked Theses</p>
-            <h2>Beliefs The Desk Is Maintaining</h2>
-          </div>
-          <div className="policy-dossier-theses">
-            {theses.length ? (
-              theses.map((thesis) => (
-                <article key={thesis.thesis_id} className="policy-dossier-thesis">
-                  <h3>{thesis.question}</h3>
-                  <div>
-                    <span>{percent(thesis.current_probability)}</span>
-                    <span>confidence {percent(thesis.confidence)}</span>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <p>No active theses are published for this policy yet.</p>
-            )}
-          </div>
-        </section>
 
         <section className="policy-dossier-grid">
           <article className="policy-dossier-panel">
@@ -124,22 +57,6 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
         </section>
 
         <section className="policy-dossier-grid">
-          <article className="policy-dossier-panel">
-            <p className="eyebrow">Market Calibration</p>
-            <h2>External Probability Signals</h2>
-            {marketSignals.length ? (
-              <ul className="policy-dossier-list">
-                {marketSignals.slice(0, 4).map((market) => (
-                  <li key={`${market.venue}:${market.ticker}`}>
-                    <span>{market.title ?? market.ticker}</span>
-                    <strong>{market.market_probability === null ? "n/a" : percent(market.market_probability)}</strong>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No linked public market signal is available for this policy.</p>
-            )}
-          </article>
           <article className="policy-dossier-panel">
             <p className="eyebrow">Staff Q&A</p>
             <h2>Answers From The Ledger</h2>
@@ -248,17 +165,4 @@ function leadLabel(
       ? "ready for evidence review"
       : "not used in scoring"
   return `${classLabel}; ${useLabel}`
-}
-
-function beliefMove(
-  update: PolicyDossierData["beliefUpdates"][number],
-) {
-  const delta = update.posterior_probability - update.prior_probability
-  if (!Number.isFinite(delta) || Math.abs(delta) < 0.005) return "no material move"
-  return `${delta > 0 ? "up" : "down"} ${Math.abs(Math.round(delta * 100))} pts`
-}
-
-function percent(value: number | null | undefined): string {
-  if (value === null || value === undefined || Number.isNaN(value)) return "n/a"
-  return `${Math.round(value * 100)}%`
 }

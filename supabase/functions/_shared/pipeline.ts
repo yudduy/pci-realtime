@@ -1,4 +1,4 @@
-type PipelineKind = "weekly" | "daily_refresh";
+type PipelineKind = "weekly";
 
 function jsonResponse(payload: Record<string, unknown>, status: number): Response {
   return Response.json(payload, { status });

@@ -2,17 +2,13 @@ import { POLICIES, policyCopy, type PolicySourceReference } from "@/lib/policy-c
 import type {
   CurrentPci,
   EvidenceItem,
-  MarketDiscoveryCandidate,
-  MarketSnapshot,
   PolicySourceCandidate,
   PipelineRun,
   PolicyEvent,
   RegistryData,
 } from "@/lib/data"
-import { buildMarketCoverage } from "@/lib/market-coverage"
 
 export type PolicyEvidenceStatus =
-  | "market_context"
   | "documented"
   | "source_review"
   | "source_refresh"
@@ -39,8 +35,6 @@ export type PolicyIntelligence = {
   eventCount: number
   attributionDrivers: string[]
   sourceReferences: PolicySourceReference[]
-  marketSignals: MarketSnapshot[]
-  reviewCandidates: MarketDiscoveryCandidate[]
   sourceLeads: PolicySourceCandidate[]
   evidenceStatus: PolicyEvidenceStatus
   latestRefreshAt: string | null
@@ -62,28 +56,21 @@ export function getPolicyIntelligence(
 }
 
 export function deriveEvidenceStatus({
-  marketSignals,
-  reviewCandidates,
   sourceLeads = [],
   verifiedEvidenceCount = 0,
   latestRefreshAt,
-  scanned,
   now = new Date(),
 }: {
-  marketSignals: unknown[]
-  reviewCandidates: unknown[]
   sourceLeads?: unknown[]
   verifiedEvidenceCount?: number
   latestRefreshAt: string | null
-  scanned: number
   now?: Date
 }): PolicyEvidenceStatus {
-  if (!latestRefreshAt && !scanned) return "source_refresh"
+  if (!latestRefreshAt) return "source_refresh"
   if (latestRefreshAt && hoursBetween(latestRefreshAt, now) > SOURCE_STALE_HOURS) return "stale"
   if (verifiedEvidenceCount > 0) return "documented"
-  if (reviewCandidates.length || sourceLeads.length) return "source_review"
-  if (marketSignals.length) return "market_context"
-  return scanned ? "documented" : "source_refresh"
+  if (sourceLeads.length) return "source_review"
+  return "documented"
 }
 
 function buildPolicy(data: RegistryData, code: string): PolicyIntelligence {
@@ -95,35 +82,22 @@ function buildPolicy(data: RegistryData, code: string): PolicyIntelligence {
   const evidence = evidenceForEvents(events, data)
   const latestEvidence = newestEvidence(evidence, events)
   const fallbackSource = copy.sourceReferences[0] ?? null
-  const marketSignals = data.marketSnapshots.filter((snapshot) =>
-    policyMatchesSnapshot(snapshot, code),
-  )
-  const reviewCandidates = data.marketDiscoveryCandidates
-    .filter(
-      (candidate) =>
-        candidate.matched_provisions.includes(code) && !candidate.eligible_snapshot,
-    )
-    .sort(compareNewest)
   const sourceLeads = data.policySourceCandidates
     .filter((candidate) => candidate.provision === code)
     .sort(compareNewest)
   const verifiedEvidenceCount = data.policyEvidenceItems.filter(
     (item) => item.provision === code && item.quote_verified_against_source === true,
   ).length
-  const coverage = buildMarketCoverage(data)
   const sourceHealthLatest = latestDate(
     data.sourceHealth
       .map((source) => source.last_success_at)
       .filter((value): value is string => Boolean(value)),
   )
-  const latestRefreshAt = latestRefreshDate(data.pipelineRuns, sourceHealthLatest ?? coverage.latestAt)
+  const latestRefreshAt = latestRefreshDate(data.pipelineRuns, sourceHealthLatest)
   const evidenceStatus = deriveEvidenceStatus({
-    marketSignals,
-    reviewCandidates,
     sourceLeads,
     verifiedEvidenceCount,
     latestRefreshAt,
-    scanned: coverage.scanned,
   })
 
   return {
@@ -147,8 +121,6 @@ function buildPolicy(data: RegistryData, code: string): PolicyIntelligence {
     eventCount: events.length,
     attributionDrivers: copy.attributionDrivers,
     sourceReferences: copy.sourceReferences,
-    marketSignals,
-    reviewCandidates,
     sourceLeads,
     evidenceStatus,
     latestRefreshAt,
@@ -190,7 +162,7 @@ function latestRefreshDate(runs: PipelineRun[], sourceHealthLatest: string | nul
     .filter(
       (run) =>
         run.status === "success" &&
-        (run.run_type === "market_discovery" || run.run_type === "policy_discovery"),
+        (run.run_type === "weekly" || run.run_type === "policy_discovery"),
     )
     .map((run) => run.completed_at ?? run.started_at)
     .filter((value): value is string => Boolean(value))
@@ -204,19 +176,6 @@ function latestDate(values: string[]) {
     if (!latest) return value
     return new Date(value).getTime() > new Date(latest).getTime() ? value : latest
   }, null)
-}
-
-function policyMatchesSnapshot(snapshot: MarketSnapshot, code: string) {
-  const candidates = [
-    snapshot.query_name,
-    snapshot.title,
-    snapshot.subtitle,
-    snapshot.ticker,
-    snapshot.event_ticker,
-  ]
-  return candidates.some(
-    (value) => typeof value === "string" && value.toUpperCase().includes(code),
-  )
 }
 
 function compareNewest(

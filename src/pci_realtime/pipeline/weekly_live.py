@@ -13,26 +13,15 @@ from typing import Any
 import pandas as pd
 
 from pci_realtime.config import PROCESSED_DATA_ROOT, RAW_DATA_ROOT
-from pci_realtime.forecast_registry.engine import utc_now_iso
-from pci_realtime.forecast_registry.discovery import market_candidate_row
 from pci_realtime.forecast_registry.evidence import (
-    evidence_rows_from_market_snapshots,
     evidence_rows_from_policy_events,
-    source_document_rows_from_markets,
     source_document_rows_from_raw_docs,
     source_health_row,
-    source_links_from_market_snapshots,
     source_links_from_policy_events,
 )
-from pci_realtime.forecast_registry.kalshi import (
-    fetch_market_snapshot_scan,
-    snapshots_from_fixture,
-)
-from pci_realtime.forecast_registry.polymarket import fetch_polymarket_snapshot_scan
 from pci_realtime.forecast_registry.store import (
     SupabaseRestClient,
     build_seed_rows,
-    market_to_row,
     scored_delta_to_row,
     write_json,
     write_supabase_rows as store_write_supabase_rows,
@@ -332,10 +321,6 @@ def build_weekly_live_rows(
     raw_root: Path = RAW_DATA_ROOT,
     scored_dir: Path = PROCESSED_DATA_ROOT / "scored",
     historical_scored: pd.DataFrame | None = None,
-    market_fixture_path: Path | None = None,
-    fetch_markets: bool = False,
-    fetch_polymarket: bool = False,
-    query_file: Path = Path("config/policy_market_queries.yml"),
     run_id: str | None = None,
     ingest_sources: tuple[str, ...] = DEFAULT_INGEST_SOURCES,
     source_health: list[dict[str, Any]] | None = None,
@@ -359,61 +344,6 @@ def build_weekly_live_rows(
         weekly, events=policy_events, scored_events=scored_events
     )
 
-    market_scan: dict[str, Any] = {
-        "scanned": 0,
-        "published": 0,
-        "stored_candidates": 0,
-        "rejected_duplicate": 0,
-        "rejected_query_keywords": 0,
-        "rejected_not_policy_relevant": 0,
-        "requests": 0,
-        "rate_limited": 0,
-        "retries": 0,
-        "by_venue": {},
-    }
-    market_candidates: list[dict[str, Any]] = []
-    market_generated_at = utc_now_iso()
-
-    def merge_market_scan(venue: str, stats: dict[str, Any]) -> None:
-        market_scan["by_venue"][venue] = stats
-        for key, value in stats.items():
-            if isinstance(value, int) and isinstance(market_scan.get(key), int):
-                market_scan[key] += value
-
-    if market_fixture_path is not None:
-        markets = snapshots_from_fixture(market_fixture_path, audit=market_scan)
-        market_candidates = [
-            market_candidate_row(
-                market,
-                run_id=run_id,
-                generated_at=str(market.get("generated_at") or market_generated_at),
-                rank=index,
-                query_name=str(market.get("query_name") or "fixture"),
-            )
-            for index, market in enumerate(markets, start=1)
-        ]
-        market_scan["stored_candidates"] = len(market_candidates)
-    elif fetch_markets:
-        kalshi_scan = fetch_market_snapshot_scan(
-            query_file=query_file,
-            run_id=run_id,
-            generated_at=market_generated_at,
-        )
-        markets = list(kalshi_scan.snapshots)
-        market_candidates.extend(kalshi_scan.candidates)
-        merge_market_scan("kalshi", kalshi_scan.stats)
-        if fetch_polymarket:
-            polymarket_scan = fetch_polymarket_snapshot_scan(
-                query_file=query_file,
-                run_id=run_id,
-                generated_at=market_generated_at,
-            )
-            markets.extend(polymarket_scan.snapshots)
-            market_candidates.extend(polymarket_scan.candidates)
-            merge_market_scan("polymarket", polymarket_scan.stats)
-    else:
-        markets = []
-
     seed_rows = build_seed_rows()
     pipeline_runs = [
         {
@@ -425,10 +355,6 @@ def build_weekly_live_rows(
                 "week": week,
                 "ingest_sources": list(ingest_sources),
                 "policy_events": len(policy_events),
-                "markets": len(markets),
-                "market_scan": market_scan,
-                "market_discovery_candidates": len(market_candidates),
-                "forecast_generation": "disabled_policy_desk",
             },
         }
     ]
@@ -439,19 +365,12 @@ def build_weekly_live_rows(
         "scored_deltas": _scored_delta_table_rows(scored_for_pci),
         "pci_weekly": weekly_rows,
         "policy_events": _policy_event_table_rows(policy_events),
-        "market_snapshots": [market_to_row(market) for market in markets],
-        "market_discovery_candidates": market_candidates,
-        "source_documents": [
-            *source_document_rows_from_raw_docs(raw_docs),
-            *source_document_rows_from_markets(markets),
-        ],
-        "evidence_items": [
-            *evidence_rows_from_policy_events(policy_events),
-            *evidence_rows_from_market_snapshots(markets),
-        ],
+        "market_snapshots": [],
+        "market_discovery_candidates": [],
+        "source_documents": [*source_document_rows_from_raw_docs(raw_docs)],
+        "evidence_items": [*evidence_rows_from_policy_events(policy_events)],
         "source_links": [
             *source_links_from_policy_events(policy_events),
-            *source_links_from_market_snapshots(markets),
         ],
         "source_health": source_health or [],
         "forecasts": [],
@@ -642,10 +561,6 @@ def run_weekly_live(
     scored_dir: Path = PROCESSED_DATA_ROOT / "scored",
     fetch_bodies: bool = True,
     confirm_cost: bool = False,
-    market_fixture_path: Path | None = None,
-    fetch_markets: bool = False,
-    fetch_polymarket: bool = False,
-    query_file: Path = Path("config/policy_market_queries.yml"),
     ingest_sources: tuple[str, ...] = DEFAULT_INGEST_SOURCES,
     dry_run: bool = False,
     output_path: Path | None = None,
@@ -679,10 +594,6 @@ def run_weekly_live(
         raw_root=raw_root,
         scored_dir=scored_dir,
         historical_scored=historical_scored,
-        market_fixture_path=market_fixture_path,
-        fetch_markets=fetch_markets,
-        fetch_polymarket=fetch_polymarket,
-        query_file=query_file,
         run_id=run_id,
         ingest_sources=ingest_sources,
         source_health=source_health,
@@ -707,10 +618,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--raw-root", default=str(RAW_DATA_ROOT))
     parser.add_argument("--scored-dir", default=str(PROCESSED_DATA_ROOT / "scored"))
     parser.add_argument("--confirm-cost", action="store_true")
-    parser.add_argument("--market-fixture-path")
-    parser.add_argument("--fetch-markets", action="store_true")
-    parser.add_argument("--fetch-polymarket", action="store_true")
-    parser.add_argument("--query-file", default="config/policy_market_queries.yml")
     parser.add_argument(
         "--ingest-source",
         action="append",
@@ -735,12 +642,6 @@ def main() -> None:
         scored_dir=Path(args.scored_dir),
         fetch_bodies=True,
         confirm_cost=args.confirm_cost,
-        market_fixture_path=Path(args.market_fixture_path)
-        if args.market_fixture_path
-        else None,
-        fetch_markets=args.fetch_markets,
-        fetch_polymarket=args.fetch_polymarket,
-        query_file=Path(args.query_file),
         ingest_sources=tuple(args.ingest_source or DEFAULT_INGEST_SOURCES),
         dry_run=args.dry_run,
         output_path=Path(args.output_path) if args.output_path else None,

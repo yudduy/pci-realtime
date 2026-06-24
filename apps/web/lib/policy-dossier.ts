@@ -1,11 +1,7 @@
 import { getPolicyIntelligence, type PolicyIntelligence } from "@/lib/intelligence"
 import type {
-  BeliefUpdate,
   EvidenceItem,
-  MarketSnapshot,
-  PolicyBrief,
   PolicySourceCandidate,
-  PolicyThesis,
   RegistryData,
 } from "@/lib/data"
 
@@ -17,12 +13,8 @@ export type StaffQuestion = {
 
 export type PolicyDossier = {
   policy: PolicyIntelligence
-  theses: PolicyThesis[]
-  beliefUpdates: BeliefUpdate[]
-  latestBrief: PolicyBrief | null
   evidence: EvidenceItem[]
   reviewedLeads: PolicySourceCandidate[]
-  marketSignals: MarketSnapshot[]
   staffQuestions: StaffQuestion[]
 }
 
@@ -39,16 +31,6 @@ export function buildPolicyDossier(data: RegistryData, code: string): PolicyDoss
   const policy = getPolicyIntelligence(data, code)
   if (!policy) return null
 
-  const theses = data.policyTheses
-    .filter((thesis) => thesis.provision === policy.code)
-    .sort((a, b) => a.thesis_type.localeCompare(b.thesis_type))
-  const beliefUpdates = data.beliefUpdates
-    .filter((update) => update.provision === policy.code)
-    .sort(compareNewest)
-  const latestBrief =
-    data.policyBriefs
-      .filter((brief) => brief.provision === policy.code)
-      .sort(compareNewest)[0] ?? null
   const evidence = data.policyEvidenceItems
     .filter(
       (item) =>
@@ -60,21 +42,11 @@ export function buildPolicyDossier(data: RegistryData, code: string): PolicyDoss
   const reviewedLeads = data.policySourceCandidates
     .filter((candidate) => candidate.provision === policy.code)
     .sort(compareNewest)
-  const marketSignals = data.marketSnapshots
-    .filter((market) => marketMatchesPolicy(market, policy.code))
-    .sort(compareNewest)
-
   return {
     policy,
-    theses,
-    beliefUpdates,
-    latestBrief,
     evidence,
     reviewedLeads,
-    marketSignals,
     staffQuestions: buildStaffQuestions({
-      latestBrief,
-      beliefUpdates,
       evidence,
       reviewedLeads,
     }),
@@ -82,31 +54,29 @@ export function buildPolicyDossier(data: RegistryData, code: string): PolicyDoss
 }
 
 function buildStaffQuestions({
-  latestBrief,
-  beliefUpdates,
   evidence,
   reviewedLeads,
 }: {
-  latestBrief: PolicyBrief | null
-  beliefUpdates: BeliefUpdate[]
   evidence: EvidenceItem[]
   reviewedLeads: PolicySourceCandidate[]
 }): StaffQuestion[] {
-  const latestUpdate = beliefUpdates[0] ?? null
   const latestEvidence = evidence[0] ?? null
   const latestLead = reviewedLeads[0] ?? null
   return [
     {
       question: "Why did this move?",
       answer:
-        latestUpdate?.rationale ??
-        latestBrief?.what_changed ??
-        "No approved belief update is available for this policy in the current window.",
-      citations: latestUpdate
-        ? [{ label: beliefUpdateLabel(latestUpdate), href: null }]
-        : latestBrief
-          ? [{ label: latestBrief.brief_id, href: null }]
-          : [],
+        latestEvidence?.snippet ??
+        latestEvidence?.citation_quote ??
+        "No verified source-backed move is available for this policy in the current window.",
+      citations: latestEvidence
+        ? [
+            {
+              label: latestEvidence.source_title ?? latestEvidence.evidence_id,
+              href: latestEvidence.canonical_url ?? latestEvidence.url,
+            },
+          ]
+        : [],
     },
     {
       question: "What source proves it?",
@@ -126,7 +96,6 @@ function buildStaffQuestions({
     {
       question: "What should staff watch next?",
       answer:
-        latestBrief?.watch_items[0] ??
         latestLead?.why_it_matters ??
         "Watch for new reviewed primary-source activity before changing staff guidance.",
       citations: latestLead
@@ -139,34 +108,6 @@ function buildStaffQuestions({
         : [],
     },
   ]
-}
-
-function marketMatchesPolicy(market: MarketSnapshot, code: string): boolean {
-  return [
-    market.query_name,
-    market.title,
-    market.subtitle,
-    market.ticker,
-    market.event_ticker,
-  ].some((value) => typeof value === "string" && value.toUpperCase().includes(code))
-}
-
-function beliefUpdateLabel(update: BeliefUpdate): string {
-  const date = shortDate(update.created_at)
-  const direction = update.direction === "neutral" ? "held" : update.direction
-  return date === "n/a"
-    ? `Belief update: ${direction}`
-    : `Belief update: ${direction} on ${date}`
-}
-
-function shortDate(value: string | null | undefined): string {
-  if (!value) return "n/a"
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(value))
 }
 
 function compareNewest(a: SortableDateRow, b: SortableDateRow): number {

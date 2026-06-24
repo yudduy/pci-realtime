@@ -1,6 +1,6 @@
 # Policy Credibility Registry
 
-Supabase-backed policy intelligence registry for the IRA venture-capital research project. The system turns official federal policy documents and reviewed public leads into a citation-backed ledger for policymakers. The Policy Credibility Index (PCI) is a derived signal on top of that ledger, with public markets kept as read-only context.
+Supabase-backed policy intelligence registry for the IRA venture-capital research project. The system turns official federal policy documents and reviewed public leads into a citation-backed ledger for policymakers. The Policy Credibility Index (PCI) is a derived signal on top of that ledger.
 
 The public web app is a research companion and read-only registry surface. It does not place orders, invent forecasts, or expose private execution payloads.
 
@@ -13,14 +13,11 @@ official policy documents
   -> weekly PCI series
   -> daily policy discovery candidates
   -> governed evidence promotion
-  -> market discovery
-  -> deterministic policy belief updates
-  -> staff brief readiness
 ```
 
-`weekly_live` owns the full weekly path: ingest official sources, score PCI deltas, build PCI, fetch public market context, and publish registry rows. `policy_discovery` runs the daily intelligence-desk path: official-source discovery plus OpenAI web-search leads, candidate triage, source review, and governed promotion through `submit_policy_evidence`. `daily_refresh` refreshes public context sources and source-health metadata without reading forecasts or writing forecast outcomes.
+`weekly_live` owns the weekly registry path: ingest official sources, score PCI deltas, build PCI, and publish registry rows. `policy_discovery` runs the daily source-review path: official-source discovery plus OpenAI web-search leads, candidate triage, source review, and governed promotion through `submit_policy_evidence`.
 
-Markets are read-only policy context. They do not make evidence ready, move ledger evidence, imply a trading edge, or trigger order execution.
+Legacy market, belief, forecast, and trade tables remain in Supabase for compatibility. They are not part of the default registry loop or public web read model.
 
 ## Research Context
 
@@ -121,27 +118,14 @@ python -m pci_realtime.pipeline.seed_supabase --dry-run
 python -m pci_realtime.pipeline.seed_supabase
 ```
 
-Run the weekly registry loop with official source ingest, LLM scoring, broad market discovery, gated proposals, and Supabase writes:
+Run the weekly registry loop with official source ingest, LLM scoring, and Supabase writes:
 
 ```bash
 python -m pci_realtime.pipeline.weekly_live \
   --start-date 2026-05-18 \
   --end-date 2026-05-24 \
-  --confirm-cost \
-  --fetch-markets \
-  --fetch-polymarket
+  --confirm-cost
 ```
-
-Run only the public market discovery/audit loop:
-
-```bash
-python -m pci_realtime.pipeline.market_discovery --dry-run \
-  --output-path data/debug/market_discovery_payload.json
-python -m pci_realtime.pipeline.market_discovery
-```
-
-The discovery loop paginates public Kalshi and Polymarket surfaces, stores eligible market snapshots, and records near-miss candidates with rejection reasons. Use `--include-all-candidates` only for bounded absence audits because it persists every scanned public market row.
-The scheduled default scans 5,000 open Kalshi markets plus 1,000 active Polymarket events; raise `--polymarket-limit` for one-off deeper absence audits.
 
 Run the daily policy intelligence discovery loop:
 
@@ -163,23 +147,6 @@ python -m pci_realtime.pipeline.policy_discovery --list-pending
 python -m pci_realtime.pipeline.policy_discovery --approve-id <candidate_id>
 python -m pci_realtime.pipeline.policy_discovery --approve-context-id <candidate_id>
 python -m pci_realtime.pipeline.policy_discovery --reject-id <candidate_id>
-```
-
-Build deterministic policy thesis updates and staff briefs from verified ledger
-evidence plus reviewed context:
-
-```bash
-python -m pci_realtime.pipeline.policy_beliefs \
-  --since 2026-06-01 \
-  --dry-run \
-  --output-path data/debug/policy_beliefs.json
-python -m pci_realtime.pipeline.policy_beliefs --since 2026-06-01
-```
-
-Refresh market outcomes and performance metadata from Supabase:
-
-```bash
-python -m pci_realtime.pipeline.daily_refresh --supabase
 ```
 
 ## Agent MCP Evidence Intake
@@ -335,23 +302,18 @@ The command sources `.env`, defaults to the previous complete Monday-Sunday week
 | Route | Purpose |
 |---|---|
 | `/` | Live policy-market tracker landing with cited official-source updates |
-| `/dashboard` | registry for PCI, market context, policy events, evidence, source health, and staff briefs |
+| `/dashboard` | registry for PCI, policy events, reviewed leads, evidence, and source health |
 
 The UI reads from Supabase public views:
 
 | View | UI Surface |
 |---|---|
 | `v_current_pci` | provision cards and PCI scores |
-| `v_market_snapshots` | read-only market scan cards |
-| `v_market_discovery_candidates` | latest eligible and near-miss market candidates |
 | `v_policy_events` | official policy event feed |
 | `v_evidence_items` | citations and source-backed snippets |
-| `v_source_links` | links from evidence to events and market rows |
+| `v_source_links` | links from evidence to events |
 | `v_source_health` | plain-language source freshness labels |
 | `v_policy_source_candidates` | reviewed source leads and context candidates |
-| `v_policy_theses` | active policymaker-relevant belief objects |
-| `v_belief_updates` | deterministic belief moves tied to verified evidence |
-| `v_policy_briefs` | generated daily/weekly staff briefs |
 
 Private order payloads, raw model responses, API keys, firm data, signatures, and private file paths must never appear in public views.
 
@@ -365,7 +327,7 @@ The backend keeps three file-level contracts for tests and offline runs:
 | Scored PCI deltas | `pci_realtime.scoring.scorer` | weekly PCI builder | `data/processed/scored/scored_<YYYY-WW>.parquet` |
 | Weekly PCI series | `pci_realtime.pci.builder` | registry loop and export jobs | `data/processed/pci_weekly.parquet` |
 
-The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `market_discovery_candidates`, `policy_source_candidates`, `policy_theses`, `belief_updates`, `policy_briefs`, `pipeline_runs`, `source_documents`, `evidence_items`, `source_links`, and `source_health`. Legacy forecast and trade tables remain in the database for compatibility, but the policy-desk pipeline no longer writes them by default.
+The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `policy_source_candidates`, `pipeline_runs`, `source_documents`, `evidence_items`, `source_links`, and `source_health`. Legacy market, belief, forecast, and trade tables remain in the database for compatibility, but the default registry loop and public web read model no longer write or fetch them.
 
 ## Capability Status
 
@@ -375,10 +337,9 @@ The product-facing contract is the registry tables: `provisions`, `pci_weekly`, 
 | Federal Register, Treasury, IRS, and OMB ingest | implemented |
 | Congress.gov primary legislative ingest | implemented, ProPublica fallback optional |
 | Regulations.gov, RegInfo/OIRA, and USAspending ingest | wired into the default weekly command |
-| GovInfo, EIA, FRED, CourtListener, and Polymarket clients | scaffolded for public context and market discovery |
+| GovInfo, EIA, FRED, CourtListener, Kalshi, and Polymarket clients | compatibility/manual modules only |
 | LLM scoring and caching | implemented |
 | Weekly PCI builder | implemented |
-| Public market read-through | implemented as context only |
 | Normalized source documents, evidence items, trace links, and source health | implemented |
 | Public Supabase views | implemented |
 | Agent research scout over official-source web search | implemented, dry-run first and write-gated |

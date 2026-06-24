@@ -36,7 +36,6 @@ DEFAULT_START_DATE="${DEFAULT_DATES%% *}"
 DEFAULT_END_DATE="${DEFAULT_DATES##* }"
 START_DATE="${START_DATE:-$DEFAULT_START_DATE}"
 END_DATE="${END_DATE:-$DEFAULT_END_DATE}"
-RUN_DAILY_REFRESH="${RUN_DAILY_REFRESH:-true}"
 
 if [[ "$REQUIRE_PRODUCTION_KEYS" == "true" ]]; then
   for name in OPENAI_API_KEY PROPUBLICA_CONGRESS_API_KEY; do
@@ -70,14 +69,7 @@ SUPABASE_SERVICE_ROLE_KEY="$SECRET_KEY" \
   uv run --extra dev python -m pci_realtime.pipeline.weekly_live \
     --start-date "$START_DATE" \
     --end-date "$END_DATE" \
-    --confirm-cost \
-    --fetch-markets
-
-if [[ "$RUN_DAILY_REFRESH" == "true" ]]; then
-  SUPABASE_URL="$API_URL" \
-  SUPABASE_SERVICE_ROLE_KEY="$SECRET_KEY" \
-    uv run --extra dev python -m pci_realtime.pipeline.daily_refresh --supabase
-fi
+    --confirm-cost
 
 SUPABASE_URL="$API_URL" \
 SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" \

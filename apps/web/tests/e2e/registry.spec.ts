@@ -32,14 +32,10 @@ test("renders the policy intelligence desk as the home page", async ({ page }) =
   expect(visibleContent).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|pci signal|prediction mode/i)
 })
 
-test("renders a policy dossier with briefs, theses, and cited answers", async ({ page }) => {
+test("renders a policy dossier with reviewed sources and cited answers", async ({ page }) => {
   await page.goto("/policies/45V")
 
   await expect(page.getByRole("heading", { name: "Clean Hydrogen Production Credit" })).toBeVisible()
-  await expect(page.getByText("Latest Staff Brief")).toBeVisible()
-  await expect(page.getByText("45V has 1 verified belief update")).toBeVisible()
-  await expect(page.getByText("Beliefs The Desk Is Maintaining")).toBeVisible()
-  await expect(page.getByText("weakens implementation timing thesis").first()).toBeVisible()
   await expect(page.getByText("Primary Sources")).toBeVisible()
   await expect(page.getByText("Clean hydrogen production credit guidance").first()).toBeVisible()
   await expect(page.getByText("Reviewed Watchlist")).toBeVisible()
@@ -52,6 +48,8 @@ test("renders a policy dossier with briefs, theses, and cited answers", async ({
   await expect(page.getByText("Answers From The Ledger")).toBeVisible()
   await expect(page.getByText("Why did this move?")).toBeVisible()
   await expect(page.getByText("What source proves it?")).toBeVisible()
+  await expect(page.getByText("Beliefs The Desk Is Maintaining")).toHaveCount(0)
+  await expect(page.getByText("45V has 1 verified belief update")).toHaveCount(0)
   await expect(page.getByText(/belief:/i)).toHaveCount(0)
   await expect(page.getByText("Unreviewed news")).toHaveCount(0)
 })
