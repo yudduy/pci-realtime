@@ -31,11 +31,10 @@ apps/web/tsconfig.tsbuildinfo
 .env.*
 !.env.example
 
-# Data outputs
-data/raw/**/*.parquet
-data/processed/**/*.parquet
-data/cache/**/*.json
-data/cache/**/*.csv
+# Data outputs (generated state; keep data/baseline and data/fixtures tracked)
+data/raw/**
+data/processed/**
+data/cache/**
 data/private/**
 data/debug/**
 
