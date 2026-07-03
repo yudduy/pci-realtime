@@ -6,7 +6,7 @@ const authors = [
   { name: "Yikai Cao", institution: "Stanford University" },
   { name: "Charles Eesley", institution: "Stanford University" },
   { name: "Rishee Jain", institution: "Stanford University" },
-  { name: "Dinesh Moorjani", institution: "Stanford University" },
+  { name: "Dinesh Moorjani", institution: "UCLA" },
 ]
 
 const paperFacts = [
@@ -38,8 +38,8 @@ export default function AboutPage() {
       <header className="academic-header compact">
         <p className="academic-kicker">Policy Credibility Index</p>
         <h1>
-          Industrial policy reshapes venture capital allocation and growth
-          trajectories in climate technologies
+          Whether industrial policy mobilizes private capital depends on the
+          credibility of its commitments
         </h1>
 
         <div className="academic-authors" aria-label="Authors">
@@ -51,16 +51,18 @@ export default function AboutPage() {
           ))}
         </div>
 
-        <p className="academic-venue">Research article companion / May 2026</p>
+        <p className="academic-venue">
+          Proceedings of the National Academy of Sciences (PNAS) &middot; 2026
+        </p>
 
         <div className="academic-link-row" aria-label="Project links">
-          <a className="academic-pill-link" href="https://github.com/yudduy/pci-realtime/blob/main/Research_report.pdf">
+          <a className="academic-pill-link" href="/paper.pdf">
             Paper
           </a>
-          <a className="academic-pill-link" href="https://github.com/yudduy/pci-realtime/blob/main/SI_Appendix.pdf">
+          <a className="academic-pill-link" href="/si-appendix.pdf">
             SI Appendix
           </a>
-          <Link className="academic-pill-link" href="/dashboard">
+          <Link className="academic-pill-link" href="/">
             Terminal
           </Link>
           <a className="academic-pill-link" href="https://github.com/yudduy/pci-realtime">
@@ -106,7 +108,7 @@ export default function AboutPage() {
               <p className="academic-figure-label">Figure 1</p>
               <h2 id="pci-figure-title">Policy credibility by unit</h2>
             </div>
-            <Link className="academic-outline-link" href="/dashboard">
+            <Link className="academic-outline-link" href="/">
               Open terminal
             </Link>
           </div>
@@ -172,11 +174,11 @@ export default function AboutPage() {
 
       <section id="citation" className="academic-section">
         <h2>BibTeX</h2>
-        <pre className="bibtex-block">{`@article{cao2026industrialpolicy,
-  title={Industrial policy reshapes venture capital allocation and growth trajectories in climate technologies},
+        <pre className="bibtex-block">{`@article{cao2026credibility,
+  title={Whether industrial policy mobilizes private capital depends on the credibility of its commitments},
   author={Cao, Yikai and Eesley, Charles and Jain, Rishee and Moorjani, Dinesh},
-  year={2026},
-  note={Research article companion}
+  journal={Proceedings of the National Academy of Sciences},
+  year={2026}
 }`}</pre>
       </section>
     </main>

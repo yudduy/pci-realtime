@@ -14,13 +14,21 @@ test("registry renders policy terminal state", async ({ page }) => {
   await page.goto("/about")
   await expect(
     page.getByRole("heading", {
-      name: "Industrial policy reshapes venture capital allocation and growth trajectories in climate technologies",
+      name: "Whether industrial policy mobilizes private capital depends on the credibility of its commitments",
     }),
   ).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Specificity" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Paper", exact: true })).toHaveAttribute(
+    "href",
+    "/paper.pdf",
+  )
+  await expect(page.getByRole("link", { name: "SI Appendix" })).toHaveAttribute(
+    "href",
+    "/si-appendix.pdf",
+  )
   expect(await page.content()).not.toMatch(/supabase/i)
 
-  await page.goto("/dashboard")
+  await page.goto("/")
 
   await expect(page.getByRole("heading", { name: "Climate policy intelligence" })).toBeVisible()
   await expect(page.getByText("Policy Intelligence Ledger", { exact: true })).toBeVisible()
@@ -64,7 +72,7 @@ test("registry renders policy terminal state", async ({ page }) => {
   expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|pci signal|prediction mode/i)
 
   await page.goto("/policies/45V")
-  await expect(page).toHaveURL(/\/dashboard#policy-45V$/)
+  await expect(page).toHaveURL(/\/#policy-45V$/)
   await expect(page.getByRole("heading", { name: "Tracked policies" })).toBeVisible()
   await expect(page.getByText("Policy basis")).toHaveCount(0)
 })
