@@ -13,9 +13,7 @@ export function GET() {
 ## Agent Setup
 - [Connect](${baseUrl}/connect): Human-facing setup page for trusted agents that read the PCIndex registry and submit cited evidence.
 - [Hosted MCP](${baseUrl}/mcp): Read-only Streamable HTTP MCP endpoint for policy status, dossiers, and evidence traces.
-- [PCIndex MCP](${repoUrl}/blob/main/MCP.md): How agents connect to the PCIndex MCP server and submit cited evidence.
-- [Repository README](${repoUrl}/blob/main/README.md): Build, registry, web app, and operator guide.
-- [Contributor guide](${repoUrl}/blob/main/AGENTS.md): Repository structure, commands, tests, and contribution rules.
+- [Repository README](${repoUrl}/blob/main/README.md): Build, registry, web app, MCP setup, and operator guide.
 
 ## Registry Interfaces
 - [MCP server source](${repoUrl}/blob/main/src/pci_realtime/mcp_server.py): Read and write tools exposed to agents.

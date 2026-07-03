@@ -150,14 +150,33 @@ python -m pci_realtime.pipeline.daily_refresh --supabase
 
 ## Agent MCP Evidence Intake
 
-For the copy-paste setup guide, see [`MCP.md`](MCP.md). The public web app also
-serves a human setup page at `/connect`, a hosted read-only MCP endpoint at
-`/mcp`, and an agent documentation index at `/llms.txt`.
+The public web app serves a human setup page at `/connect`, a hosted read-only
+MCP endpoint at `/mcp`, and an agent documentation index at `/llms.txt`.
 
 The JSON fixture in `data/fixtures/agent_evidence_seed.json` is only a bootstrap
 seed. The intended live path is for a research agent to call the PCIndex MCP
 server, submit a public citation, and let the service dedupe, score, trace, and
 write the registry rows.
+
+### Hosted read-only MCP (no setup)
+
+The hosted endpoint exposes read-only tools (`status`, `list_policies`,
+`current_pci`, `policy_dossier`, `get_evidence_trace`). Add it in one line:
+
+```bash
+# Claude Code
+claude mcp add -s user -t http pcindex https://pcindex.vercel.app/mcp
+# Codex CLI
+codex mcp add pcindex --url https://pcindex.vercel.app/mcp
+```
+
+Generic hosted config:
+
+```json
+{ "mcpServers": { "pcindex": { "serverUrl": "https://pcindex.vercel.app/mcp" } } }
+```
+
+### Local write-capable MCP (trusted operators)
 
 Hosted `/mcp` exposes read-only tools for status, policy lists, current PCI,
 dossiers, and evidence traces. Before using local MCP writes, apply
@@ -198,6 +217,15 @@ Example MCP client configuration:
     }
   }
 }
+```
+
+Local stdio is the default transport. For a hosted or internal HTTP deployment,
+run the same server with Streamable HTTP:
+
+```bash
+PCINDEX_MCP_TRANSPORT=streamable-http \
+PCINDEX_MCP_MOUNT_PATH=/mcp \
+uv run --extra dev python -m pci_realtime.mcp_server
 ```
 
 Expected agent loop:
