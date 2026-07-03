@@ -44,6 +44,7 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
               value={formatPciValue(policy.currentPci)}
               sub={move ? `${formatDelta(move)} this week` : "No move this week"}
               subClassName={deltaToneClass(move)}
+              scaleValue={policy.currentPci}
               primary
             />
             <Metric label="Specificity" value={formatScore(policy.specificity)} gauge={policy.specificity} />
@@ -71,7 +72,7 @@ export default async function PolicyPage({ params }: PolicyPageProps) {
             <h2>Reviewed Watchlist</h2>
             <LeadList leads={reviewedLeads} />
           </article>
-          <article className="policy-dossier-panel">
+          <article className="policy-dossier-panel policy-dossier-panel-full">
             <p className="eyebrow">Staff Q&A</p>
             <h2>Answers From The Ledger</h2>
             <div className="policy-dossier-qa">
@@ -107,6 +108,7 @@ function Metric({
   subClassName,
   primary,
   gauge,
+  scaleValue,
 }: {
   label: string
   value: string
@@ -114,6 +116,7 @@ function Metric({
   subClassName?: string
   primary?: boolean
   gauge?: number | null
+  scaleValue?: number | null
 }) {
   return (
     <div className={primary ? "policy-dossier-metric-primary" : undefined}>
@@ -124,6 +127,13 @@ function Metric({
           {[1, 2, 3, 4, 5].map((step) => (
             <span key={step} className={step <= Math.round(gauge) ? "on" : ""} />
           ))}
+        </div>
+      ) : null}
+      {typeof scaleValue === "number" && Number.isFinite(scaleValue) ? (
+        // Continuous 1–5 position bar — balances the strip (PCI is derived/continuous,
+        // so a bar, not discrete pips) and shares the dimension gauges' baseline.
+        <div className="policy-dossier-pci-bar" aria-hidden="true">
+          <span style={{ width: `${Math.max(0, Math.min(100, ((scaleValue - 1) / 4) * 100))}%` }} />
         </div>
       ) : null}
       {sub ? (

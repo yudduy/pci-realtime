@@ -82,11 +82,16 @@ function buildStaffQuestions({
         : [],
     },
     {
+      // Provenance, not the rationale again — the "why" answer already carries
+      // the snippet, so this names the verified source (who/what), distinct text.
       question: "What source proves it?",
-      answer:
-        latestEvidence?.citation_quote ??
-        latestEvidence?.snippet ??
-        "No verified policy-evidence citation is available yet.",
+      answer: latestEvidence
+        ? `Quote verified against ${
+            latestEvidence.source_title ??
+            latestEvidence.source_name ??
+            "the official source"
+          }${latestEvidence.agency ? ` — ${latestEvidence.agency}` : ""}.`
+        : "No verified policy-evidence citation is available yet.",
       citations: latestEvidence
         ? [
             {

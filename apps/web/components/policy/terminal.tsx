@@ -258,7 +258,6 @@ function UpdateCarousel({
     >
       <div className="terminal-updates-head">
         <div>
-          <p>Latest staff updates</p>
           <h2>Reviewed evidence for decisions</h2>
         </div>
         <div className="terminal-carousel-controls" aria-label="Update carousel controls">
@@ -295,9 +294,6 @@ function UpdateCarousel({
         <h3>{current.title}</h3>
         <div className="terminal-update-foot">
           <span>{current.policyName ?? "Tracked policy"}</span>
-          <strong className={deltaToneClass(current.delta)}>
-            {formatDelta(current.delta)}
-          </strong>
           <a href={current.href} target="_blank" rel="noreferrer">
             Open cited source
           </a>
@@ -326,7 +322,6 @@ function PolicyScoreGuide() {
   return (
     <div className="policy-score-guide" aria-label="Policy desk register">
       <div>
-        <p>Reviewed desk</p>
         <h2>Policy brief register</h2>
       </div>
     </div>
@@ -370,7 +365,7 @@ function RegisterHeader({
   return (
     <div className="policy-register-head" role="row">
       {sortButton("Policy", "code")}
-      <span className="register-spacer" aria-hidden="true" />
+      <span className="register-col-label">Source</span>
       <div className="register-dims-head" aria-hidden="true">
         <span>Spec</span>
         <span>Dur</span>
@@ -498,19 +493,24 @@ function PolicyAccordion({
               <span className="policy-accordion-title">
                 <strong>{policy.code}</strong>
                 <span className="policy-accordion-name">{policy.name}</span>
-                <span className="policy-accordion-context">
-                  {policy.latestEvidenceSource ?? policy.lane}
-                  {policy.latestEvidenceAt ? ` / ${formatPolicyDate(policy.latestEvidenceAt)}` : ""}
-                </span>
               </span>
-              <span className="register-spacer" aria-hidden="true" />
+              <span className="policy-row-source">
+                <span className="policy-row-source-name">
+                  {policy.latestEvidenceSource ?? policy.lane}
+                </span>
+                {policy.latestEvidenceAt ? (
+                  <span className="policy-row-source-date">
+                    {formatPolicyDate(policy.latestEvidenceAt)}
+                  </span>
+                ) : null}
+              </span>
               <span
                 className="policy-row-dims"
                 aria-label={`Specificity ${formatScore(policy.specificity)}, durability ${formatScore(policy.durability)}, enforceability ${formatScore(policy.enforceability)} out of 5`}
               >
-                <RowDim value={policy.specificity} />
-                <RowDim value={policy.durability} />
-                <RowDim value={policy.enforceability} />
+                <RowDim label="Spec" value={policy.specificity} />
+                <RowDim label="Dur" value={policy.durability} />
+                <RowDim label="Enf" value={policy.enforceability} />
               </span>
               <RowSpark timeline={policy.timeline} />
               <span className="policy-score-cluster">
@@ -549,10 +549,13 @@ function PolicyAccordion({
 // A dimension as value + 5-segment micro-gauge, so a column scan across the six
 // policies surfaces which provision is weak on a dimension (the same gauge the
 // dossier uses, kept in sync for cross-surface consistency).
-function RowDim({ value }: { value: number | null }) {
+function RowDim({ label, value }: { label: string; value: number | null }) {
   const filled = value && Number.isFinite(value) ? Math.round(value) : 0
   return (
     <span className="policy-row-dim">
+      {/* Label is hidden on desktop (the sticky header carries it) and revealed on
+          mobile, where the column header is dropped. */}
+      <span className="policy-row-dim-label">{label}</span>
       <span className="policy-row-dim-value">{formatScore(value)}</span>
       <span className="policy-row-dim-gauge" aria-hidden="true">
         {[1, 2, 3, 4, 5].map((step) => (
@@ -592,15 +595,12 @@ function RowSpark({ timeline }: { timeline: TerminalPolicyPoint[] }) {
 
   // Neutral stroke: direction/sign is already carried by the coloured delta in
   // the same row, so the spark only needs to show the shape of the trajectory.
-  // A faint baseline at the starting value anchors the slope positionally.
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
     .join(" ")
   const last = points[points.length - 1]
-  const baseY = points[0].y.toFixed(1)
   return (
     <svg className="row-spark" viewBox="0 0 72 26" width="72" height="26" aria-hidden="true">
-      <line className="row-spark-base" x1="4" x2="68" y1={baseY} y2={baseY} />
       <path d={path} />
       <circle cx={last.x} cy={last.y} r="2.4" />
     </svg>
@@ -647,11 +647,6 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ")
-  // Close the line down to the baseline for a faint area fill (depth without ink).
-  const area =
-    points.length >= 2
-      ? `${path} L ${points.at(-1)!.x} 140 L ${points[0].x} 140 Z`
-      : ""
   // Adaptive, labeled y-axis: the line uses the vertical space (a 0.3 move is
   // visible) while the printed bounds keep it honest about absolute level.
   const fmtAxis = (value: number) =>
@@ -660,7 +655,6 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
   return (
     <section className="policy-score-trend" aria-label={`${policy.code} derived PCI signal trend`}>
       <svg viewBox="0 0 720 168" role="img" aria-label={`${policy.code} derived PCI chart`}>
-        <rect className="trend-band" x="44" y="20" width="656" height="120" rx="4" />
         <line x1="44" x2="700" y1="20" y2="20" />
         <line x1="44" x2="700" y1="80" y2="80" />
         <line x1="44" x2="700" y1="140" y2="140" />
@@ -669,7 +663,6 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
           {fmtAxis((domain.lo + domain.hi) / 2)}
         </text>
         <text className="trend-axis" x="34" y="144" textAnchor="end">{fmtAxis(domain.lo)}</text>
-        {area && <path className="trend-area" d={area} />}
         {path && <path d={path} />}
         {points.map((point, index) => {
           const endpoint = index === 0 || index === points.length - 1
@@ -698,10 +691,10 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
             </circle>
           )
         })}
-        <text x="44" y="160">
+        <text x="54" y="160">
           {points[0] ? formatPolicyDate(points[0].date) : ""}
         </text>
-        <text x="700" y="160" textAnchor="end">
+        <text x="692" y="160" textAnchor="end">
           {points.at(-1) ? formatPolicyDate(points.at(-1)?.date) : ""}
         </text>
       </svg>
@@ -723,15 +716,19 @@ type LargeTrendPoint = TerminalPolicyPoint & {
 // the top of a fixed 1–5 axis. The printed bounds keep the chart honest.
 function trendDomain(values: number[]): { lo: number; hi: number } {
   if (!values.length) return { lo: 1, hi: 5 }
-  let lo = Math.min(...values)
-  let hi = Math.max(...values)
-  const pad = Math.max(0.5, (hi - lo) * 0.6)
-  lo = Math.max(1, Math.floor((lo - pad) * 2) / 2)
-  hi = Math.min(5, Math.ceil((hi + pad) * 2) / 2)
-  if (hi - lo < 1) {
-    const mid = (hi + lo) / 2
-    lo = Math.max(1, Math.min(mid - 0.5, 4))
-    hi = Math.min(5, lo + 1)
+  const pad = Math.max(0.5, (Math.max(...values) - Math.min(...values)) * 0.6)
+  // Integer bounds so the three gridlines land on round, evenly-spaced ticks
+  // (e.g. 3 / 4 / 5) instead of arbitrary values like 4.3.
+  let lo = Math.max(1, Math.floor(Math.min(...values) - pad))
+  let hi = Math.min(5, Math.ceil(Math.max(...values) + pad))
+  // Guarantee an even span ≥ 2 so the midpoint tick is also an integer.
+  if (hi - lo < 2) {
+    lo = Math.max(1, hi - 2)
+    hi = Math.min(5, lo + 2)
+  }
+  if ((hi - lo) % 2 !== 0) {
+    if (hi < 5) hi += 1
+    else lo = Math.max(1, lo - 1)
   }
   return { lo, hi }
 }
@@ -746,17 +743,17 @@ function largeTrendSeries(points: TerminalPolicyPoint[]): {
     .slice(-24)
 
   if (!sorted.length) return { points: [], domain: { lo: 1, hi: 5 } }
-  const xStep = sorted.length === 1 ? 0 : 656 / (sorted.length - 1)
+  // Inset the plotted nodes (x∈[54,692]) so end markers don't touch the y-axis
+  // labels or the right edge; the gridlines still span the full 44–700 band.
+  const xStep = sorted.length === 1 ? 0 : 638 / (sorted.length - 1)
   const domain = trendDomain(sorted.map((point) => Number(point.value)))
   const span = domain.hi - domain.lo || 1
 
-  // The plot band y∈[20,140] maps the adaptive domain; x starts at 44 to clear
-  // the y-axis labels.
   const mapped = sorted.map((point, index) => ({
     ...point,
     date: point.date ?? "2022-08-16",
     value: Number(point.value),
-    x: 44 + index * xStep,
+    x: 54 + index * xStep,
     y: 140 - ((Number(point.value) - domain.lo) / span) * 120,
   }))
   return { points: mapped, domain }
@@ -829,15 +826,19 @@ function ScorePart({
   label: string
   value: number | null
 }) {
-  const width = `${Math.max(0, Math.min(100, ((value ?? 0) / 5) * 100))}%`
+  const filled = value && Number.isFinite(value) ? Math.round(value) : 0
   return (
     <div className="policy-score-part">
       <div>
         <span>{label}</span>
         <strong>{formatScore(value)}</strong>
       </div>
-      <div className="policy-score-bar">
-        <span style={{ width }} />
+      {/* Same 5-pip gauge as the register and dossier — one primitive for every
+          1–5 dimension across all surfaces. */}
+      <div className="policy-dossier-gauge" aria-hidden="true">
+        {[1, 2, 3, 4, 5].map((step) => (
+          <span key={step} className={step <= filled ? "on" : ""} />
+        ))}
       </div>
     </div>
   )
