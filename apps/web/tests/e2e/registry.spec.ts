@@ -36,7 +36,7 @@ test("renders the methodology companion with policy dimensions", async ({ page }
 
   await expect(
     page.getByRole("heading", {
-      name: "Industrial policy reshapes venture capital allocation and growth trajectories in climate technologies",
+      name: "Whether industrial policy mobilizes private capital depends on the credibility of its commitments",
     }),
   ).toBeVisible()
   await expect(page.getByText("7,271")).toBeVisible()
@@ -50,6 +50,14 @@ test("renders the methodology companion with policy dimensions", async ({ page }
   await expect(page.getByText("source citations, and source freshness")).toBeVisible()
   await expect(page.getByRole("heading", { name: "BibTeX" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Terminal" }).first()).toBeVisible()
+  await expect(page.getByRole("link", { name: "Paper", exact: true })).toHaveAttribute(
+    "href",
+    "/paper.pdf",
+  )
+  await expect(page.getByRole("link", { name: "SI Appendix" })).toHaveAttribute(
+    "href",
+    "/si-appendix.pdf",
+  )
   expect(await page.content()).not.toMatch(/gated trade proposals|supabase/i)
 })
 
@@ -111,8 +119,9 @@ test("renders the agent connection setup without secrets", async ({ page }) => {
   await expect(page.getByText("Safety boundary")).toHaveCount(0)
 
   const content = await page.content()
-  expect(content).not.toMatch(/sb_secret_|sb_publishable_|sk-proj-|fdxinkqiarezurwofhmz/i)
-  expect(content).not.toMatch(/\/Users\/c-dnguyen/i)
+  expect(content).not.toMatch(/sb_secret_|sb_publishable_|sk-proj-/i)
+  expect(content).not.toMatch(/[a-z0-9]{20}\.supabase\.co/i)
+  expect(content).not.toMatch(/\/Users\/[a-z-]+\//i)
   expect(content).not.toMatch(/SUPABASE_|service-role|005_agent_evidence_intake|scripts\/smoke_mcp|--write-smoke|\.env|public browser app stays read-only/i)
   expect(content).not.toMatch(/\/path\/to|Copy the setup block/i)
 
@@ -159,7 +168,7 @@ test("lists the connection page in the agent documentation index", async ({ page
 })
 
 test("renders the policy credibility terminal without fake market fields", async ({ page }) => {
-  await page.goto("/dashboard")
+  await page.goto("/")
 
   await expect(page.getByRole("heading", { name: "Climate policy intelligence" })).toBeVisible()
   await expect(

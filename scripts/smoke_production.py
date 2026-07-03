@@ -66,9 +66,11 @@ def parse_timestamp(value: Any) -> datetime | None:
 
 def check_pages(base_url: str) -> None:
     expectations = {
-        "/": ["Live odds for climate policy credibility.", "Live policy data"],
-        "/dashboard": ["IRA credibility markets", "Policy Market Tracker"],
-        "/about": ["Industrial policy reshapes venture capital", "BibTeX"],
+        "/": ["Climate policy intelligence", "Policy Intelligence Ledger"],
+        "/about": [
+            "Whether industrial policy mobilizes private capital",
+            "BibTeX",
+        ],
     }
     for path, terms in expectations.items():
         html = fetch_text(f"{base_url.rstrip('/')}{path}")

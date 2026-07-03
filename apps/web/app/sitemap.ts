@@ -20,6 +20,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.6,
     },
+    {
+      url: `${baseUrl}/paper.pdf`,
+      changeFrequency: "yearly",
+      priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/si-appendix.pdf`,
+      changeFrequency: "yearly",
+      priority: 0.4,
+    },
     ...POLICIES.map((policy) => ({
       url: `${baseUrl}/policies/${policy.code}`,
       changeFrequency: "hourly" as const,
