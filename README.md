@@ -262,8 +262,10 @@ The command sources `.env`, defaults to the previous complete Monday-Sunday week
 
 | Route | Purpose |
 |---|---|
-| `/` | Live policy-market tracker landing with cited official-source updates |
-| `/dashboard` | Polymarket-style registry for PCI, markets, forecasts, proposals, events, and outcomes |
+| `/` | Live policy terminal: PCI by provision with cited official-source updates |
+| `/about` | Companion page for the PNAS paper — abstract, anchors, and BibTeX; links the manuscript (`/paper.pdf`) and SI Appendix (`/si-appendix.pdf`) |
+| `/connect` | Hosted read-only MCP + local write connector setup |
+| `/dashboard` | Deprecated; 301-redirects to `/` |
 
 The UI reads from Supabase public views:
 
