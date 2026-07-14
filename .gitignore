@@ -47,3 +47,4 @@ SI_Appendix.pdf
 .idea/
 .vercel
 .env*.local
+.codex-tmp/

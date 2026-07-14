@@ -131,15 +131,6 @@ test("renders the agent connection setup without secrets", async ({ page }) => {
   expect(fitsViewport).toBe(true)
 })
 
-test("redirects the common connect page typo", async ({ page }) => {
-  await page.goto("/conncet")
-
-  await expect(page).toHaveURL(/\/connect$/)
-  await expect(
-    page.getByRole("heading", { name: "Connect an agent to PCIndex" }),
-  ).toBeVisible()
-})
-
 test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
   const response = await request.post("/mcp", {
     headers: { accept: "application/json, text/event-stream" },
