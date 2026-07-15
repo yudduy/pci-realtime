@@ -34,7 +34,7 @@ def test_public_views_and_permissions_cover_ledger_tables() -> None:
 
 
 def test_prediction_market_schema_is_retired() -> None:
-    migration = Path("supabase/migrations/006_retire_prediction_markets.sql")
+    migration = Path("supabase/migrations/007_retire_prediction_markets.sql")
     assert migration.is_file()
 
     sql = migration.read_text(encoding="utf-8")

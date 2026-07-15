@@ -1,4 +1,4 @@
--- Manual rollback for 006_retire_prediction_markets.sql. This file is kept
+-- Manual rollback for 007_retire_prediction_markets.sql. This file is kept
 -- outside supabase/migrations so it is never applied automatically.
 
 alter table if exists archive.market_snapshots set schema public;
