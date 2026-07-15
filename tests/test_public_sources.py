@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from pci_realtime.forecast_registry.polymarket import parse_polymarket_snapshot
 from pci_realtime.ingest.public_sources import (
     CourtListenerClient,
     EIAClient,
@@ -149,25 +148,6 @@ def test_scaffolded_public_clients_parse_core_shapes() -> None:
     ]
     assert FREDClient(api_key="test", session=session).observations(series_id="DGS10")
     assert CourtListenerClient(session=session).search(query="IRA")
-
-
-def test_polymarket_snapshot_is_display_only_market_data() -> None:
-    snapshot = parse_polymarket_snapshot(
-        {
-            "id": "1",
-            "slug": "tax-credit-market",
-            "question": "Will Congress change a clean energy tax credit?",
-            "description": "Resolves on official federal action.",
-            "active": True,
-            "outcomePrices": '["0.42","0.58"]',
-            "liquidity": "1000",
-            "volume": "500",
-        }
-    )
-
-    assert snapshot["venue"] == "polymarket"
-    assert snapshot["policy_relevant"] is True
-    assert snapshot["market_probability"] == 0.42
 
 
 def test_fred_client_disables_without_key(monkeypatch) -> None:

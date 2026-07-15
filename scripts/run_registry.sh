@@ -38,8 +38,9 @@ START_DATE="${START_DATE:-$DEFAULT_START_DATE}"
 END_DATE="${END_DATE:-$DEFAULT_END_DATE}"
 RUN_DAILY_REFRESH="${RUN_DAILY_REFRESH:-true}"
 
+# The full weekly run needs LLM scoring and the live Congress.gov primary source.
 if [[ "$REQUIRE_PRODUCTION_KEYS" == "true" ]]; then
-  for name in OPENAI_API_KEY PROPUBLICA_CONGRESS_API_KEY; do
+  for name in OPENAI_API_KEY CONGRESS_GOV_API_KEY; do
     if [[ -z "${!name:-}" ]]; then
       echo "$name is required for the full production registry loop." >&2
       exit 1
@@ -70,13 +71,12 @@ SUPABASE_SERVICE_ROLE_KEY="$SECRET_KEY" \
   uv run --extra dev python -m pci_realtime.pipeline.weekly_live \
     --start-date "$START_DATE" \
     --end-date "$END_DATE" \
-    --confirm-cost \
-    --fetch-markets
+    --confirm-cost
 
 if [[ "$RUN_DAILY_REFRESH" == "true" ]]; then
   SUPABASE_URL="$API_URL" \
   SUPABASE_SERVICE_ROLE_KEY="$SECRET_KEY" \
-    uv run --extra dev python -m pci_realtime.pipeline.daily_refresh --supabase
+    uv run --extra dev python -m pci_realtime.pipeline.daily_refresh
 fi
 
 SUPABASE_URL="$API_URL" \

@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Policy Credibility Index (PCI) registry: a Python backend turns official federal policy documents into weekly PCI scores for six IRA provisions (`45X`, `45V`, `45Q`, `30D`, `50144`, `50141`), matches them to public prediction markets, and records forecasts and gated trade proposals in Supabase. A read-only Next.js app (`apps/web`, deployed at pcindex.vercel.app) renders the registry. Supabase is the boundary between the two halves: Python pipelines write tables with the service-role key; the web app reads only public `v_*` views from the browser with the publishable key.
+Policy Credibility Index (PCI) registry: a Python backend turns official federal policy documents into a cited policy-change ledger and weekly PCI scores for six IRA provisions (`45X`, `45V`, `45Q`, `30D`, `50144`, `50141`), written to Supabase. A read-only Next.js app (`apps/web`, deployed at pcindex.vercel.app) renders the registry. Supabase is the boundary between the two halves: Python pipelines write tables with the service-role key; the web app reads only public `v_*` views from the browser with the publishable key.
+
+Product direction (2026-07): the product is the cited policy-change ledger with push delivery, organized by climate-tech verticals (verticals are the first-class domain in UI/feeds/MCP; provisions are the scoring unit underneath). The prediction-market/forecast/trade-proposal layer was deleted in 2026-07 — never reintroduce market/forecast framing.
 
 ## Commands
 
@@ -33,11 +35,10 @@ Pipeline entry points (need `.env` — `cp .env.example .env`; prefer `--dry-run
 ```bash
 python -m pci_realtime.pipeline.seed_supabase --dry-run       # paper baseline + OBBBA anchors
 python -m pci_realtime.pipeline.weekly_live --start-date 2026-05-18 --end-date 2026-05-24 \
-  --confirm-cost --fetch-markets --fetch-polymarket           # full weekly loop
-python -m pci_realtime.pipeline.market_discovery --dry-run    # market scan only
-python -m pci_realtime.pipeline.daily_refresh --supabase      # settle outcomes, refresh context
+  --confirm-cost                                              # full weekly ledger loop
+python -m pci_realtime.pipeline.daily_refresh --dry-run       # public-context + source-health refresh
 uv run --extra dev python -m pci_realtime.mcp_server          # local MCP (stdio; streamable-http via PCINDEX_MCP_TRANSPORT)
-./scripts/run_registry.sh                                     # whole loop + web build/serve
+./scripts/run_registry.sh                                     # whole loop + web build/serve (requires OPENAI + CONGRESS_GOV keys)
 ```
 
 The `pci` typer CLI (`pci_realtime.cli:app`) wraps the same service layer: `pci status`, `pci policies`, ….
@@ -49,20 +50,21 @@ No CI/CD workflows ship with the repo — run the checks above locally; registry
 Backend flow, one stage per package under `src/pci_realtime/`:
 
 ```text
-ingest/           federal_register, treasury, congress (Congress.gov primary, ProPublica fallback),
+ingest/           federal_register, treasury, congress (Congress.gov primary),
                   omb, public_sources → data/raw/<source>/<source>_<YYYY-WW>.parquet
 scoring/          screener (LLM relevance filter) → scorer (dimension deltas in [-2,+2])
                   → data/processed/scored/scored_<YYYY-WW>.parquet
 pci/builder       sticky weekly index: previous PCI + mean of dimension deltas, clipped to [1,5]
                   → data/processed/pci_weekly.parquet
-forecast_registry/ market discovery (kalshi.py, polymarket.py — public reads), forecast engine.py,
-                  gated trade proposals, evidence/source-link rows
-                  → store.SupabaseRestClient (plain httpx REST, not supabase-py)
+forecast_registry/ registry spine: store.py (SupabaseRestClient — plain httpx REST, not supabase-py;
+                  UPSERT_CONFLICT_KEYS is the single source of table conflict keys),
+                  evidence.py (evidence/source-link/source-health row builders),
+                  context.py (macro context: EIA/FRED/CourtListener/reginfo/USAspending)
 ```
 
 The parquet paths are file-level contracts between stages; tests and offline runs depend on them. `data/raw|processed|cache|private|debug` are gitignored runtime state.
 
-Orchestrators in `pipeline/`: `weekly_live` owns the full loop; `daily_refresh` settles open forecasts; `market_discovery` is scan-only; `seed_supabase` writes the paper anchors.
+Orchestrators in `pipeline/`: `weekly_live` owns the full ledger loop (ingest → screen → score → PCI → policy_events/evidence/source_health rows); `daily_refresh` refreshes public context + source health; `seed_supabase` writes the paper anchors. The nine ledger tables written: provisions, pci_weekly, policy_events, scored_deltas, source_documents, evidence_items, source_links, source_health, pipeline_runs.
 
 `service.py` is the shared agent-facing service layer with typed errors (`service_errors.py`); `cli.py`, `mcp_server.py` (FastMCP, read + write tools), and `scripts/` all consume it. The hosted read-only MCP at `/mcp` is a separate TypeScript implementation (`apps/web/app/mcp/route.ts` via `mcp-handler`) reading the same public views — changes to the tool surface may need mirroring in both.
 
@@ -75,7 +77,6 @@ Supabase migrations are ordered SQL in `supabase/migrations/` (001–005). Migra
 ## Guardrails
 
 - Nothing private in public views: `forecast_registry/store.py` enforces `FORBIDDEN_PUBLIC_STRINGS`/`FORBIDDEN_PUBLIC_PATTERNS` (API keys, `raw_response`, private paths, firm data) on rows bound for Supabase. New write paths must stay behind this check.
-- Live trading is triple-gated: `PCI_ENABLE_LIVE_TRADING=true` + Kalshi credentials + proposal id in an approval file. Default behavior is gated proposals only.
 - LLM runs abort above `PCI_LLM_RUN_COST_CEILING_USD` unless `--confirm-cost` is passed.
 - PCI updates come only from scored official documents; general news scraping is intentionally out of scope for the index.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-side only. The browser gets only `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.

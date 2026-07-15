@@ -16,6 +16,52 @@ CACHE_ROOT = DATA_ROOT / "cache"
 TRACKED_PROVISIONS = ("45X", "45V", "45Q", "30D", "50144", "50141")
 
 
+PROVISION_DETAILS: dict[str, dict[str, str]] = {
+    "45X": {
+        "name": "Advanced Manufacturing Production Credit",
+        "type": "tax_credit",
+        "primary_channel": "domestic clean-energy manufacturing",
+        "paper_role": "High-credibility production credit tied to Energy and upstream manufacturing exposure.",
+        "obbba_shock": "Wind component elimination and stricter domestic content requirements.",
+    },
+    "45V": {
+        "name": "Clean Hydrogen Production Credit",
+        "type": "tax_credit",
+        "primary_channel": "clean hydrogen production",
+        "paper_role": "High-credibility production credit for hydrogen technologies in the Energy category.",
+        "obbba_shock": "Accelerated construction deadline from indefinite eligibility to 2027.",
+    },
+    "45Q": {
+        "name": "Carbon Oxide Sequestration Credit",
+        "type": "tax_credit",
+        "primary_channel": "carbon capture, utilization, and storage",
+        "paper_role": "High-credibility tax credit aligned with Carbon technologies.",
+        "obbba_shock": "No proposed OBBBA change in the paper's stress-test window.",
+    },
+    "30D": {
+        "name": "Clean Vehicle Credit",
+        "type": "tax_credit",
+        "primary_channel": "consumer clean-vehicle adoption",
+        "paper_role": "Medium-credibility adoption-side credit; Transportation is treated as less directly exposed in the main design.",
+        "obbba_shock": "Early termination in September 2025, ahead of the original 2032 sunset.",
+    },
+    "50144": {
+        "name": "Energy Infrastructure Reinvestment",
+        "type": "loan_program",
+        "primary_channel": "DOE Loan Programs Office energy infrastructure authority",
+        "paper_role": "Lower-credibility discretionary LPO authority relevant to energy infrastructure and capital-intensive deployment.",
+        "obbba_shock": "Mission rebranding and revised selection criteria under greater executive discretion.",
+    },
+    "50141": {
+        "name": "Loan Programs Office Funding",
+        "type": "appropriation",
+        "primary_channel": "DOE loan guarantee program funding",
+        "paper_role": "Lower-credibility appropriations-based support and enabling public capital.",
+        "obbba_shock": "Rescission of unobligated balances.",
+    },
+}
+
+
 LLM_DEFAULT_PROVIDER = os.getenv("PCI_LLM_PROVIDER", "openai")
 LLM_SCREENING_PROVIDER = os.getenv("PCI_SCREENING_PROVIDER", LLM_DEFAULT_PROVIDER)
 LLM_SCORING_PROVIDER = os.getenv("PCI_SCORING_PROVIDER", LLM_DEFAULT_PROVIDER)

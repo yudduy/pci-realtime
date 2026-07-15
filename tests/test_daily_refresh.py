@@ -1,100 +1,142 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
+import pytest
+
+from conftest import RecordingSupabaseClient
 from pci_realtime.pipeline.daily_refresh import run_daily_refresh
 
 
-class RecordingSupabaseClient:
-    def __init__(self) -> None:
-        self.inserts: list[tuple[str, list[dict[str, Any]]]] = []
-        self.upserts: list[tuple[str, list[dict[str, Any]], str | None]] = []
-
-    def select_rows(
-        self,
-        table: str,
-        *,
-        columns: str = "*",
-        params: dict[str, str] | None = None,
-    ) -> list[dict[str, Any]]:
-        if table == "forecast_outcomes":
-            assert "settlement_value" in columns
-            return []
-        assert table == "forecasts"
-        assert "pci_rule_probability" in columns
-        assert params == {"private_info_used": "eq.false"}
-        return [
+def _context_rows() -> dict[str, list[dict[str, Any]]]:
+    return {
+        "source_documents": [
             {
-                "forecast_id": "forecast:45v:KX45V-SETTLE",
-                "venue": "kalshi",
-                "market_ticker": "KX45V-SETTLE",
-                "market_probability": 0.55,
-                "pci_rule_probability": 0.62,
-                "model_probability": 0.68,
+                "source_doc_id": "eia:electricity-retail-price:2026-05",
+                "source": "eia",
+                "title": "U.S. retail electricity price",
             }
-        ]
+        ],
+        "evidence_items": [
+            {
+                "evidence_id": "evidence:context:reginfo:45V",
+                "source_doc_id": "reginfo:45v",
+                "provision": "45V",
+            }
+        ],
+        "source_links": [
+            {
+                "link_id": "link:context:reginfo:45V",
+                "evidence_id": "evidence:context:reginfo:45V",
+                "target_table": "policy_events",
+                "target_id": "context:reginfo:45V",
+            }
+        ],
+        "source_health": [
+            {
+                "source": "eia",
+                "source_name": "Energy data",
+                "status": "success",
+                "row_count": 1,
+            }
+        ],
+    }
 
-    def insert_rows(self, table: str, rows: list[dict[str, Any]]) -> None:
-        self.inserts.append((table, rows))
 
-    def upsert_rows(
-        self,
-        table: str,
-        rows: list[dict[str, Any]],
-        *,
-        on_conflict: str | None = None,
-    ) -> None:
-        self.upserts.append((table, rows, on_conflict))
-
-
-def test_daily_refresh_reads_supabase_and_writes_outcomes() -> None:
+def test_daily_refresh_writes_context_rows_with_expected_conflicts() -> None:
     client = RecordingSupabaseClient()
 
-    def fetch_markets(forecasts: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        assert forecasts[0]["market_ticker"] == "KX45V-SETTLE"
-        return [
-            {
-                "generated_at": "2026-05-25T14:00:00Z",
-                "venue": "kalshi",
-                "ticker": "KX45V-SETTLE",
-                "event_ticker": "KX45V",
-                "title": "Will section 45V be changed?",
-                "status": "settled",
-                "result": "yes",
-                "market_probability": 0.99,
-                "liquidity_dollars": 500.0,
-                "volume": 1000.0,
-                "volume_24h": 100.0,
-                "open_interest": 200.0,
-                "settlement_ts": "2026-05-25T13:00:00Z",
-                "resolution_text": "Official market result.",
-                "policy_relevant": True,
-            }
-        ]
-
     counts = run_daily_refresh(
-        supabase=True,
         client=client,  # type: ignore[arg-type]
-        market_fetcher=fetch_markets,
-        context_fetcher=lambda: {
-            "source_documents": [],
-            "evidence_items": [],
-            "source_links": [],
-            "source_health": [],
-        },
+        context_fetcher=_context_rows,
     )
 
     assert counts == {
-        "pipeline_runs": 1,
-        "market_snapshots": 1,
-        "forecast_outcomes": 1,
+        "source_documents": 1,
+        "evidence_items": 1,
+        "source_links": 1,
         "source_health": 1,
-        "source_documents": 0,
-        "evidence_items": 0,
-        "source_links": 0,
+        "pipeline_runs": 1,
     }
-    assert client.inserts[0][0] == "pipeline_runs"
-    assert client.inserts[1][0] == "market_snapshots"
-    assert client.upserts[0][0] == "forecast_outcomes"
-    assert client.upserts[0][2] == "outcome_id"
-    assert client.upserts[0][1][0]["settlement_value"] == 1.0
+    assert [
+        (method, table, conflict) for method, table, _, conflict in client.calls
+    ] == [
+        ("upsert", "source_documents", "source_doc_id"),
+        ("upsert", "evidence_items", "evidence_id"),
+        ("upsert", "source_links", "link_id"),
+        ("upsert", "source_health", "source"),
+        ("insert", "pipeline_runs", None),
+    ]
+    pipeline_run = client.calls[4][2][0]
+    assert pipeline_run["run_type"] == "daily_refresh"
+    assert pipeline_run["status"] == "success"
+    assert pipeline_run["completed_at"]
+    assert pipeline_run["metadata"] == {
+        "source_documents": 1,
+        "evidence_items": 1,
+        "source_links": 1,
+        "source_health": 1,
+    }
+    assert client.calls[0][2] == _context_rows()["source_documents"]
+    assert client.calls[1][2] == _context_rows()["evidence_items"]
+    assert client.calls[2][2] == _context_rows()["source_links"]
+    assert client.calls[3][2] == _context_rows()["source_health"]
+
+
+def test_daily_refresh_does_not_record_success_after_upsert_failure() -> None:
+    client = RecordingSupabaseClient(fail_on_table="evidence_items")
+
+    with pytest.raises(RuntimeError, match="forced failure for evidence_items"):
+        run_daily_refresh(
+            client=client,  # type: ignore[arg-type]
+            context_fetcher=_context_rows,
+        )
+
+    assert [(method, table) for method, table, _, _ in client.calls] == [
+        ("upsert", "source_documents"),
+        ("upsert", "evidence_items"),
+    ]
+
+
+def test_daily_refresh_dry_run_calls_context_builder_and_writes_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_path = tmp_path / "daily_refresh_payload.json"
+    calls = 0
+
+    def build_rows() -> dict[str, list[dict[str, Any]]]:
+        nonlocal calls
+        calls += 1
+        return _context_rows()
+
+    monkeypatch.setattr(
+        "pci_realtime.pipeline.daily_refresh.build_context_rows", build_rows
+    )
+
+    counts = run_daily_refresh(
+        dry_run=True,
+        output_path=output_path,
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert calls == 1
+    assert counts == {
+        "source_documents": 1,
+        "evidence_items": 1,
+        "source_links": 1,
+        "source_health": 1,
+        "pipeline_runs": 1,
+    }
+    assert set(payload["rows"]) == {
+        "source_documents",
+        "evidence_items",
+        "source_links",
+        "source_health",
+        "pipeline_runs",
+    }
+    assert payload["counts"] == counts
+    assert payload["rows"]["source_documents"] == _context_rows()["source_documents"]
+    assert payload["rows"]["pipeline_runs"][0]["metadata"]["source_health"] == 1

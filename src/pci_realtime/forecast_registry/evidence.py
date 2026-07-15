@@ -20,8 +20,6 @@ SOURCE_DISPLAY_NAMES = {
     "eia": "Energy data",
     "fred": "Macro data",
     "courtlistener": "Court records",
-    "kalshi": "Kalshi markets",
-    "polymarket": "Polymarket markets",
 }
 
 
@@ -100,48 +98,6 @@ def source_document_rows_from_raw_docs(
     return [json_value(row) for row in rows]
 
 
-def source_document_rows_from_markets(
-    markets: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    rows = []
-    for market in markets:
-        venue = str(market.get("venue") or "market")
-        ticker = str(market.get("ticker") or "")
-        if not ticker:
-            continue
-        source_doc_id = f"market:{venue}:{ticker}"
-        rows.append(
-            {
-                "source_doc_id": source_doc_id,
-                "source": venue,
-                "source_name": SOURCE_DISPLAY_NAMES.get(venue, venue.title()),
-                "source_type": "market_snapshot",
-                "external_id": ticker,
-                "title": market.get("title") or ticker,
-                "agency": None,
-                "url": market.get("market_url"),
-                "published_at": market.get("generated_at"),
-                "fetched_at": market.get("generated_at") or utc_now_iso(),
-                "content_hash": stable_hash(
-                    venue, ticker, market.get("generated_at"), market.get("title")
-                ),
-                "text_excerpt": excerpt(
-                    " ".join(
-                        str(market.get(key) or "")
-                        for key in ["title", "subtitle", "resolution_text"]
-                    )
-                ),
-                "raw_public_metadata": {
-                    "status": market.get("status"),
-                    "query_name": market.get("query_name"),
-                    "probability": market.get("market_probability"),
-                    "liquidity_dollars": market.get("liquidity_dollars"),
-                },
-            }
-        )
-    return [json_value(row) for row in rows]
-
-
 def evidence_rows_from_policy_events(
     events: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -174,37 +130,6 @@ def evidence_rows_from_policy_events(
     return [json_value(row) for row in rows]
 
 
-def evidence_rows_from_market_snapshots(
-    markets: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    rows = []
-    for market in markets:
-        venue = str(market.get("venue") or "market")
-        ticker = str(market.get("ticker") or "")
-        if not ticker:
-            continue
-        rows.append(
-            {
-                "evidence_id": f"evidence:market:{venue}:{ticker}",
-                "source_doc_id": f"market:{venue}:{ticker}",
-                "provision": None,
-                "evidence_type": "market_snapshot",
-                "snippet": excerpt(
-                    market.get("resolution_text") or market.get("title")
-                ),
-                "normalized_signal": (
-                    f"{float(market.get('market_probability') or 0):.0%} market"
-                    if market.get("market_probability") is not None
-                    else "market snapshot"
-                ),
-                "score_dimension": "market_probability",
-                "confidence": None,
-                "extractor_version": market.get("source"),
-            }
-        )
-    return [json_value(row) for row in rows]
-
-
 def source_links_from_policy_events(
     events: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -219,61 +144,6 @@ def source_links_from_policy_events(
         for event in events
         if event.get("event_id")
     ]
-
-
-def source_links_from_forecasts(
-    forecasts: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    links = []
-    for forecast in forecasts:
-        forecast_id = str(forecast.get("forecast_id") or "")
-        signal = forecast.get("signal") or {}
-        source_event_id = str(signal.get("source_event_id") or "")
-        if forecast_id and source_event_id:
-            links.append(
-                {
-                    "link_id": f"link:forecasts:{forecast_id}:{source_event_id}",
-                    "evidence_id": f"evidence:{source_event_id}",
-                    "target_table": "forecasts",
-                    "target_id": forecast_id,
-                    "link_type": "forecast_basis",
-                }
-            )
-        market = forecast.get("market_snapshot") or {}
-        venue = str(market.get("venue") or forecast.get("venue") or "")
-        ticker = str(market.get("ticker") or forecast.get("market_ticker") or "")
-        if forecast_id and venue and ticker:
-            links.append(
-                {
-                    "link_id": f"link:forecasts:{forecast_id}:market:{venue}:{ticker}",
-                    "evidence_id": f"evidence:market:{venue}:{ticker}",
-                    "target_table": "forecasts",
-                    "target_id": forecast_id,
-                    "link_type": "market_match",
-                }
-            )
-    return [json_value(row) for row in links]
-
-
-def source_links_from_market_snapshots(
-    markets: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    links = []
-    for market in markets:
-        venue = str(market.get("venue") or "")
-        ticker = str(market.get("ticker") or "")
-        if not venue or not ticker:
-            continue
-        links.append(
-            {
-                "link_id": f"link:market_snapshots:{venue}:{ticker}",
-                "evidence_id": f"evidence:market:{venue}:{ticker}",
-                "target_table": "market_snapshots",
-                "target_id": f"{venue}:{ticker}",
-                "link_type": "public_market_data",
-            }
-        )
-    return [json_value(row) for row in links]
 
 
 def source_health_row(
