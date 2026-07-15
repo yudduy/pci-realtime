@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import re
+from datetime import datetime, timezone
 from typing import Any, Mapping
+from urllib.parse import quote
 
 import httpx
 import pandas as pd
@@ -42,6 +45,7 @@ _READ_UNAVAILABLE = (
 _WRITE_UNAVAILABLE = (
     "Evidence intake requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
 )
+_LIMIT_MAX = 500
 
 
 def status() -> dict[str, Any]:
@@ -153,6 +157,98 @@ def vertical_status(vertical_id: str) -> dict[str, Any]:
         "provisions": [
             current_by_code.get(code, _baseline_row(code)) for code in provision_codes
         ],
+        "source": "registry",
+    }
+
+
+def list_changes(
+    since: str | None = None,
+    vertical: str | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    if (
+        not isinstance(limit, int)
+        or isinstance(limit, bool)
+        or limit < 1
+        or limit > _LIMIT_MAX
+    ):
+        raise BadRequest(
+            f"Invalid limit {limit!r}: use an integer between 1 and {_LIMIT_MAX}."
+        )
+
+    vertical_id = _normalize_vertical(vertical) if vertical is not None else None
+    since_iso = _normalize_since(since)
+    client = _require_read_client()
+    params = {
+        "order": "created_at.desc.nullslast,event_id.asc",
+        "limit": str(limit),
+    }
+    if since_iso is not None:
+        params["created_at"] = f"gte.{since_iso}"
+    if vertical_id is not None:
+        codes = ",".join(VERTICALS[vertical_id]["provisions"])
+        params["provision"] = f"in.({codes})"
+
+    events = _select(client, "v_policy_events", params=params)
+    if not events:
+        return {
+            "changes": [],
+            "count": 0,
+            "since": since_iso,
+            "vertical": vertical_id,
+            "source": "registry",
+        }
+
+    event_ids = [str(event.get("event_id") or "") for event in events]
+    links = _select_in(
+        client,
+        "v_source_links",
+        "target_id",
+        event_ids,
+        extra_params={"target_table": "eq.policy_events"},
+    )
+    evidence_ids = list(
+        dict.fromkeys(str(link.get("evidence_id") or "") for link in links)
+    )
+    evidence_ids = [evidence_id for evidence_id in evidence_ids if evidence_id]
+    evidence = []
+    if evidence_ids:
+        evidence = _select_in(
+            client,
+            "v_evidence_items",
+            "evidence_id",
+            evidence_ids,
+            extra_params={"order": "created_at.desc"},
+        )
+
+    event_ids_by_evidence: dict[str, list[str]] = {}
+    for link in links:
+        evidence_id = str(link.get("evidence_id") or "")
+        if not evidence_id:
+            continue
+        event_ids_by_evidence.setdefault(evidence_id, []).append(
+            str(link.get("target_id") or "")
+        )
+
+    evidence_by_event: dict[str, list[dict[str, Any]]] = {
+        event_id: [] for event_id in event_ids
+    }
+    for item in evidence:
+        evidence_id = str(item.get("evidence_id") or "")
+        for event_id in event_ids_by_evidence.get(evidence_id, []):
+            event_evidence = evidence_by_event.get(event_id)
+            if event_evidence is not None and len(event_evidence) < 2:
+                event_evidence.append(item)
+
+    changes = [
+        _change_payload(event, evidence_by_event[str(event.get("event_id") or "")])
+        for event in events
+    ]
+    return {
+        "changes": changes,
+        "count": len(changes),
+        "since": since_iso,
+        "vertical": vertical_id,
         "source": "registry",
     }
 
@@ -449,6 +545,26 @@ def _select(
         ) from exc
 
 
+def _select_in(
+    client,
+    view: str,
+    column: str,
+    values: list[str],
+    *,
+    extra_params: dict[str, str] | None = None,
+    chunk_size: int = 100,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for start in range(0, len(values), chunk_size):
+        chunk = values[start : start + chunk_size]
+        quoted = ",".join('"' + value.replace('"', '\\"') + '"' for value in chunk)
+        params = {column: f"in.({quoted})"}
+        if extra_params:
+            params.update(extra_params)
+        rows.extend(_select(client, view, params=params))
+    return rows
+
+
 def _safe_select(
     client: SupabaseRestClient,
     table: str,
@@ -517,6 +633,129 @@ def _vertical_display_order(row: Mapping[str, Any]) -> int:
         return int(row.get("display_order", 0))
     except (TypeError, ValueError):
         return 0
+
+
+def _normalize_since(value: str | None) -> str | None:
+    if value is None:
+        return None
+    try:
+        value = value.strip()
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise BadRequest(
+            f"Invalid since {value!r}: use ISO 8601 "
+            "(e.g. 2026-07-01 or 2026-07-01T00:00:00Z)."
+        ) from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return (
+        parsed.astimezone(timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
+
+
+def _first_not_none(*values: Any) -> Any:
+    return next((value for value in values if value is not None), None)
+
+
+def _change_payload(
+    event: Mapping[str, Any],
+    evidence: list[dict[str, Any]],
+) -> dict[str, Any]:
+    event_id = str(event.get("event_id") or "")
+    provision = str(event.get("provision") or "")
+    vertical_ids = [
+        vertical_id
+        for vertical_id, config in VERTICALS.items()
+        if provision in config["provisions"]
+    ]
+    primary_name = VERTICALS[vertical_ids[0]]["name"] if vertical_ids else None
+    title = event.get("title")
+    headline = f"{primary_name}: {title}" if primary_name and title else title
+    first_evidence = evidence[0] if evidence else None
+    source_url = event.get("url")
+    for item in evidence:
+        base_url = _first_not_none(
+            item.get("canonical_url"), item.get("url"), event.get("url")
+        )
+        href = _citation_href(base_url, item)
+        if href is not None:
+            source_url = href
+            break
+
+    if first_evidence is None:
+        source_title = title
+        source_name = _first_not_none(event.get("agency"), event.get("doc_source"))
+        source_quote = None
+    else:
+        source_title = _first_not_none(first_evidence.get("source_title"), title)
+        source_name = _first_not_none(
+            first_evidence.get("source_name"), first_evidence.get("agency")
+        )
+        source_quote = _first_not_none(
+            first_evidence.get("citation_quote"), first_evidence.get("snippet")
+        )
+
+    agency = _first_not_none(event.get("agency"), event.get("doc_source"))
+
+    return {
+        "id": event_id,
+        "headline": headline,
+        "title": title,
+        "verticals": vertical_ids,
+        "provision": {
+            "code": provision,
+            "name": event.get("provision_name"),
+        },
+        "week": event.get("week"),
+        "week_start": event.get("week_start"),
+        "recorded_at": event.get("created_at"),
+        "agency": agency,
+        "pci_delta": event.get("pci_delta"),
+        "dimension_deltas": event.get("dimension_deltas"),
+        "rationale": event.get("rationale"),
+        "confidence": event.get("confidence"),
+        "method_version": event.get("prompt_version"),
+        "source": {
+            "url": source_url,
+            "title": source_title,
+            "name": source_name,
+            "quote": source_quote,
+        },
+    }
+
+
+def _citation_href(base_url: Any, item: Mapping[str, Any]) -> str | None:
+    if not isinstance(base_url, str):
+        return None
+    base = base_url.strip()
+    if not re.match(r"^https?://", base, re.IGNORECASE):
+        return None
+
+    fragment = item.get("citation_url_fragment")
+    explicit_fragment = fragment.strip() if isinstance(fragment, str) else ""
+    if explicit_fragment:
+        return _append_fragment(base, explicit_fragment)
+
+    citation = item.get("citation_quote")
+    compact = re.sub(r"\s+", " ", citation).strip() if isinstance(citation, str) else ""
+    if not compact:
+        return base
+    if len(compact) > 280:
+        compact = compact[:280].strip()
+    encoded = quote(compact, safe="!'()*-._~")
+    if re.search(r"\.pdf(?:[?#]|$)", base, re.IGNORECASE):
+        return _append_fragment(base, f"search={encoded}")
+    return _append_fragment(base, f":~:text={encoded}")
+
+
+def _append_fragment(base_url: str, fragment: str) -> str:
+    if re.match(r"^https?://", fragment, re.IGNORECASE):
+        return fragment
+    base_without_fragment = base_url.split("#", 1)[0]
+    clean_fragment = fragment[1:] if fragment.startswith("#") else fragment
+    return f"{base_without_fragment}#{clean_fragment}"
 
 
 def _normalize_vertical(vertical_id: str) -> str:
