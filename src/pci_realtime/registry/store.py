@@ -17,12 +17,15 @@ from pci_realtime.config import (
     OBBBA_PCI_DELTAS,
     PROVISION_DETAILS,
     REQUEST_TIMEOUT_SECONDS,
+    VERTICALS,
 )
 
 
 LOGGER = logging.getLogger(__name__)
 UPSERT_CONFLICT_KEYS = {
     "provisions": "code",
+    "verticals": "id",
+    "vertical_provisions": "vertical_id,provision_code",
     "scored_deltas": "week,doc_id,provision",
     "pci_weekly": "provision,week",
     "policy_events": "event_id",
@@ -179,6 +182,8 @@ class SupabaseRestClient:
 
 def build_seed_rows() -> dict[str, list[dict[str, Any]]]:
     provisions = []
+    verticals = []
+    vertical_provisions = []
     pci_weekly = []
     for code, baseline in BASELINE_PCI.items():
         details = PROVISION_DETAILS[code]
@@ -217,8 +222,27 @@ def build_seed_rows() -> dict[str, list[dict[str, Any]]]:
                 "provenance_status": "complete",
             }
         )
+    for vertical_id, vertical in VERTICALS.items():
+        verticals.append(
+            {
+                "id": vertical_id,
+                "name": vertical["name"],
+                "coverage_note": vertical["coverage_note"],
+                "display_order": vertical["display_order"],
+            }
+        )
+        vertical_provisions.extend(
+            {
+                "vertical_id": vertical_id,
+                "provision_code": provision_code,
+                "weight": weight,
+            }
+            for provision_code, weight in vertical["provisions"].items()
+        )
     return {
         "provisions": provisions,
+        "verticals": verticals,
+        "vertical_provisions": vertical_provisions,
         "pci_weekly": pci_weekly,
         "pipeline_runs": [
             {
@@ -264,6 +288,18 @@ def write_supabase_rows(
         rows_by_table["provisions"],
         on_conflict=UPSERT_CONFLICT_KEYS["provisions"],
     )
+    if vertical_rows := rows_by_table.get("verticals"):
+        client.upsert_rows(
+            "verticals",
+            vertical_rows,
+            on_conflict=UPSERT_CONFLICT_KEYS["verticals"],
+        )
+    if vertical_provision_rows := rows_by_table.get("vertical_provisions"):
+        client.upsert_rows(
+            "vertical_provisions",
+            vertical_provision_rows,
+            on_conflict=UPSERT_CONFLICT_KEYS["vertical_provisions"],
+        )
     client.upsert_rows(
         "scored_deltas",
         rows_by_table.get("scored_deltas", []),

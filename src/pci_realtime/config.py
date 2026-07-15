@@ -16,6 +16,64 @@ CACHE_ROOT = DATA_ROOT / "cache"
 TRACKED_PROVISIONS = ("45X", "45V", "45Q", "30D", "50144", "50141")
 
 
+VERTICALS = {
+    "advanced-manufacturing": {
+        "name": "Advanced Manufacturing",
+        "display_order": 1,
+        "provisions": {"45X": 1.0},
+        "coverage_note": (
+            "Tracks the section 45X production credit only; excludes 48C, tariffs, "
+            "and state incentives."
+        ),
+    },
+    "clean-hydrogen": {
+        "name": "Clean Hydrogen",
+        "display_order": 2,
+        "provisions": {"45V": 1.0},
+        "coverage_note": (
+            "Tracks the section 45V production credit only; excludes DOE hydrogen "
+            "hub grants."
+        ),
+    },
+    "carbon-capture": {
+        "name": "Carbon Capture",
+        "display_order": 3,
+        "provisions": {"45Q": 1.0},
+        "coverage_note": (
+            "Tracks the section 45Q sequestration credit only; excludes DAC hub "
+            "programs."
+        ),
+    },
+    "electric-vehicles": {
+        "name": "Electric Vehicles",
+        "display_order": 4,
+        "provisions": {"30D": 1.0},
+        "coverage_note": (
+            "Tracks the consumer 30D credit only; excludes 45W commercial and 30C "
+            "charging credits."
+        ),
+    },
+    "clean-energy-finance": {
+        "name": "Clean Energy Finance",
+        "display_order": 5,
+        "provisions": {"50141": 1.0, "50144": 1.0},
+        "coverage_note": (
+            "Tracks DOE Loan Programs Office funding (50141) and Energy "
+            "Infrastructure Reinvestment authority (50144)."
+        ),
+    },
+}
+
+
+# These verticals need lab methodology sign-off before scoring.
+UNCOVERED_VERTICALS = [
+    "Solar & Wind Deployment (45Y/48E)",
+    "Nuclear (45U)",
+    "Storage",
+    "AI Data Centers",
+]
+
+
 PROVISION_DETAILS: dict[str, dict[str, str]] = {
     "45X": {
         "name": "Advanced Manufacturing Production Credit",
