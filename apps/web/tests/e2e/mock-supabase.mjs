@@ -10,11 +10,80 @@ const fixtureModes = new Set([
 
 const currentPci = [
   policyUnit("30D", "Clean Vehicle Credit", 4.0, 4, 4, 4),
-  policyUnit("45Q", "Carbon Oxide Sequestration Credit", 4.33, 5, 4, 4),
-  policyUnit("45V", "Clean Hydrogen Production Credit", 4.33, 5, 4, 4),
+  policyUnit("45Q", "Carbon Oxide Sequestration Credit", 3.0, 5, 4, 4, 4.33),
+  policyUnit("45V", "Clean Hydrogen Production Credit", 4.0, 5, 4, 4, 4.33),
   policyUnit("45X", "Advanced Manufacturing Production Credit", 4.67, 5, 4, 5),
   policyUnit("50141", "Loan Programs Office Funding", 3.0, 3, 3, 3),
   policyUnit("50144", "Energy Infrastructure Reinvestment", 3.33, 4, 3, 3),
+]
+
+const verticalPci = [
+  {
+    id: "advanced-manufacturing",
+    name: "Advanced Manufacturing",
+    coverage_note:
+      "Tracks the section 45X production credit only; excludes 48C, tariffs, and state incentives.",
+    display_order: 1,
+    vertical_pci: 4.67,
+    baseline_pci: 4.67,
+    weekly_delta: 0.17,
+    as_of_week_start: "2026-05-18",
+    last_change_week_start: "2026-05-18",
+    provisions: ["45X"],
+  },
+  {
+    id: "clean-hydrogen",
+    name: "Clean Hydrogen",
+    coverage_note:
+      "Tracks the section 45V production credit only; excludes DOE hydrogen hub grants.",
+    display_order: 2,
+    vertical_pci: 4.0,
+    baseline_pci: 4.33,
+    weekly_delta: -0.33,
+    as_of_week_start: "2026-05-18",
+    last_change_week_start: "2026-05-18",
+    provisions: ["45V"],
+  },
+  {
+    id: "carbon-capture",
+    name: "Carbon Capture",
+    coverage_note:
+      "Tracks the section 45Q sequestration credit only; excludes DAC hub programs.",
+    display_order: 3,
+    vertical_pci: 3.0,
+    baseline_pci: 4.33,
+    weekly_delta: -1.5,
+    as_of_week_start: "2026-05-18",
+    last_change_week_start: "2026-05-18",
+    provisions: ["45Q"],
+  },
+  {
+    id: "electric-vehicles",
+    name: "Electric Vehicles",
+    coverage_note:
+      "Tracks the consumer 30D credit only; excludes 45W commercial and 30C charging credits.",
+    display_order: 4,
+    vertical_pci: 4.0,
+    baseline_pci: 4.0,
+    weekly_delta: -0.33,
+    as_of_week_start: "2026-05-18",
+    last_change_week_start: "2026-05-18",
+    provisions: ["30D"],
+  },
+  {
+    id: "clean-energy-finance",
+    name: "Clean Energy Finance",
+    coverage_note:
+      "Tracks DOE Loan Programs Office funding (50141) and Energy Infrastructure Reinvestment authority (50144).",
+    display_order: 5,
+    // Equal-weight blend of the distinct 3.00 and 3.33 provision PCIs.
+    vertical_pci: 3.17,
+    baseline_pci: 3.17,
+    weekly_delta: 0,
+    as_of_week_start: "2026-05-18",
+    last_change_week_start: null,
+    provisions: ["50141", "50144"],
+  },
 ]
 
 const policyEvents = [
@@ -51,15 +120,15 @@ const trendArcs = {
   ],
   "45V": [
     ["2022-W33", "2022-08-15", 4.0],
-    ["2024-W20", "2024-05-13", 4.67],
-    ["2025-W30", "2025-07-21", 4.67],
-    ["2026-W21", "2026-05-18", 4.33, ["2026-W21:federal_register:45v-guidance:45V"]],
+    ["2024-W20", "2024-05-13", 4.33],
+    ["2025-W30", "2025-07-21", 4.33],
+    ["2026-W21", "2026-05-18", 4.0, ["2026-W21:federal_register:45v-guidance:45V"]],
   ],
   "45Q": [
     ["2022-W33", "2022-08-15", 4.0],
     ["2024-W20", "2024-05-13", 4.0],
     ["2025-W30", "2025-07-21", 4.5],
-    ["2026-W21", "2026-05-18", 4.33],
+    ["2026-W21", "2026-05-18", 3.0],
   ],
   "30D": [
     ["2022-W33", "2022-08-15", 4.33],
@@ -243,6 +312,7 @@ const agentEvidenceSubmissions = [
 ]
 
 const views = {
+  v_vertical_pci: verticalPci,
   v_current_pci: currentPci,
   v_policy_events: policyEvents,
   v_pipeline_status: pipelineRuns,
@@ -254,7 +324,15 @@ const views = {
   v_agent_evidence_submissions: agentEvidenceSubmissions,
 }
 
-function policyUnit(code, name, pci, specificity, durability, enforceability) {
+function policyUnit(
+  code,
+  name,
+  pci,
+  specificity,
+  durability,
+  enforceability,
+  baselinePci = pci,
+) {
   return {
     code,
     name,
@@ -269,7 +347,7 @@ function policyUnit(code, name, pci, specificity, durability, enforceability) {
     enforceability,
     delta_this_week: 0,
     data_origin: "paper_anchor",
-    baseline_pci: pci,
+    baseline_pci: baselinePci,
     updated_at: now,
   }
 }

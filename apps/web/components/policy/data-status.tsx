@@ -13,7 +13,7 @@ export function DataStatus({ status }: { status: TerminalDataStatus }) {
       >
         <details>
           <summary>
-            PARTIAL DATA — {status.viewErrors.length} sources failing
+            PARTIAL DATA: {status.viewErrors.length} sources failing
           </summary>
           <div className="data-status-errors">
             <strong>Unavailable registry views</strong>
@@ -42,18 +42,18 @@ export function DataStatus({ status }: { status: TerminalDataStatus }) {
 
 function statusText(status: TerminalDataStatus) {
   if (status.mode === "disconnected") {
-    return "DISCONNECTED — showing paper baselines (Aug 2022)"
+    return "DISCONNECTED: showing paper baselines (Aug 2022)"
   }
   if (status.mode === "stale") {
-    return `STALE — last source refresh ${formatStatusDate(status.lastSourceRefresh)} (${status.staleDays ?? 0} days ago)`
+    return `STALE: last source refresh ${formatStatusDate(status.lastSourceRefresh)} (${status.staleDays ?? 0} days ago)`
   }
   return `Updated ${formatStatusDate(status.lastSourceRefresh)}`
 }
 
 function formatStatusDate(value: string | null) {
-  if (!value) return "—"
+  if (!value) return "--"
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
+  if (Number.isNaN(date.getTime())) return "--"
   return new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",

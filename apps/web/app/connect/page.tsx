@@ -56,10 +56,22 @@ const tools = [
     purpose: "Check registry reachability and connector readiness.",
   },
   {
+    name: "list_verticals",
+    signature: "list_verticals()",
+    mode: "read",
+    purpose: "List the five scored climate-tech verticals and weighted PCI status.",
+  },
+  {
+    name: "vertical_status",
+    signature: "vertical_status(vertical_id)",
+    mode: "read",
+    purpose: "Read one vertical with its underlying provision-level status.",
+  },
+  {
     name: "list_policies",
     signature: "list_policies()",
     mode: "read",
-    purpose: "Return the six tracked IRA policy units.",
+    purpose: "Return the six provisions used as underlying scoring units.",
   },
   {
     name: "current_pci",
@@ -130,7 +142,7 @@ export default function ConnectPage() {
               </li>
               <li>
                 <strong>Use read tools.</strong>
-                <span>Ask for policies, PCI state, dossiers, or evidence traces.</span>
+                <span>Ask for vertical status, provision detail, or evidence traces.</span>
               </li>
               <li>
                 <strong>Keep intake local.</strong>

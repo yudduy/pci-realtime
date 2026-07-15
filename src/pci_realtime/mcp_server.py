@@ -45,18 +45,6 @@ def list_policies() -> dict[str, Any]:
 
 
 @mcp.tool(annotations=_READ)
-def list_verticals() -> dict[str, Any]:
-    """List climate-tech verticals and their current weighted PCI."""
-    return _safe(service.list_verticals)
-
-
-@mcp.tool(annotations=_READ)
-def vertical_status(vertical_id: str) -> dict[str, Any]:
-    """Read one climate-tech vertical and its provision-level status."""
-    return _safe(lambda: service.vertical_status(vertical_id))
-
-
-@mcp.tool(annotations=_READ)
 def current_pci(code: str | None = None) -> dict[str, Any]:
     """Read current PCI for one tracked policy or all policies."""
     return _safe(lambda: service.current_pci(code))
@@ -66,6 +54,20 @@ def current_pci(code: str | None = None) -> dict[str, Any]:
 def policy_dossier(code: str) -> dict[str, Any]:
     """Read a policy dossier with events, evidence, and submissions."""
     return _safe(lambda: service.policy_dossier(code))
+
+
+@mcp.tool(annotations=_READ)
+def get_evidence_trace(
+    provision: str,
+    evidence_id: str | None = None,
+) -> dict[str, Any]:
+    """Read evidence rows and trace links for a policy."""
+    return _safe(
+        lambda: service.get_evidence_trace(
+            provision=provision,
+            evidence_id=evidence_id,
+        )
+    )
 
 
 @mcp.tool(annotations=_WRITE)
@@ -119,17 +121,15 @@ def ingest_source_url(
 
 
 @mcp.tool(annotations=_READ)
-def get_evidence_trace(
-    provision: str,
-    evidence_id: str | None = None,
-) -> dict[str, Any]:
-    """Read evidence rows and trace links for a policy."""
-    return _safe(
-        lambda: service.get_evidence_trace(
-            provision=provision,
-            evidence_id=evidence_id,
-        )
-    )
+def list_verticals() -> dict[str, Any]:
+    """List climate-tech verticals and their current weighted PCI."""
+    return _safe(service.list_verticals)
+
+
+@mcp.tool(annotations=_READ)
+def vertical_status(vertical_id: str) -> dict[str, Any]:
+    """Read one climate-tech vertical and its provision-level status."""
+    return _safe(lambda: service.vertical_status(vertical_id))
 
 
 def configured_transport() -> _Transport:

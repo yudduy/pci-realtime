@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test"
 test("registry renders policy terminal state", async ({ page }) => {
   await page.goto("/")
 
-  await expect(page.getByRole("heading", { name: "Climate policy intelligence" })).toBeVisible()
-  await expect(page.getByText("Policy Intelligence Ledger", { exact: true }).first()).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Climate-tech credibility by vertical" })).toBeVisible()
+  await expect(page.getByText("Climate-Tech Vertical Ledger", { exact: true }).first()).toBeVisible()
   await expect(page.getByRole("button", { name: "About this terminal" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Read about the paper" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Open terminal" })).toHaveCount(0)
@@ -30,14 +30,14 @@ test("registry renders policy terminal state", async ({ page }) => {
 
   await page.goto("/")
 
-  await expect(page.getByRole("heading", { name: "Climate policy intelligence" })).toBeVisible()
-  await expect(page.getByText("Policy Intelligence Ledger", { exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Climate-tech credibility by vertical" })).toBeVisible()
+  await expect(page.getByText("Climate-Tech Vertical Ledger", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "About this terminal" })).toBeVisible()
   const sourceLink = page.getByRole("link", { name: "View source" })
   await expect(sourceLink).toBeVisible()
   await expect(sourceLink).toHaveAttribute("href", /#(:~:text=|search=)/)
   await expect(page.getByRole("button", { name: "View score" })).toHaveCount(0)
-  await expect(page.getByRole("heading", { name: "Tracked policies" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Tracked verticals" })).toBeVisible()
   await expect(page.getByText("Fragile")).toHaveCount(0)
   await expect(page.getByText("Mixed")).toHaveCount(0)
   await expect(page.getByText("Strong")).toHaveCount(0)
@@ -73,6 +73,6 @@ test("registry renders policy terminal state", async ({ page }) => {
 
   await page.goto("/policies/45V")
   await expect(page).toHaveURL(/\/#policy-45V$/)
-  await expect(page.getByRole("heading", { name: "Tracked policies" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Tracked verticals" })).toBeVisible()
   await expect(page.getByText("Policy basis")).toHaveCount(0)
 })

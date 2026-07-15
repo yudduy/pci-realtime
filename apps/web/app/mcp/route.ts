@@ -1,6 +1,11 @@
 import { createMcpHandler } from "mcp-handler"
 import { z } from "zod"
-import type { EvidenceItem, PolicyEvent, RegistryData } from "@/lib/data"
+import type {
+  EvidenceItem,
+  PolicyEvent,
+  RegistryData,
+  VerticalPci,
+} from "@/lib/data"
 import { getRegistryData } from "@/lib/data"
 import { buildPolicyIntelligence } from "@/lib/intelligence"
 import { POLICIES } from "@/lib/policy-copy"
@@ -9,6 +14,13 @@ import {
   citationHrefForPolicyEvent,
   evidenceForPolicyEvent,
 } from "@/lib/source-links"
+import {
+  baselineVertical,
+  baselineVerticals,
+  isVerticalId,
+  UNSCORED_VERTICALS,
+  VERTICAL_IDS,
+} from "@/lib/verticals"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -24,6 +36,15 @@ const policyCodeInput = z
   .transform((value) => value.toUpperCase())
   .refine((value) => POLICY_CODES.includes(value), {
     message: `Use one of: ${POLICY_CODES.join(", ")}`,
+  })
+
+const verticalIdInput = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((value) => value.toLowerCase())
+  .refine(isVerticalId, {
+    message: `Unknown vertical. Valid ids: ${VERTICAL_IDS.join(", ")}`,
   })
 
 const handler = createMcpHandler(
@@ -170,6 +191,52 @@ const handler = createMcpHandler(
         })
       },
     )
+
+    server.registerTool(
+      "list_verticals",
+      {
+        title: "list_verticals",
+        description: "List climate-tech verticals and their current weighted PCI.",
+        inputSchema: z.object({}),
+        annotations: READ_ONLY,
+      },
+      async () => {
+        const data = await getRegistryData()
+        return asJson({
+          verticals: verticalRows(data),
+          uncovered: [...UNSCORED_VERTICALS],
+          source: data.connected ? "registry" : "baseline",
+        })
+      },
+    )
+
+    server.registerTool(
+      "vertical_status",
+      {
+        title: "vertical_status",
+        description: "Read one climate-tech vertical and its provision-level status.",
+        inputSchema: z.object({
+          vertical_id: verticalIdInput,
+        }),
+        annotations: READ_ONLY,
+      },
+      async ({ vertical_id }) => {
+        const data = await getRegistryData()
+        const fallback = baselineVertical(vertical_id)
+        const vertical =
+          verticalRows(data).find((item) => item.id === vertical_id) ?? fallback
+        const currentByCode = new Map(
+          data.currentPci.map((policy) => [policy.code, policy]),
+        )
+        return asJson({
+          vertical,
+          provisions: fallback.provisions.map(
+            (code) => currentByCode.get(code) ?? baselineProvision(code),
+          ),
+          source: data.connected ? "registry" : "baseline",
+        })
+      },
+    )
   },
   {
     serverInfo: {
@@ -207,6 +274,29 @@ function evidenceForPolicy(data: RegistryData, code: string) {
   return data.evidenceItems.filter(
     (item) => item.provision === code || evidenceIds.has(item.evidence_id),
   )
+}
+
+function verticalRows(data: RegistryData): VerticalPci[] {
+  if (!data.connected) return baselineVerticals()
+  const error = data.viewErrors.find((item) => item.startsWith("v_vertical_pci:"))
+  if (error) throw new Error(error)
+  return data.verticals
+}
+
+function baselineProvision(code: string) {
+  const policy = POLICIES.find((item) => item.code === code)
+  if (!policy) throw new Error(`Unknown provision: ${code}`)
+  return {
+    code,
+    name:
+      code === "50144" ? "Energy Infrastructure Reinvestment" : policy.name,
+    pci: policy.baseline,
+    specificity: policy.specificity,
+    durability: policy.durability,
+    enforceability: policy.enforceability,
+    baseline_pci: policy.baseline,
+    source: "baseline",
+  }
 }
 
 function eventPayload(event: PolicyEvent, data: RegistryData) {

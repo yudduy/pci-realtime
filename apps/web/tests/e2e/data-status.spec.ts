@@ -8,7 +8,7 @@ test("shows disconnected paper baselines when registry config is absent", async 
   const status = page.getByTestId("data-status")
   await expect(status).toHaveAttribute("data-mode", "disconnected")
   await expect(status).toContainText(
-    "DISCONNECTED — showing paper baselines (Aug 2022)",
+    "DISCONNECTED: showing paper baselines (Aug 2022)",
   )
   await expect(page.locator(".policy-baseline-marker")).toHaveCount(6)
 })
@@ -20,9 +20,9 @@ test("shows expandable partial-data detail when registry views fail", async ({
 
   const status = page.getByTestId("data-status")
   await expect(status).toHaveAttribute("data-mode", "degraded")
-  await expect(status).toContainText("PARTIAL DATA — 9 sources failing")
+  await expect(status).toContainText("PARTIAL DATA: 10 sources failing")
   await status.locator("summary").click()
-  await expect(status.locator(".data-status-errors li")).toHaveCount(9)
+  await expect(status.locator(".data-status-errors li")).toHaveCount(10)
   await expect(status.locator(".data-status-errors")).toContainText(
     "v_current_pci: 500",
   )
@@ -34,7 +34,7 @@ test("shows stale source age when refresh timestamps are old", async ({ page }) 
   const status = page.getByTestId("data-status")
   await expect(status).toHaveAttribute("data-mode", "stale")
   await expect(status).toContainText(
-    "STALE — last source refresh Jan 1, 2020",
+    "STALE: last source refresh Jan 1, 2020",
   )
   await expect(status).toContainText(/\(\d+ days ago\)/)
 })
@@ -71,7 +71,7 @@ test("charts two moving weeks and labels genuinely flat history", async ({
   page,
 }) => {
   await page.goto("/")
-  const search = page.getByPlaceholder("Search policy, agency, or document")
+  const search = page.getByPlaceholder("Search vertical, provision, agency, or document")
 
   await search.fill("30D")
   await page.locator(".policy-accordion-trigger", { hasText: "30D" }).click()

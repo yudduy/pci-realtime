@@ -301,7 +301,7 @@ The command sources `.env`, defaults to the previous complete Monday-Sunday week
 
 | Route | Purpose |
 |---|---|
-| `/` | Live policy terminal: PCI by provision with cited official-source updates |
+| `/` | Vertical-first policy terminal with provision-level evidence detail |
 | `/about` | Companion page for the PNAS paper — abstract, anchors, and BibTeX; links the manuscript (`/paper.pdf`) and SI Appendix (`/si-appendix.pdf`) |
 | `/connect` | Hosted read-only MCP + local write connector setup |
 | `/dashboard` | Deprecated; 301-redirects to `/` |
@@ -310,7 +310,8 @@ The UI reads from Supabase public views:
 
 | View | UI Surface |
 |---|---|
-| `v_current_pci` | provision cards and PCI scores |
+| `v_vertical_pci` | ordered climate-tech vertical cards and weighted PCI status |
+| `v_current_pci` | nested provision evidence rows and PCI scores |
 | `v_policy_events` | official policy event feed |
 | `v_evidence_items` | citations and source-backed snippets |
 | `v_source_links` | links from evidence to events, forecasts, and market rows |

@@ -16,6 +16,19 @@ export type CurrentPci = {
   updated_at: string | null
 }
 
+export type VerticalPci = {
+  id: string
+  name: string
+  coverage_note: string
+  display_order: number
+  vertical_pci: number | null
+  baseline_pci: number
+  weekly_delta: number | null
+  as_of_week_start: string | null
+  last_change_week_start: string | null
+  provisions: string[]
+}
+
 export type PolicyEvent = {
   event_id: string
   provision: string
@@ -156,6 +169,7 @@ export type AgentEvidenceSubmission = {
 }
 
 export type RegistryData = {
+  verticals: VerticalPci[]
   currentPci: CurrentPci[]
   policyEvents: PolicyEvent[]
   pipelineRuns: PipelineRun[]
@@ -236,6 +250,7 @@ async function fetchView<T>(
 
 export function emptyRegistryData(viewErrors: string[] = []): RegistryData {
   return {
+    verticals: [],
     currentPci: [],
     policyEvents: [],
     pipelineRuns: [],
@@ -257,6 +272,7 @@ export async function getRegistryData(
   if (!config) return emptyRegistryData(["Supabase registry config is not set."])
 
   const [
+    verticalsResult,
     currentPciResult,
     policyEventsResult,
     pipelineRunsResult,
@@ -267,6 +283,11 @@ export async function getRegistryData(
     sourceHealthResult,
     agentEvidenceSubmissionsResult,
   ] = await Promise.all([
+    fetchView<VerticalPci>(
+      "v_vertical_pci",
+      "select=*&order=display_order.asc",
+      fixtureMode,
+    ),
     fetchView<CurrentPci>("v_current_pci", "select=*&order=code.asc", fixtureMode),
     fetchView<PolicyEvent>("v_policy_events", "select=*&order=created_at.desc", fixtureMode),
     fetchView<PipelineRun>("v_pipeline_status", "select=*&limit=5", fixtureMode),
@@ -286,6 +307,7 @@ export async function getRegistryData(
     ),
   ])
   const viewErrors = [
+    verticalsResult.error,
     currentPciResult.error,
     policyEventsResult.error,
     pipelineRunsResult.error,
@@ -297,6 +319,9 @@ export async function getRegistryData(
     agentEvidenceSubmissionsResult.error,
   ].filter((error): error is string => Boolean(error))
 
+  const verticals = verticalsResult.rows.sort(
+    (a, b) => a.display_order - b.display_order,
+  )
   const currentPci = currentPciResult.rows
   const policyEvents = policyEventsResult.rows
   const pipelineRuns = pipelineRunsResult.rows.map((run) => ({
@@ -311,6 +336,7 @@ export async function getRegistryData(
   const agentEvidenceSubmissions = agentEvidenceSubmissionsResult.rows
 
   return {
+    verticals,
     currentPci,
     policyEvents,
     pipelineRuns,
