@@ -6,6 +6,13 @@ export const metadata: Metadata = {
   title: "PCIndex",
   description:
     "Climate-tech vertical credibility with provision-level official evidence and score attribution.",
+  alternates: {
+    types: {
+      "application/atom+xml": [
+        { url: "/feed.xml", title: "PCIndex policy changes" },
+      ],
+    },
+  },
   openGraph: {
     title: "PCIndex",
     description:

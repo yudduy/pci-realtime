@@ -91,6 +91,12 @@ const tools = [
     mode: "read",
     purpose: "Verify source links and evidence that entered the registry.",
   },
+  {
+    name: "list_changes",
+    signature: "list_changes(since?, vertical?, limit?)",
+    mode: "read",
+    purpose: "List cited policy changes by recording time and vertical.",
+  },
 ]
 
 export default function ConnectPage() {

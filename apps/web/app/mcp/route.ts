@@ -6,7 +6,15 @@ import type {
   RegistryData,
   VerticalPci,
 } from "@/lib/data"
-import { getRegistryData } from "@/lib/data"
+import {
+  buildChanges,
+  DELIVERY_LIMIT_DEFAULT_MCP,
+  DELIVERY_LIMIT_MAX,
+  deliveryError,
+  logDeliveryHit,
+  normalizeSince,
+} from "@/lib/changes"
+import { getDeliveryData, getRegistryData } from "@/lib/data"
 import { buildPolicyIntelligence } from "@/lib/intelligence"
 import { POLICIES } from "@/lib/policy-copy"
 import {
@@ -45,6 +53,13 @@ const verticalIdInput = z
   .transform((value) => value.toLowerCase())
   .refine(isVerticalId, {
     message: `Unknown vertical. Valid ids: ${VERTICAL_IDS.join(", ")}`,
+  })
+
+const sinceInput = z
+  .string()
+  .trim()
+  .refine((value) => normalizeSince(value) !== null, {
+    message: "Use ISO 8601, e.g. 2026-07-01",
   })
 
 const handler = createMcpHandler(
@@ -234,6 +249,43 @@ const handler = createMcpHandler(
             (code) => currentByCode.get(code) ?? baselineProvision(code),
           ),
           source: data.connected ? "registry" : "baseline",
+        })
+      },
+    )
+
+    server.registerTool(
+      "list_changes",
+      {
+        title: "list_changes",
+        description: "List cited policy-change events since a timestamp, vertical-first.",
+        inputSchema: z.object({
+          since: sinceInput.optional(),
+          vertical: verticalIdInput.optional(),
+          limit: z.number().int().min(1).max(DELIVERY_LIMIT_MAX).optional(),
+        }),
+        annotations: READ_ONLY,
+      },
+      async ({ since, vertical, limit }) => {
+        const normalizedSince = since
+          ? (normalizeSince(since) ?? undefined)
+          : undefined
+        const data = await getDeliveryData()
+        const error = deliveryError(data)
+        if (error) throw new Error(error)
+        const changes = buildChanges(data, {
+          since: normalizedSince,
+          vertical,
+          limit: limit ?? DELIVERY_LIMIT_DEFAULT_MCP,
+        })
+
+        logDeliveryHit("mcp_list_changes", vertical ?? null)
+
+        return asJson({
+          changes,
+          count: changes.length,
+          since: normalizedSince ?? null,
+          vertical: vertical ?? null,
+          source: "registry",
         })
       },
     )
