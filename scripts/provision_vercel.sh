@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_NAME="${VERCEL_PROJECT_NAME:-pci-forecast-registry}"
+PROJECT_NAME="${VERCEL_PROJECT_NAME:-pcindex}"
 PRODUCTION_DOMAIN="${PRODUCTION_DOMAIN:-pcindex.vercel.app}"
 SCOPE_ARGS=()
 if [[ -n "${VERCEL_SCOPE:-}" ]]; then

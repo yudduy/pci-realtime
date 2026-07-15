@@ -422,7 +422,7 @@ Provision the public research-style site on Vercel:
 
 ```bash
 cd apps/web
-vercel link --project pci-forecast-registry
+vercel link --project pcindex
 vercel env add NEXT_PUBLIC_SUPABASE_URL production
 vercel env add NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY production
 vercel --prod
