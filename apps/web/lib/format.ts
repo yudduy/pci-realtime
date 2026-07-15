@@ -5,7 +5,7 @@ export function formatScore(value: number | null | undefined) {
 
 export function formatDelta(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value) || value === 0) {
-    return "—"
+    return "--"
   }
   // Arrow + sign so direction never relies on color alone (WCAG 1.4.1).
   const arrow = value > 0 ? "▲" : "▼"

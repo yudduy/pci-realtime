@@ -9,12 +9,20 @@ export default function Loading() {
       <main className="terminal-shell" aria-busy="true" aria-label="Loading policy register">
         <section className="terminal-hero">
           <div>
-            <p className="eyebrow">Policy Intelligence Ledger</p>
+            <p className="eyebrow">Climate-Tech Vertical Ledger</p>
             <div className="terminal-title-row">
-              <h1>Climate policy intelligence</h1>
+              <h1>Climate-tech credibility by vertical</h1>
             </div>
           </div>
         </section>
+        <div className="vertical-overview skeleton-vertical-overview" aria-hidden="true">
+          <div className="skeleton-line skeleton-line-wide" />
+          <div className="vertical-card-grid">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="skeleton-block skeleton-vertical-card" />
+            ))}
+          </div>
+        </div>
         <div className="skeleton-block skeleton-carousel" />
         <div className="skeleton-list">
           {Array.from({ length: 6 }).map((_, index) => (

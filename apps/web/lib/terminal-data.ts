@@ -10,6 +10,7 @@ import {
   citationHrefForPolicyEvent,
   evidenceForPolicyEvent,
 } from "@/lib/source-links"
+import { baselineVerticals } from "@/lib/verticals"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const STALE_AFTER_DAYS = 8
@@ -58,6 +59,7 @@ export async function getPolicyTerminalData(fixtureMode?: RegistryFixtureMode) {
     null
 
   return {
+    verticals: data.verticals.length ? data.verticals : baselineVerticals(),
     policies,
     dataStatus: deriveDataStatus(
       data.connected,

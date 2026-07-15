@@ -5,11 +5,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://pcindex.vercel.app"),
   title: "PCIndex",
   description:
-    "Climate policy intelligence for official evidence, score trends, and source attribution.",
+    "Climate-tech vertical credibility with provision-level official evidence and score attribution.",
   openGraph: {
     title: "PCIndex",
     description:
-      "Climate policy intelligence for official evidence, score trends, and source attribution.",
+      "Climate-tech vertical credibility with provision-level official evidence and score attribution.",
     url: "https://pcindex.vercel.app",
     siteName: "PCIndex",
     type: "website",

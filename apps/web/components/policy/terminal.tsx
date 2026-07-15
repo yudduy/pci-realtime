@@ -6,14 +6,21 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { SiteHeader } from "@/components/layout/site-header"
 import { DataStatus } from "@/components/policy/data-status"
 import {
+  VerticalCards,
+  VERTICAL_STATUS_LABEL,
+  verticalTone,
+} from "@/components/policy/vertical-cards"
+import {
   deltaToneClass,
   formatDate,
   formatDelta,
   formatScore,
 } from "@/lib/format"
 import type { PolicyHeadline } from "@/lib/headlines"
+import type { VerticalPci } from "@/lib/data"
 import type { PolicySourceReference } from "@/lib/policy-copy"
 import type { TerminalDataStatus } from "@/lib/terminal-data"
+import { UNSCORED_VERTICALS } from "@/lib/verticals"
 
 export type TerminalPolicy = {
   code: string
@@ -55,6 +62,7 @@ type TerminalPointAttribution = {
 }
 
 export type PolicyTerminalData = {
+  verticals: VerticalPci[]
   policies: TerminalPolicy[]
   dataStatus: TerminalDataStatus
   recentUpdates: PolicyHeadline[]
@@ -65,11 +73,21 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
   const [infoOpen, setInfoOpen] = useState(false)
   const infoButtonRef = useRef<HTMLButtonElement>(null)
   const infoCloseRef = useRef<HTMLButtonElement>(null)
+  const verticals = data.verticals
   const policies = data.policies
-  const visible = useMemo(() => filterPolicies(policies, query), [policies, query])
+  const visible = useMemo(
+    () => filterPolicies(policies, query, verticals),
+    [policies, query, verticals],
+  )
   const [sort, setSort] = useState<TerminalSort>({ key: "code", dir: 1 })
   const [density, setDensity] = useState<"comfortable" | "compact">("comfortable")
   const sorted = useMemo(() => sortPolicies(visible, sort), [visible, sort])
+  const visibleVerticalCount = useMemo(() => {
+    const visibleCodes = new Set(visible.map((policy) => policy.code))
+    return verticals.filter((vertical) =>
+      vertical.provisions.some((code) => visibleCodes.has(code)),
+    ).length
+  }, [verticals, visible])
   const onSort = (key: TerminalSortKey) =>
     setSort((current) =>
       current.key === key
@@ -77,21 +95,45 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
         : { key, dir: key === "code" ? 1 : -1 },
     )
   const [expandedCode, setExpandedCode] = useState<string | null>(null)
+  const [expandedVerticalId, setExpandedVerticalId] = useState<string | null>(
+    verticals[0]?.id ?? null,
+  )
   useEffect(() => {
-    const hashCode = window.location.hash.match(/^#policy-(.+)$/)?.[1]
-    if (hashCode && policies.some((policy) => policy.code === hashCode)) {
-      const frame = window.requestAnimationFrame(() => {
-        setExpandedCode(hashCode)
-        // "start" + scroll-margin-top lands the row just below the sticky header
-        // instead of pulling the hero under it.
-        document.getElementById(`policy-${hashCode}`)?.scrollIntoView({
+    const hash = window.location.hash
+    const hashVertical = hash.match(/^#vertical-(.+)$/)?.[1]
+    const hashCode = hash.match(/^#policy-(.+)$/)?.[1]
+    let targetId: string | null = null
+    let targetVerticalId: string | null = null
+    let targetCode: string | null = null
+
+    if (hashVertical && verticals.some((vertical) => vertical.id === hashVertical)) {
+      targetVerticalId = hashVertical
+      targetId = `vertical-${hashVertical}`
+    } else if (hashCode && policies.some((policy) => policy.code === hashCode)) {
+      const vertical = verticals.find((item) => item.provisions.includes(hashCode))
+      targetVerticalId = vertical?.id ?? null
+      targetCode = hashCode
+      targetId = `policy-${hashCode}`
+    }
+
+    if (!targetId) return
+    let scrollFrame = 0
+    const renderFrame = window.requestAnimationFrame(() => {
+      setExpandedVerticalId(targetVerticalId)
+      if (targetCode) setExpandedCode(targetCode)
+      scrollFrame = window.requestAnimationFrame(() => {
+        // "start" + scroll-margin-top lands the target below the sticky header.
+        document.getElementById(targetId)?.scrollIntoView({
           block: "start",
           behavior: "smooth",
         })
       })
-      return () => window.cancelAnimationFrame(frame)
+    })
+    return () => {
+      window.cancelAnimationFrame(renderFrame)
+      window.cancelAnimationFrame(scrollFrame)
     }
-  }, [policies])
+  }, [policies, verticals])
   // Dialog: trap focus to the close control, close on Escape, restore focus on exit.
   useEffect(() => {
     if (!infoOpen) return
@@ -113,9 +155,9 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
       <main className="terminal-shell">
         <section className="terminal-hero">
           <div>
-            <p className="eyebrow">Policy Intelligence Ledger</p>
+            <p className="eyebrow">Climate-Tech Vertical Ledger</p>
             <div className="terminal-title-row">
-              <h1>Climate policy intelligence</h1>
+              <h1>Climate-tech credibility by vertical</h1>
               <div className="terminal-title-actions">
                 <button
                   ref={infoButtonRef}
@@ -140,7 +182,12 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
           <DataStatus status={data.dataStatus} />
         </section>
 
-        <UpdateCarousel updates={data.recentUpdates} />
+        <VerticalCards
+          verticals={verticals}
+          onSelect={(verticalId) => setExpandedVerticalId(verticalId)}
+        />
+
+        <UpdateCarousel updates={data.recentUpdates} verticals={verticals} />
 
         <section className="terminal-controls">
           <label className="tracker-search">
@@ -148,11 +195,13 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search policy, agency, or document"
+              placeholder="Search vertical, provision, agency, or document"
             />
           </label>
           <div className="terminal-controls-meta">
-            <p>{visible.length} of {policies.length} policies</p>
+            <p>
+              {visibleVerticalCount} verticals / {visible.length} of {policies.length} provisions
+            </p>
             <button
               type="button"
               className="density-toggle"
@@ -174,15 +223,24 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
             ) : (
               <>
                 <RegisterHeader sort={sort} onSort={onSort} />
-                <PolicyAccordion
+                <VerticalPolicyGroups
+                  verticals={verticals}
                   policies={sorted}
+                  expandedVerticalId={expandedVerticalId}
                   expandedCode={expandedCode}
-                  onToggle={(code) =>
+                  forceOpen={Boolean(query.trim())}
+                  onToggleVertical={(verticalId) =>
+                    setExpandedVerticalId((current) =>
+                      current === verticalId ? null : verticalId,
+                    )
+                  }
+                  onTogglePolicy={(code) =>
                     setExpandedCode((current) => (current === code ? null : code))
                   }
                 />
               </>
             )}
+            <NotYetScored />
           </div>
         </section>
 
@@ -225,8 +283,10 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
 
 function UpdateCarousel({
   updates,
+  verticals,
 }: {
   updates: PolicyHeadline[]
+  verticals: VerticalPci[]
 }) {
   const [active, setActive] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -245,6 +305,9 @@ function UpdateCarousel({
   if (!updates.length) return null
 
   const current = updates[active] ?? updates[0]
+  const currentVertical = verticals.find((vertical) =>
+    vertical.provisions.includes(current.code),
+  )
   const previous = () => setActive((value) => (value === 0 ? updates.length - 1 : value - 1))
   const next = () => setActive((value) => (value + 1) % updates.length)
 
@@ -277,6 +340,7 @@ function UpdateCarousel({
 
       <article className="terminal-update-card" key={current.id} aria-live="polite">
         <div className="terminal-update-meta">
+          <span>{currentVertical?.name ?? "Tracked vertical"}</span>
           <span className="policy-code">{current.code}</span>
           <span>{current.source}</span>
           <span>{formatPolicyDate(current.date)}</span>
@@ -313,8 +377,8 @@ function PolicyScoreGuide() {
   return (
     <div className="policy-score-guide" aria-label="How to read policy scores">
       <div>
-        <p>Policy register</p>
-        <h2>Tracked policies</h2>
+        <p>Vertical evidence detail</p>
+        <h2>Tracked verticals</h2>
       </div>
     </div>
   )
@@ -452,6 +516,111 @@ function PolicyCompareTable({
   )
 }
 
+function VerticalPolicyGroups({
+  verticals,
+  policies,
+  expandedVerticalId,
+  expandedCode,
+  forceOpen,
+  onToggleVertical,
+  onTogglePolicy,
+}: {
+  verticals: VerticalPci[]
+  policies: TerminalPolicy[]
+  expandedVerticalId: string | null
+  expandedCode: string | null
+  forceOpen: boolean
+  onToggleVertical: (verticalId: string) => void
+  onTogglePolicy: (code: string) => void
+}) {
+  const groups = verticals
+    .map((vertical) => ({
+      vertical,
+      policies: policies.filter((policy) =>
+        vertical.provisions.includes(policy.code),
+      ),
+    }))
+    .filter((group) => group.policies.length > 0)
+
+  if (!groups.length) {
+    return (
+      <div className="market-empty">
+        No matching vertical or provision. Clear search to restore the register.
+      </div>
+    )
+  }
+
+  return (
+    <div className="vertical-group-list">
+      {groups.map(({ vertical, policies: verticalPolicies }) => {
+        const expanded = forceOpen || expandedVerticalId === vertical.id
+        const tone = verticalTone(vertical)
+        const provisionLabel =
+          verticalPolicies.length === 1 ? "scored provision" : "scored provisions"
+        return (
+          <section
+            key={vertical.id}
+            id={`vertical-${vertical.id}`}
+            className={`vertical-group vertical-tone-${tone}${expanded ? " expanded" : ""}`}
+            data-testid="vertical-group"
+          >
+            <button
+              type="button"
+              className="vertical-group-trigger"
+              aria-expanded={expanded}
+              aria-controls={`vertical-panel-${vertical.id}`}
+              onClick={() => onToggleVertical(vertical.id)}
+            >
+              <span className="vertical-group-title">
+                <strong>{vertical.name}</strong>
+                <span>
+                  {verticalPolicies.length} {provisionLabel}
+                </span>
+              </span>
+              <span
+                className="vertical-mini-status"
+                aria-label={`${VERTICAL_STATUS_LABEL}: ${formatScore(vertical.vertical_pci)}`}
+              >
+                <span>Credibility</span>
+                <strong>{formatScore(vertical.vertical_pci)}</strong>
+              </span>
+              <ChevronDown className="vertical-group-icon h-4 w-4" aria-hidden="true" />
+            </button>
+
+            <div
+              id={`vertical-panel-${vertical.id}`}
+              className="vertical-group-panel"
+              hidden={!expanded}
+            >
+              <PolicyAccordion
+                policies={verticalPolicies}
+                expandedCode={expandedCode}
+                onToggle={onTogglePolicy}
+              />
+            </div>
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+function NotYetScored() {
+  return (
+    <aside className="unscored-verticals" aria-labelledby="unscored-verticals-title">
+      <div>
+        <h3 id="unscored-verticals-title">Not yet scored</h3>
+        <p>Scoring requires methodology sign-off before these verticals enter the index.</p>
+      </div>
+      <div className="unscored-vertical-list">
+        {UNSCORED_VERTICALS.map((vertical) => (
+          <span key={vertical}>{vertical}</span>
+        ))}
+      </div>
+    </aside>
+  )
+}
+
 function PolicyAccordion({
   policies,
   expandedCode,
@@ -480,11 +649,11 @@ function PolicyAccordion({
               onClick={() => onToggle(policy.code)}
             >
               <span className="policy-accordion-title">
+                <span className="policy-accordion-name">{policy.name}</span>
                 <span className="policy-row-code">
-                  <strong>{policy.code}</strong>
+                  <strong>section {policy.code}</strong>
                   <BaselineMarker scoreOrigin={policy.scoreOrigin} />
                 </span>
-                <span className="policy-accordion-name">{policy.name}</span>
                 <span className="policy-accordion-context">
                   {policy.latestEvidenceSource ?? policy.lane}
                   {policy.latestEvidenceAt ? ` / ${formatPolicyDate(policy.latestEvidenceAt)}` : ""}
@@ -833,11 +1002,19 @@ function ScorePart({
   )
 }
 
-function filterPolicies(policies: TerminalPolicy[], query: string) {
+function filterPolicies(
+  policies: TerminalPolicy[],
+  query: string,
+  verticals: VerticalPci[],
+) {
   const normalized = query.trim().toLowerCase()
   if (!normalized) return policies
-  return policies.filter((policy) =>
-    [
+  return policies.filter((policy) => {
+    const vertical = verticals.find((item) =>
+      item.provisions.includes(policy.code),
+    )
+    return [
+      vertical?.name,
       policy.code,
       policy.name,
       policy.formalName,
@@ -848,8 +1025,8 @@ function filterPolicies(policies: TerminalPolicy[], query: string) {
       .filter(Boolean)
       .join(" ")
       .toLowerCase()
-      .includes(normalized),
-  )
+      .includes(normalized)
+  })
 }
 
 function formatPolicyDate(value: string | null | undefined) {

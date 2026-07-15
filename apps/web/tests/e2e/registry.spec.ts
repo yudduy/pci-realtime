@@ -3,14 +3,16 @@ import { expect, test } from "@playwright/test"
 test("renders the policy terminal as the home page", async ({ page }) => {
   await page.goto("/")
 
-  await expect(page.getByRole("heading", { name: "Climate policy intelligence" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Climate-tech credibility by vertical" })).toBeVisible()
   await expect(page.getByRole("button", { name: "About this terminal" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Read about the paper" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Evidence moving the index" })).toBeVisible()
   await expect(page.locator(".terminal-updates-carousel")).toContainText("Clean hydrogen production credit guidance")
   await expect(page.locator(".terminal-updates-carousel")).not.toContainText("Advanced Manufacturing Production Credit")
-  await expect(page.getByText("Policy Intelligence Ledger", { exact: true })).toBeVisible()
-  await expect(page.getByText("Clean Vehicle Credit").first()).toBeVisible()
+  await expect(page.getByText("Climate-Tech Vertical Ledger", { exact: true })).toBeVisible()
+  await expect(
+    page.getByTestId("vertical-card").filter({ hasText: "Electric Vehicles" }),
+  ).toBeVisible()
   await expect(page.getByRole("link", { name: "Open terminal" })).toHaveCount(0)
   await expect(page.getByText("Source coverage")).toHaveCount(0)
   await expect(page.getByText("PCI headlines")).toHaveCount(0)
@@ -28,7 +30,7 @@ test("renders the policy terminal as the home page", async ({ page }) => {
   expect(content).not.toMatch(/supabase/i)
   expect(content).not.toMatch(new RegExp("autonom" + "ous", "i"))
   expect(content).not.toMatch(new RegExp("absta" + "in", "i"))
-  expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|pci signal|prediction mode/i)
+  expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|pci signal|prediction mode/i)
 })
 
 test("renders the methodology companion with policy dimensions", async ({ page }) => {
@@ -132,7 +134,7 @@ test("renders the agent connection setup without secrets", async ({ page }) => {
 })
 
 test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
-  const response = await request.post("/mcp", {
+  const initializeResponse = await request.post("/mcp", {
     headers: { accept: "application/json, text/event-stream" },
     data: {
       jsonrpc: "2.0",
@@ -146,9 +148,108 @@ test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
     },
   })
 
-  expect(response.status()).toBeLessThan(500)
-  const body = await response.text()
-  expect(body).toContain("pcindex")
+  expect(initializeResponse.status()).toBeLessThan(500)
+  const initializeBody = await initializeResponse.text()
+  expect(initializeBody).toContain("pcindex")
+
+  const sessionId = initializeResponse.headers()["mcp-session-id"]
+  const listResponse = await request.post("/mcp", {
+    headers: {
+      accept: "application/json, text/event-stream",
+      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+    },
+    data: {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/list",
+      params: {},
+    },
+  })
+
+  expect(listResponse.status()).toBeLessThan(500)
+  const payload = parseMcpResponse(await listResponse.text())
+  expect(payload.result.tools.map((tool: { name: string }) => tool.name)).toEqual([
+    "status",
+    "list_policies",
+    "current_pci",
+    "policy_dossier",
+    "get_evidence_trace",
+    "list_verticals",
+    "vertical_status",
+  ])
+
+  const verticalsResponse = await request.post("/mcp", {
+    headers: {
+      accept: "application/json, text/event-stream",
+      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+    },
+    data: {
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "list_verticals", arguments: {} },
+    },
+  })
+  const verticalsResult = parseMcpResponse(await verticalsResponse.text())
+  const verticalsPayload = JSON.parse(verticalsResult.result.content[0].text)
+  expect(verticalsPayload.verticals.map((vertical: { id: string }) => vertical.id)).toEqual([
+    "advanced-manufacturing",
+    "clean-hydrogen",
+    "carbon-capture",
+    "electric-vehicles",
+    "clean-energy-finance",
+  ])
+  expect(verticalsPayload.source).toBe("registry")
+
+  const statusResponse = await request.post("/mcp", {
+    headers: {
+      accept: "application/json, text/event-stream",
+      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+    },
+    data: {
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: {
+        name: "vertical_status",
+        arguments: { vertical_id: "clean-energy-finance" },
+      },
+    },
+  })
+  const statusResult = parseMcpResponse(await statusResponse.text())
+  const statusPayload = JSON.parse(statusResult.result.content[0].text)
+  expect(statusPayload.vertical).toMatchObject({
+    id: "clean-energy-finance",
+    coverage_note:
+      "Tracks DOE Loan Programs Office funding (50141) and Energy Infrastructure Reinvestment authority (50144).",
+    vertical_pci: 3.17,
+    provisions: ["50141", "50144"],
+  })
+  expect(statusPayload.provisions.map((policy: { code: string }) => policy.code)).toEqual([
+    "50141",
+    "50144",
+  ])
+
+  const unknownResponse = await request.post("/mcp", {
+    headers: {
+      accept: "application/json, text/event-stream",
+      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+    },
+    data: {
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: {
+        name: "vertical_status",
+        arguments: { vertical_id: "geothermal" },
+      },
+    },
+  })
+  const unknownResult = parseMcpResponse(await unknownResponse.text())
+  expect(unknownResult.result.isError).toBe(true)
+  expect(unknownResult.result.content[0].text).toContain(
+    "advanced-manufacturing, clean-hydrogen, carbon-capture, electric-vehicles, clean-energy-finance",
+  )
 })
 
 test("lists the connection page in the agent documentation index", async ({ page }) => {
@@ -161,7 +262,7 @@ test("lists the connection page in the agent documentation index", async ({ page
 test("renders the policy credibility terminal with policy evidence", async ({ page }) => {
   await page.goto("/")
 
-  await expect(page.getByRole("heading", { name: "Climate policy intelligence" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Climate-tech credibility by vertical" })).toBeVisible()
   await expect(
     page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Terminal" }),
   ).toHaveCount(0)
@@ -171,8 +272,8 @@ test("renders the policy credibility terminal with policy evidence", async ({ pa
   await expect(
     page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Paper" }),
   ).toHaveCount(0)
-  await expect(page.getByPlaceholder("Search policy, agency, or document")).toBeVisible()
-  await expect(page.getByText("Policy Intelligence Ledger", { exact: true })).toBeVisible()
+  await expect(page.getByPlaceholder("Search vertical, provision, agency, or document")).toBeVisible()
+  await expect(page.getByText("Climate-Tech Vertical Ledger", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "About this terminal" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Read about the paper" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Evidence moving the index" })).toBeVisible()
@@ -188,7 +289,7 @@ test("renders the policy credibility terminal with policy evidence", async ({ pa
   await page.getByRole("button", { name: "About this terminal" }).click()
   await expect(page.getByRole("dialog", { name: "How to read policy scores" })).toBeVisible()
   await page.getByRole("button", { name: "Close terminal information" }).click()
-  await expect(page.getByRole("heading", { name: "Tracked policies" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Tracked verticals" })).toBeVisible()
   await expect(page.getByText("Fragile")).toHaveCount(0)
   await expect(page.getByText("Mixed")).toHaveCount(0)
   await expect(page.getByText("Strong")).toHaveCount(0)
@@ -216,7 +317,7 @@ test("renders the policy credibility terminal with policy evidence", async ({ pa
   await expect(page.getByText("Cited evidence")).toHaveCount(0)
   await expect(page.getByText("Trajectory")).toHaveCount(0)
   await expect(page.getByText("Source ledger")).toHaveCount(0)
-  await page.getByPlaceholder("Search policy, agency, or document").fill("45V")
+  await page.getByPlaceholder("Search vertical, provision, agency, or document").fill("45V")
   await page.locator(".policy-accordion-trigger", { hasText: "45V" }).click()
   await expect(page.locator("[aria-label='45V PCI score trend']")).toBeVisible()
   await expect(page.getByTestId("terminal-trend-point-45V-2026-W21")).toBeVisible()
@@ -229,14 +330,14 @@ test("renders the policy credibility terminal with policy evidence", async ({ pa
   expect(content).not.toMatch(new RegExp("autonom" + "ous", "i"))
   expect(content).not.toMatch(new RegExp("absta" + "in", "i"))
   expect(content).not.toMatch(/PCIndex continuously parses official policy sources/i)
-  expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|no source|pci signal|prediction mode/i)
+  expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no source|pci signal|prediction mode/i)
 })
 
 test("policy detail URLs resolve back to the terminal accordion", async ({ page }) => {
   await page.goto("/policies/45V")
 
   await expect(page).toHaveURL(/\/#policy-45V$/)
-  await expect(page.getByRole("heading", { name: "Tracked policies" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Tracked verticals" })).toBeVisible()
   await expect(page.locator(".policy-accordion-trigger", { hasText: "45V" })).toBeVisible()
   await expect(page.getByText("Latest official evidence")).toHaveCount(0)
   await expect(page.getByText("Policy basis")).toHaveCount(0)
@@ -246,5 +347,12 @@ test("policy detail URLs resolve back to the terminal accordion", async ({ page 
   expect(content).not.toMatch(/supabase/i)
   expect(content).not.toMatch(new RegExp("autonom" + "ous", "i"))
   expect(content).not.toMatch(new RegExp("absta" + "in", "i"))
-  expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|no source|pci signal|prediction mode/i)
+  expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no source|pci signal|prediction mode/i)
 })
+
+function parseMcpResponse(body: string) {
+  const dataLine = body
+    .split("\n")
+    .find((line) => line.startsWith("data:"))
+  return JSON.parse(dataLine ? dataLine.slice("data:".length).trim() : body)
+}
