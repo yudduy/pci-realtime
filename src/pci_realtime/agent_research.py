@@ -24,7 +24,11 @@ OFFICIAL_SOURCE_DOMAINS = (
     "reginfo.gov",
     "whitehouse.gov",
 )
-DEFAULT_AGENT_RESEARCH_MODEL = os.getenv("PCI_AGENT_RESEARCH_MODEL", "gpt-5.4-mini")
+DEFAULT_AGENT_RESEARCH_MODEL = (
+    os.getenv("PCI_RESEARCH_MODEL")
+    or os.getenv("PCI_AGENT_RESEARCH_MODEL")
+    or "gpt-5.4-mini"
+)
 
 
 class EvidenceCandidate(BaseModel):
