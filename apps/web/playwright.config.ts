@@ -17,10 +17,16 @@ export default defineConfig({
     },
     {
       command:
-        "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:8787 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=test npm run dev -- --hostname 127.0.0.1 --port 8511",
+        "PCI_E2E_DATA_MODES=1 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:8787 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=test npm run dev -- --hostname 127.0.0.1 --port 8511",
       reuseExistingServer: false,
       timeout: 120_000,
       url: "http://127.0.0.1:8511",
+    },
+    {
+      command: "node tests/e2e/start-disconnected.mjs",
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: "http://127.0.0.1:8512",
     },
   ],
   projects: [

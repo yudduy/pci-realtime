@@ -20,6 +20,7 @@ test.describe("PolicyIntelligence evidence derivation", () => {
     expect(policies).toHaveLength(6)
     expect(policies.find((policy) => policy.code === "45V")).toMatchObject({
       currentPci: 4.25,
+      scoreOrigin: "live",
       weeklyDelta: -0.25,
       specificity: 5,
       durability: 4,
@@ -82,6 +83,24 @@ test.describe("PolicyIntelligence evidence derivation", () => {
     expect(hydrogen?.evidenceAnchorCount).toBeGreaterThanOrEqual(2)
     expect(hydrogen?.sourceReferences[0]?.source).toBe("Internal Revenue Service")
     expect(hydrogen?.attributionDrivers.length).toBeGreaterThan(0)
+  })
+
+  test("labels registry baselines and hardcoded copy distinctly", () => {
+    const registryBaseline = buildPolicyIntelligence(
+      registryData({ currentPci: [currentPci({ pci: null })] }),
+    ).find((policy) => policy.code === "45V")
+    const hardcodedCopy = buildPolicyIntelligence(registryData()).find(
+      (policy) => policy.code === "45V",
+    )
+
+    expect(registryBaseline).toMatchObject({
+      currentPci: 4,
+      scoreOrigin: "baseline_view",
+    })
+    expect(hardcodedCopy).toMatchObject({
+      currentPci: 4.33,
+      scoreOrigin: "hardcoded_copy",
+    })
   })
 })
 
