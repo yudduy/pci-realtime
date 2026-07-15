@@ -95,6 +95,7 @@ test("renders the agent connection setup without secrets", async ({ page }) => {
   await expect(page.getByText("current_pci(code?)")).toBeVisible()
   await expect(page.getByText("policy_dossier(code)")).toBeVisible()
   await expect(page.getByText("get_evidence_trace(provision, evidence_id?)")).toBeVisible()
+  await expect(page.getByText("list_changes(since?, vertical?, limit?)")).toBeVisible()
   await expect(page.getByText("submit_policy_evidence(...)")).toHaveCount(0)
   await expect(page.getByText("ingest_source_url(...)")).toHaveCount(0)
   await expect(page.getByText("Claude Code", { exact: true })).toBeVisible()
@@ -176,6 +177,7 @@ test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
     "get_evidence_trace",
     "list_verticals",
     "vertical_status",
+    "list_changes",
   ])
 
   const verticalsResponse = await request.post("/mcp", {
@@ -230,7 +232,7 @@ test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
     "50144",
   ])
 
-  const unknownResponse = await request.post("/mcp", {
+  const changesResponse = await request.post("/mcp", {
     headers: {
       accept: "application/json, text/event-stream",
       ...(sessionId ? { "mcp-session-id": sessionId } : {}),
@@ -238,6 +240,49 @@ test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
     data: {
       jsonrpc: "2.0",
       id: 5,
+      method: "tools/call",
+      params: { name: "list_changes", arguments: {} },
+    },
+  })
+  const changesResult = parseMcpResponse(await changesResponse.text())
+  const changesPayload = JSON.parse(changesResult.result.content[0].text)
+  expect(changesPayload.count).toBe(1)
+  expect(changesPayload.changes[0].id).toBe(
+    "2026-W21:federal_register:45v-guidance:45V",
+  )
+  expect(changesPayload.changes[0].headline).toMatch(/^Clean Hydrogen:/)
+
+  const filteredChangesResponse = await request.post("/mcp", {
+    headers: {
+      accept: "application/json, text/event-stream",
+      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+    },
+    data: {
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: {
+        name: "list_changes",
+        arguments: { vertical: "advanced-manufacturing" },
+      },
+    },
+  })
+  const filteredChangesResult = parseMcpResponse(
+    await filteredChangesResponse.text(),
+  )
+  const filteredChangesPayload = JSON.parse(
+    filteredChangesResult.result.content[0].text,
+  )
+  expect(filteredChangesPayload.count).toBe(0)
+
+  const unknownResponse = await request.post("/mcp", {
+    headers: {
+      accept: "application/json, text/event-stream",
+      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+    },
+    data: {
+      jsonrpc: "2.0",
+      id: 7,
       method: "tools/call",
       params: {
         name: "vertical_status",

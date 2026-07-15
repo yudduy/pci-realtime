@@ -70,8 +70,9 @@ function appendFragment(baseUrl: string, fragment: string) {
 function compactCitationText(value: string | null | undefined) {
   const compact = value?.replace(/\s+/g, " ").trim()
   if (!compact) return null
-  return compact.length > TEXT_FRAGMENT_MAX
-    ? compact.slice(0, TEXT_FRAGMENT_MAX).trim()
+  const points = [...compact]
+  return points.length > TEXT_FRAGMENT_MAX
+    ? points.slice(0, TEXT_FRAGMENT_MAX).join("").trim()
     : compact
 }
 

@@ -183,6 +183,15 @@ export type RegistryData = {
   viewErrors: string[]
 }
 
+export type DeliveryData = Pick<
+  RegistryData,
+  | "policyEvents"
+  | "evidenceItems"
+  | "sourceLinks"
+  | "connected"
+  | "viewErrors"
+>
+
 export type RegistryFixtureMode =
   | "all-views-fail"
   | "empty-views"
@@ -261,6 +270,49 @@ export function emptyRegistryData(viewErrors: string[] = []): RegistryData {
     sourceHealth: [],
     agentEvidenceSubmissions: [],
     connected: false,
+    viewErrors,
+  }
+}
+
+export async function getDeliveryData(): Promise<DeliveryData> {
+  const config = registryConfig()
+  if (!config) {
+    const empty = emptyRegistryData(["Supabase registry config is not set."])
+    return {
+      policyEvents: empty.policyEvents,
+      evidenceItems: empty.evidenceItems,
+      sourceLinks: empty.sourceLinks,
+      connected: empty.connected,
+      viewErrors: empty.viewErrors,
+    }
+  }
+
+  const [policyEventsResult, evidenceItemsResult, sourceLinksResult] =
+    await Promise.all([
+      fetchView<PolicyEvent>(
+        "v_policy_events",
+        "select=*&order=created_at.desc",
+      ),
+      fetchView<EvidenceItem>(
+        "v_evidence_items",
+        "select=*&order=created_at.desc",
+      ),
+      fetchView<SourceLink>(
+        "v_source_links",
+        "select=*&order=created_at.desc",
+      ),
+    ])
+  const viewErrors = [
+    policyEventsResult.error,
+    evidenceItemsResult.error,
+    sourceLinksResult.error,
+  ].filter((error): error is string => Boolean(error))
+
+  return {
+    policyEvents: policyEventsResult.rows,
+    evidenceItems: evidenceItemsResult.rows,
+    sourceLinks: sourceLinksResult.rows,
+    connected: Boolean(config),
     viewErrors,
   }
 }
