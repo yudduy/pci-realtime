@@ -31,3 +31,29 @@ def test_public_views_and_permissions_cover_ledger_tables() -> None:
     assert sql.count("- 'raw_response'") >= 4
     assert "view v_evidence_items" in sql
     assert "grant select on v_source_health" in sql
+
+
+def test_prediction_market_schema_is_retired() -> None:
+    migration = Path("supabase/migrations/006_retire_prediction_markets.sql")
+    assert migration.is_file()
+
+    sql = migration.read_text(encoding="utf-8")
+    for view in (
+        "v_open_forecasts",
+        "v_resolved_forecasts",
+        "v_forecast_performance",
+        "v_market_snapshots",
+        "v_trade_proposals",
+        "v_market_discovery_candidates",
+    ):
+        assert f"drop view if exists {view};" in sql
+
+    for table in (
+        "market_snapshots",
+        "forecasts",
+        "trade_proposals",
+        "forecast_outcomes",
+        "market_discovery_candidates",
+    ):
+        assert f"to_regclass('public.{table}')" in sql
+        assert f"alter table public.{table} set schema archive;" in sql
