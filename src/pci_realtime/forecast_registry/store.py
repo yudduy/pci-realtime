@@ -15,13 +15,22 @@ import pandas as pd
 from pci_realtime.config import (
     BASELINE_PCI,
     OBBBA_PCI_DELTAS,
+    PROVISION_DETAILS,
     REQUEST_TIMEOUT_SECONDS,
 )
-from pci_realtime.forecast_registry.engine import utc_now_iso
-from pci_realtime.forecast_registry.policy import PROVISION_DETAILS
 
 
 LOGGER = logging.getLogger(__name__)
+UPSERT_CONFLICT_KEYS = {
+    "provisions": "code",
+    "scored_deltas": "week,doc_id,provision",
+    "pci_weekly": "provision,week",
+    "policy_events": "event_id",
+    "source_documents": "source_doc_id",
+    "evidence_items": "evidence_id",
+    "source_links": "link_id",
+    "source_health": "source",
+}
 FORBIDDEN_PUBLIC_STRINGS = (
     "OPENAI_API_KEY",
     "KALSHI_PRIVATE_KEY",
@@ -218,148 +227,10 @@ def build_seed_rows() -> dict[str, list[dict[str, Any]]]:
                 "source": "seed_supabase.py",
                 "metadata": {
                     "description": "Seeded paper anchors and baseline PCI.",
-                    "contains_synthetic_forecasts": False,
                 },
             }
         ],
     }
-
-
-def market_to_row(market: dict[str, Any]) -> dict[str, Any]:
-    allowed = {
-        "generated_at",
-        "venue",
-        "ticker",
-        "event_ticker",
-        "title",
-        "subtitle",
-        "yes_sub_title",
-        "no_sub_title",
-        "status",
-        "result",
-        "yes_bid",
-        "yes_ask",
-        "bid_ask_spread",
-        "market_probability",
-        "liquidity_dollars",
-        "volume",
-        "volume_24h",
-        "open_interest",
-        "open_time",
-        "close_time",
-        "expected_expiration_time",
-        "latest_expiration_time",
-        "settlement_ts",
-        "rules_primary",
-        "rules_secondary",
-        "resolution_text",
-        "policy_relevant",
-    }
-    row = {key: value for key, value in market.items() if key in allowed}
-    row["raw_public_metadata"] = {
-        "query_name": market.get("query_name"),
-        "source": market.get("source"),
-        **(market.get("raw_public_metadata") or {}),
-    }
-    return json_clean(row)
-
-
-def forecast_to_row(
-    forecast: dict[str, Any], *, run_id: str | None = None
-) -> dict[str, Any]:
-    market = forecast.get("market_snapshot") or {}
-    signal = forecast.get("signal") or {}
-    rationale = forecast.get("forecast_rationale") or {}
-    metadata = forecast.get("calibration_metadata") or {}
-    return json_clean(
-        {
-            "forecast_id": forecast["forecast_id"],
-            "created_at": forecast.get("generated_at") or utc_now_iso(),
-            "schema_version": forecast.get("schema_version"),
-            "venue": forecast.get("venue", "kalshi"),
-            "market_ticker": forecast.get("market_ticker"),
-            "market_title": market.get("title"),
-            "market_rules": market.get("resolution_text")
-            or " ".join(
-                part
-                for part in [market.get("rules_primary"), market.get("rules_secondary")]
-                if part
-            ),
-            "market_status": market.get("status"),
-            "market_close_time": market.get("close_time"),
-            "provision": signal.get("provision"),
-            "dimension": signal.get("dimension"),
-            "pci_delta": signal.get("delta"),
-            "shock_type": signal.get("shock_type"),
-            "market_probability": forecast.get("market_probability"),
-            "pci_rule_probability": forecast.get("rule_probability"),
-            "llm_probability": forecast.get("llm_probability"),
-            "model_probability": forecast.get("model_probability"),
-            "edge": forecast.get("edge"),
-            "confidence": forecast.get("confidence"),
-            "method_version": metadata.get("version"),
-            "model_provider": rationale.get("provider"),
-            "model_name": rationale.get("model"),
-            "source_doc": signal.get("source_doc") or {},
-            "evidence": forecast.get("evidence") or {},
-            "reasoning": {
-                "signal": signal,
-                "match": forecast.get("match") or {},
-                "forecast_rationale": rationale,
-                "ensemble_weights": forecast.get("ensemble_weights") or {},
-            },
-            "counterarguments": rationale.get("counterarguments"),
-            "resolution_risk_notes": rationale.get("resolution_risk_notes"),
-            "private_info_used": bool(forecast.get("private_info_used")),
-            "run_id": run_id,
-        }
-    )
-
-
-def trade_proposal_to_row(
-    proposal: dict[str, Any], *, run_id: str | None = None
-) -> dict[str, Any]:
-    return json_clean(
-        {
-            "proposal_id": proposal["proposal_id"],
-            "created_at": proposal.get("generated_at") or utc_now_iso(),
-            "forecast_id": proposal.get("forecast_id"),
-            "venue": proposal.get("venue", "kalshi"),
-            "market_ticker": proposal.get("market_ticker"),
-            "proposed_side": proposal.get("proposed_side"),
-            "order_type": proposal.get("order_type"),
-            "limit_price": proposal.get("limit_price"),
-            "contracts": proposal.get("contracts"),
-            "max_order_usd": proposal.get("max_order_usd"),
-            "estimated_exposure_usd": proposal.get("estimated_exposure_usd"),
-            "edge": proposal.get("edge"),
-            "confidence": proposal.get("confidence"),
-            "risk_passed": bool(proposal.get("risk_passed")),
-            "approval_status": proposal.get("approval_status"),
-            "human_approval_required": bool(proposal.get("human_approval_required")),
-            "execution_enabled": bool(proposal.get("execution_enabled")),
-            "rejection_reasons": proposal.get("rejection_reasons") or [],
-            "risk_checks": proposal.get("risk_checks") or [],
-            "run_id": run_id,
-        }
-    )
-
-
-def outcome_to_row(outcome: dict[str, Any]) -> dict[str, Any]:
-    return json_clean(
-        {
-            "outcome_id": outcome["outcome_id"],
-            "forecast_id": outcome.get("forecast_id"),
-            "generated_at": outcome.get("generated_at"),
-            "venue": outcome.get("venue", "kalshi"),
-            "market_ticker": outcome.get("market_ticker"),
-            "result": outcome.get("result"),
-            "settlement_value": outcome.get("settlement_value"),
-            "resolved_at": outcome.get("resolved_at"),
-            "outcome_source": outcome.get("outcome_source"),
-            "market_status": outcome.get("market_status"),
-        }
-    )
 
 
 def scored_delta_to_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -388,49 +259,44 @@ def write_supabase_rows(
     *,
     client: SupabaseRestClient,
 ) -> None:
-    client.upsert_rows("provisions", rows_by_table["provisions"], on_conflict="code")
+    client.upsert_rows(
+        "provisions",
+        rows_by_table["provisions"],
+        on_conflict=UPSERT_CONFLICT_KEYS["provisions"],
+    )
     client.upsert_rows(
         "scored_deltas",
         rows_by_table.get("scored_deltas", []),
-        on_conflict="week,doc_id,provision",
+        on_conflict=UPSERT_CONFLICT_KEYS["scored_deltas"],
     )
     client.upsert_rows(
         "pci_weekly",
         rows_by_table["pci_weekly"],
-        on_conflict="provision,week",
+        on_conflict=UPSERT_CONFLICT_KEYS["pci_weekly"],
     )
     client.upsert_rows(
         "policy_events",
         rows_by_table["policy_events"],
-        on_conflict="event_id",
+        on_conflict=UPSERT_CONFLICT_KEYS["policy_events"],
     )
     client.insert_rows("pipeline_runs", rows_by_table["pipeline_runs"])
-    client.insert_rows("market_snapshots", rows_by_table["market_snapshots"])
-    client.upsert_rows(
-        "market_discovery_candidates",
-        rows_by_table.get("market_discovery_candidates", []),
-        on_conflict="candidate_id",
-    )
     client.upsert_rows(
         "source_documents",
         rows_by_table.get("source_documents", []),
-        on_conflict="source_doc_id",
+        on_conflict=UPSERT_CONFLICT_KEYS["source_documents"],
     )
     client.upsert_rows(
         "evidence_items",
         rows_by_table.get("evidence_items", []),
-        on_conflict="evidence_id",
+        on_conflict=UPSERT_CONFLICT_KEYS["evidence_items"],
     )
     client.upsert_rows(
         "source_links",
         rows_by_table.get("source_links", []),
-        on_conflict="link_id",
+        on_conflict=UPSERT_CONFLICT_KEYS["source_links"],
     )
     client.upsert_rows(
         "source_health",
         rows_by_table.get("source_health", []),
-        on_conflict="source",
+        on_conflict=UPSERT_CONFLICT_KEYS["source_health"],
     )
-    client.insert_rows("forecasts", rows_by_table["forecasts"])
-    client.insert_rows("trade_proposals", rows_by_table["trade_proposals"])
-    client.insert_rows("forecast_outcomes", rows_by_table.get("forecast_outcomes", []))

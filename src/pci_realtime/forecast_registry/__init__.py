@@ -1,1 +1,1 @@
-"""PCI-grounded public forecast registry."""
+"""Public policy ledger context and storage utilities."""

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pytest
 
+from conftest import RecordingSupabaseClient, SelectingSupabaseClient
+from pci_realtime.forecast_registry.store import assert_public_payload_safe
 from pci_realtime.pipeline.weekly_live import (
+    _load_remote_scored_deltas,
     build_weekly_live_rows,
     run_weekly_live,
     write_supabase_rows,
@@ -13,6 +18,17 @@ from pci_realtime.pipeline.weekly_live import (
 
 
 FIXED_RUN_ID = "00000000-0000-0000-0000-000000000001"
+LEDGER_TABLES = {
+    "provisions",
+    "pipeline_runs",
+    "scored_deltas",
+    "pci_weekly",
+    "policy_events",
+    "source_documents",
+    "evidence_items",
+    "source_links",
+    "source_health",
+}
 
 
 def _raw_doc_row() -> dict[str, Any]:
@@ -50,38 +66,17 @@ def _scored_row() -> dict[str, Any]:
     }
 
 
-def _market_fixture() -> dict[str, Any]:
+def _source_health_row() -> dict[str, Any]:
     return {
-        "markets": [
-            {
-                "ticker": "KXIRA-45VREPEAL-YES",
-                "event_ticker": "KXIRA-45VREPEAL",
-                "title": "Will Congress repeal or terminate the 45V clean hydrogen tax credit?",
-                "subtitle": "IRA clean energy policy",
-                "yes_sub_title": "45V is repealed",
-                "no_sub_title": "45V remains in force",
-                "status": "active",
-                "result": None,
-                "yes_bid_dollars": "0.4500",
-                "yes_ask_dollars": "0.4900",
-                "volume_fp": "1000.00",
-                "volume_24h_fp": "100.00",
-                "liquidity_dollars": "250.00",
-                "open_interest_fp": "1000.00",
-                "open_time": "2026-05-01T00:00:00Z",
-                "close_time": "2026-12-31T23:59:59Z",
-                "latest_expiration_time": "2027-01-15T00:00:00Z",
-                "rules_primary": (
-                    "This market resolves Yes if a federal law terminates or repeals "
-                    "the Section 45V clean hydrogen production credit before expiration."
-                ),
-                "rules_secondary": "Official federal statute text controls resolution.",
-            }
-        ]
+        "source": "federal_register",
+        "source_name": "Federal Register",
+        "status": "success",
+        "row_count": 1,
+        "details": {"window_start": "2025-06-02", "window_end": "2025-06-08"},
     }
 
 
-def _write_fixture_inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
+def _write_fixture_inputs(tmp_path: Path) -> tuple[Path, Path]:
     raw_root = tmp_path / "raw"
     raw_dir = raw_root / "federal_register"
     scored_dir = tmp_path / "scored"
@@ -93,64 +88,64 @@ def _write_fixture_inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
     pd.DataFrame([_scored_row()]).to_parquet(
         scored_dir / "scored_2025-W23.parquet", index=False
     )
-
-    market_path = tmp_path / "kalshi_markets.json"
-    from pci_realtime.forecast_registry.store import write_json
-
-    write_json(market_path, _market_fixture())
-    return raw_root, scored_dir, market_path
+    return raw_root, scored_dir
 
 
-def test_weekly_live_rows_materialize_supabase_contract(tmp_path: Path) -> None:
-    raw_root, scored_dir, market_path = _write_fixture_inputs(tmp_path)
+def test_weekly_live_rows_materialize_cited_ledger(tmp_path: Path) -> None:
+    raw_root, scored_dir = _write_fixture_inputs(tmp_path)
 
     rows = build_weekly_live_rows(
         week="2025-W23",
         raw_root=raw_root,
         scored_dir=scored_dir,
-        market_fixture_path=market_path,
         run_id=FIXED_RUN_ID,
+        ingest_sources=("federal_register",),
+        source_health=[_source_health_row()],
     )
 
+    assert set(rows) == LEDGER_TABLES
     assert len(rows["provisions"]) == 6
     assert len(rows["scored_deltas"]) == 1
     assert len(rows["policy_events"]) == 1
-    assert len(rows["market_snapshots"]) == 1
-    assert len(rows["market_discovery_candidates"]) == 1
-    assert len(rows["source_documents"]) == 2
-    assert len(rows["evidence_items"]) == 2
-    assert len(rows["source_links"]) >= 3
-    assert len(rows["forecasts"]) == 1
-    assert len(rows["trade_proposals"]) == 1
-    assert rows["pipeline_runs"][0]["metadata"]["forecasts"] == 1
-    assert rows["pipeline_runs"][0]["metadata"]["trade_proposals"] == 1
-    assert rows["scored_deltas"][0]["week"] == "2025-W23"
-    assert rows["scored_deltas"][0]["doc_id"] == "federal_register:45v-guidance"
-    assert rows["forecasts"][0]["run_id"] == FIXED_RUN_ID
-    assert rows["forecasts"][0]["provision"] == "45V"
-    assert rows["trade_proposals"][0]["approval_status"] == "pending_human_approval"
-    assert rows["market_discovery_candidates"][0]["eligible_snapshot"] is True
-    assert (
-        rows["source_documents"][0]["source_doc_id"] == "federal_register:45v-guidance"
-    )
-    assert rows["evidence_items"][0]["evidence_id"].startswith("evidence:")
-    assert rows["pci_weekly"][0]["week"] == "2022-W33"
+    assert len(rows["source_documents"]) == 1
+    assert len(rows["evidence_items"]) == 1
+    assert len(rows["source_links"]) == 1
+    assert rows["source_health"] == [_source_health_row()]
+    assert rows["pipeline_runs"][0]["metadata"] == {
+        "week": "2025-W23",
+        "ingest_sources": ["federal_register"],
+        "policy_events": 1,
+    }
 
-    row_45v = [
+    event = rows["policy_events"][0]
+    evidence = rows["evidence_items"][0]
+    link = rows["source_links"][0]
+    assert event["event_id"] == "2025-W23:federal_register:45v-guidance:45V"
+    assert event["doc_id"] == "federal_register:45v-guidance"
+    assert "source_document" not in event
+    assert rows["source_documents"][0]["source_doc_id"] == event["doc_id"]
+    assert evidence["source_doc_id"] == event["doc_id"]
+    assert evidence["evidence_id"] == f"evidence:{event['event_id']}"
+    assert link == {
+        "link_id": f"link:policy_events:{event['event_id']}",
+        "evidence_id": evidence["evidence_id"],
+        "target_table": "policy_events",
+        "target_id": event["event_id"],
+        "link_type": "primary_source",
+    }
+
+    row_45v = next(
         row
         for row in rows["pci_weekly"]
         if row["week"] == "2025-W23" and row["provision"] == "45V"
-    ][0]
+    )
     assert row_45v["data_origin"] == "live_scored"
-    assert row_45v["source_event_ids"] == ["2025-W23:federal_register:45v-guidance:45V"]
-
-    payload_text = repr(rows)
-    assert "raw_response" not in payload_text
-    assert "OPENAI_API_KEY" not in payload_text
-    assert "KALSHI_PRIVATE_KEY" not in payload_text
+    assert row_45v["source_event_ids"] == [event["event_id"]]
+    assert rows["pci_weekly"][0]["week"] == "2022-W33"
+    assert_public_payload_safe(rows)
 
 
-def test_weekly_live_rows_baseline_only_has_no_fake_forecasts(tmp_path: Path) -> None:
+def test_weekly_live_rows_without_documents_keep_ledger_shape(tmp_path: Path) -> None:
     rows = build_weekly_live_rows(
         week="2025-W23",
         raw_root=tmp_path / "raw",
@@ -158,122 +153,89 @@ def test_weekly_live_rows_baseline_only_has_no_fake_forecasts(tmp_path: Path) ->
         run_id=FIXED_RUN_ID,
     )
 
+    assert set(rows) == LEDGER_TABLES
     assert len(rows["provisions"]) == 6
-    assert rows["policy_events"] == []
     assert rows["scored_deltas"] == []
-    assert rows["market_snapshots"] == []
-    assert rows["market_discovery_candidates"] == []
-    assert rows["forecasts"] == []
-    assert rows["trade_proposals"] == []
-    assert rows["pipeline_runs"][0]["metadata"]["policy_events"] == 0
+    assert rows["policy_events"] == []
     assert rows["source_documents"] == []
     assert rows["evidence_items"] == []
+    assert rows["source_links"] == []
+    assert rows["source_health"] == []
+    assert rows["pipeline_runs"][0]["metadata"]["policy_events"] == 0
+    assert all(row["provenance_status"] == "complete" for row in rows["pci_weekly"])
 
 
-def test_weekly_live_can_publish_market_scan_without_fake_forecasts(
-    tmp_path: Path,
-) -> None:
-    market_path = tmp_path / "kalshi_markets.json"
-    from pci_realtime.forecast_registry.store import write_json
-
-    write_json(market_path, _market_fixture())
-
-    rows = build_weekly_live_rows(
-        week="2025-W23",
-        raw_root=tmp_path / "raw",
-        scored_dir=tmp_path / "scored",
-        market_fixture_path=market_path,
-        run_id=FIXED_RUN_ID,
+def test_remote_scored_deltas_are_loaded_and_filtered_through_week() -> None:
+    client = SelectingSupabaseClient(
+        [
+            {**_scored_row(), "week": "2025-W22"},
+            {**_scored_row(), "doc_id": "future", "week": "2025-W24"},
+        ]
     )
 
-    assert len(rows["market_snapshots"]) == 1
-    assert len(rows["market_discovery_candidates"]) == 1
-    assert rows["scored_deltas"] == []
-    assert len(rows["source_documents"]) == 1
-    assert len(rows["evidence_items"]) == 1
-    assert rows["forecasts"] == []
-    assert rows["trade_proposals"] == []
-    assert rows["pipeline_runs"][0]["metadata"]["signals"] == 0
+    scored = _load_remote_scored_deltas(  # type: ignore[arg-type]
+        client, through_week="2025-W23"
+    )
+
+    assert client.calls == [
+        (
+            "scored_deltas",
+            "doc_id,provision,specificity_delta,durability_delta,"
+            "enforceability_delta,rationale,confidence,model,prompt_version,"
+            "temperature,scored_at,cached,cost_usd,week",
+            {"week": "lte.2025-W23"},
+        )
+    ]
+    assert scored[["week", "doc_id"]].to_dict("records") == [
+        {"week": "2025-W22", "doc_id": "federal_register:45v-guidance"}
+    ]
 
 
-class RecordingSupabaseClient:
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, str, int, str | None]] = []
-
-    def upsert_rows(
-        self,
-        table: str,
-        rows: list[dict[str, Any]],
-        *,
-        on_conflict: str | None = None,
-    ) -> None:
-        self.calls.append(("upsert", table, len(rows), on_conflict))
-
-    def insert_rows(self, table: str, rows: list[dict[str, Any]]) -> None:
-        self.calls.append(("insert", table, len(rows), None))
-
-
-def test_write_supabase_rows_uses_upserts_for_current_state_tables(
+def test_write_supabase_rows_uses_ledger_insert_and_upsert_contract(
     tmp_path: Path,
 ) -> None:
-    raw_root, scored_dir, market_path = _write_fixture_inputs(tmp_path)
+    raw_root, scored_dir = _write_fixture_inputs(tmp_path)
     rows = build_weekly_live_rows(
         week="2025-W23",
         raw_root=raw_root,
         scored_dir=scored_dir,
-        market_fixture_path=market_path,
         run_id=FIXED_RUN_ID,
+        source_health=[_source_health_row()],
     )
     client = RecordingSupabaseClient()
 
     write_supabase_rows(rows, client=client)  # type: ignore[arg-type]
 
-    assert ("upsert", "provisions", 6, "code") in client.calls
-    assert ("upsert", "scored_deltas", 1, "week,doc_id,provision") in client.calls
-    assert any(
-        call == ("upsert", "pci_weekly", len(rows["pci_weekly"]), "provision,week")
-        for call in client.calls
-    )
-    assert ("upsert", "policy_events", 1, "event_id") in client.calls
-    assert ("insert", "forecasts", 1, None) in client.calls
-    assert (
-        "upsert",
-        "market_discovery_candidates",
-        len(rows["market_discovery_candidates"]),
-        "candidate_id",
-    ) in client.calls
-    assert (
-        "upsert",
-        "source_documents",
-        len(rows["source_documents"]),
-        "source_doc_id",
-    ) in client.calls
-    assert (
-        "upsert",
-        "evidence_items",
-        len(rows["evidence_items"]),
-        "evidence_id",
-    ) in client.calls
-    assert (
-        "upsert",
-        "source_links",
-        len(rows["source_links"]),
-        "link_id",
-    ) in client.calls
-    assert ("insert", "trade_proposals", 1, None) in client.calls
+    assert [
+        (method, table, len(recorded_rows), conflict)
+        for method, table, recorded_rows, conflict in client.calls
+    ] == [
+        ("upsert", "provisions", 6, "code"),
+        ("upsert", "scored_deltas", 1, "week,doc_id,provision"),
+        ("upsert", "pci_weekly", len(rows["pci_weekly"]), "provision,week"),
+        ("upsert", "policy_events", 1, "event_id"),
+        ("insert", "pipeline_runs", 1, None),
+        ("upsert", "source_documents", 1, "source_doc_id"),
+        ("upsert", "evidence_items", 1, "evidence_id"),
+        ("upsert", "source_links", 1, "link_id"),
+        ("upsert", "source_health", 1, "source"),
+    ]
 
 
-def test_weekly_live_dry_run_writes_payload_without_supabase(
+def test_weekly_live_dry_run_writes_complete_ledger_payload(
     tmp_path: Path,
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    raw_root, scored_dir, market_path = _write_fixture_inputs(tmp_path)
+    raw_root, scored_dir = _write_fixture_inputs(tmp_path)
     output_path = tmp_path / "weekly_live_payload.json"
+    calls: dict[str, dict[str, Any]] = {}
 
-    def record_ingest(**_: Any) -> None:
-        return None
+    def record_ingest(**kwargs: Any) -> list[dict[str, Any]]:
+        calls["ingest"] = kwargs
+        return [_source_health_row()]
 
-    def record_score(**_: Any) -> Path:
+    def record_score(**kwargs: Any) -> Path:
+        calls["score"] = kwargs
         return scored_dir / "scored_2025-W23.parquet"
 
     monkeypatch.setattr(
@@ -286,11 +248,29 @@ def test_weekly_live_dry_run_writes_payload_without_supabase(
         end_date=pd.Timestamp("2025-06-08").date(),
         raw_root=raw_root,
         scored_dir=scored_dir,
-        market_fixture_path=market_path,
+        confirm_cost=True,
+        ingest_sources=("federal_register",),
         dry_run=True,
         output_path=output_path,
     )
 
-    assert result.counts["forecasts"] == 1
-    assert result.counts["trade_proposals"] == 1
-    assert output_path.exists()
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert set(result.counts) == LEDGER_TABLES
+    assert result.counts["scored_deltas"] == 1
+    assert result.counts["policy_events"] == 1
+    assert result.counts["source_documents"] == 1
+    assert result.counts["evidence_items"] == 1
+    assert result.counts["source_links"] == 1
+    assert result.counts["source_health"] == 1
+    assert set(payload["rows"]) == LEDGER_TABLES
+    assert payload["counts"] == result.counts
+    assert payload["run_id"] == result.run_id
+    assert calls["score"]["confirm_cost"] is True
+    assert calls["ingest"]["sources"] == ("federal_register",)
+
+
+def test_public_payload_guard_allows_public_slugs_but_blocks_keys() -> None:
+    assert_public_payload_safe({"slug": "sk-telecom-policy"})
+
+    with pytest.raises(ValueError, match="OpenAI project key"):
+        assert_public_payload_safe({"token": "sk-proj-" + "a" * 32})

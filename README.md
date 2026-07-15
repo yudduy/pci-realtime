@@ -11,13 +11,10 @@ official policy documents
   -> provision relevance filter
   -> PCI delta scoring
   -> weekly PCI series
-  -> market discovery
-  -> forecast registry
-  -> gated trade proposal
   -> outcome tracking
 ```
 
-`weekly_live` owns the full weekly path: ingest official sources, score PCI deltas, build PCI, fetch public market data, create forecasts, gate trade proposals, and publish registry rows. `daily_refresh` reads open forecasts, refreshes market results, records settlements, refreshes public context sources, and stores performance metadata.
+`weekly_live` owns the full weekly path: ingest official sources, score PCI deltas, build PCI, and publish cited ledger rows. `daily_refresh` refreshes public context sources, source documents, evidence, and source-health rows.
 
 Trading stays backend-only. Live execution is disabled unless `PCI_ENABLE_LIVE_TRADING=true`, Kalshi credentials are present, and a proposal id appears in an approval file.
 
@@ -120,32 +117,19 @@ python -m pci_realtime.pipeline.seed_supabase --dry-run
 python -m pci_realtime.pipeline.seed_supabase
 ```
 
-Run the weekly registry loop with official source ingest, LLM scoring, broad market discovery, gated proposals, and Supabase writes:
+Run the weekly registry loop with official source ingest, LLM scoring, PCI updates, cited evidence, and Supabase writes:
 
 ```bash
 python -m pci_realtime.pipeline.weekly_live \
   --start-date 2026-05-18 \
   --end-date 2026-05-24 \
-  --confirm-cost \
-  --fetch-markets \
-  --fetch-polymarket
+  --confirm-cost
 ```
 
-Run only the public market discovery/audit loop:
+Refresh public context and source-health rows in Supabase:
 
 ```bash
-python -m pci_realtime.pipeline.market_discovery --dry-run \
-  --output-path data/debug/market_discovery_payload.json
-python -m pci_realtime.pipeline.market_discovery
-```
-
-The discovery loop paginates public Kalshi and Polymarket surfaces, stores eligible market snapshots, and records near-miss candidates with rejection reasons. Use `--include-all-candidates` only for bounded absence audits because it persists every scanned public market row.
-The scheduled default scans 5,000 open Kalshi markets plus 1,000 active Polymarket events; raise `--polymarket-limit` for one-off deeper absence audits.
-
-Refresh market outcomes and performance metadata from Supabase:
-
-```bash
-python -m pci_realtime.pipeline.daily_refresh --supabase
+python -m pci_realtime.pipeline.daily_refresh
 ```
 
 ## Agent MCP Evidence Intake
@@ -300,12 +284,7 @@ The UI reads from Supabase public views:
 | View | UI Surface |
 |---|---|
 | `v_current_pci` | provision cards and PCI scores |
-| `v_open_forecasts` | active forecast cards |
-| `v_market_snapshots` | read-only market scan cards |
-| `v_market_discovery_candidates` | latest eligible and near-miss market candidates |
-| `v_trade_proposals` | gated proposal summaries |
 | `v_policy_events` | official policy event feed |
-| `v_resolved_forecasts` | track record |
 | `v_evidence_items` | citations and source-backed snippets |
 | `v_source_links` | links from evidence to events, forecasts, and market rows |
 | `v_source_health` | plain-language source freshness labels |
@@ -322,7 +301,7 @@ The backend keeps three file-level contracts for tests and offline runs:
 | Scored PCI deltas | `pci_realtime.scoring.scorer` | weekly PCI builder | `data/processed/scored/scored_<YYYY-WW>.parquet` |
 | Weekly PCI series | `pci_realtime.pci.builder` | registry loop and export jobs | `data/processed/pci_weekly.parquet` |
 
-The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `market_snapshots`, `market_discovery_candidates`, `forecasts`, `trade_proposals`, `forecast_outcomes`, `pipeline_runs`, `source_documents`, `evidence_items`, `source_links`, and `source_health`.
+The product-facing contract is the registry tables: `provisions`, `pci_weekly`, `policy_events`, `pipeline_runs`, `source_documents`, `evidence_items`, `source_links`, and `source_health`.
 
 ## Capability Status
 
@@ -332,10 +311,10 @@ The product-facing contract is the registry tables: `provisions`, `pci_weekly`, 
 | Federal Register, Treasury, IRS, and OMB ingest | implemented |
 | Congress.gov primary legislative ingest | implemented, ProPublica fallback optional |
 | Regulations.gov, RegInfo/OIRA, and USAspending ingest | wired into the default weekly command |
-| GovInfo, EIA, FRED, CourtListener, and Polymarket clients | scaffolded for public context and market discovery |
+| GovInfo, EIA, FRED, and CourtListener clients | scaffolded for public context |
 | LLM scoring and caching | implemented |
 | Weekly PCI builder | implemented |
-| Forecast registry, public market reads, and gated proposals | implemented |
+| Prediction-market layer | removed 2026-07 (never produced production forecasts) |
 | Normalized source documents, evidence items, trace links, and source health | implemented |
 | Public Supabase views | implemented |
 | Cloud scheduler | not configured; run registry commands manually or attach an external scheduler |

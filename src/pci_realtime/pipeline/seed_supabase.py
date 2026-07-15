@@ -26,10 +26,6 @@ def seed_supabase(*, dry_run: bool = False, output_path: Path | None = None) -> 
     if client is None:
         raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required")
     rows_by_table.setdefault("policy_events", [])
-    rows_by_table.setdefault("market_snapshots", [])
-    rows_by_table.setdefault("forecasts", [])
-    rows_by_table.setdefault("trade_proposals", [])
-    rows_by_table.setdefault("forecast_outcomes", [])
     write_supabase_rows(rows_by_table, client=client)
     LOGGER.info("Seeded Supabase paper anchors")
 
