@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from conftest import RecordingSupabaseClient, SelectingSupabaseClient
-from pci_realtime.forecast_registry.store import assert_public_payload_safe
+from pci_realtime.registry.store import assert_public_payload_safe
 from pci_realtime.pipeline.weekly_live import (
     _load_remote_scored_deltas,
     build_weekly_live_rows,

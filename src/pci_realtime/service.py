@@ -17,8 +17,8 @@ from pci_realtime.agent_intake import (
     normalize_provision,
 )
 from pci_realtime.config import BASELINE_PCI, PROVISION_DETAILS, TRACKED_PROVISIONS
-from pci_realtime.forecast_registry.evidence import excerpt
-from pci_realtime.forecast_registry.store import SupabaseRestClient
+from pci_realtime.registry.evidence import excerpt
+from pci_realtime.registry.store import SupabaseRestClient
 from pci_realtime.scoring.scorer import SCHEMA_B_COLUMNS
 from pci_realtime.service_errors import (
     BadRequest,

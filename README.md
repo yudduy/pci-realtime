@@ -69,7 +69,7 @@ pci-realtime/
 │   ├── filter/
 │   ├── scoring/
 │   ├── pci/
-│   ├── forecast_registry/
+│   ├── registry/
 │   └── pipeline/
 ├── apps/web/
 ├── supabase/

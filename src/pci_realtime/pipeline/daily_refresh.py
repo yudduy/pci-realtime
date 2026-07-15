@@ -6,9 +6,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from pci_realtime.forecast_registry.context import build_context_rows
-from pci_realtime.forecast_registry.evidence import utc_now_iso
-from pci_realtime.forecast_registry.store import (
+from pci_realtime.registry.context import build_context_rows
+from pci_realtime.registry.evidence import utc_now_iso
+from pci_realtime.registry.store import (
     UPSERT_CONFLICT_KEYS,
     SupabaseRestClient,
     write_json,

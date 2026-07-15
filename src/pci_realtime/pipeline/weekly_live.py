@@ -13,13 +13,13 @@ from typing import Any
 import pandas as pd
 
 from pci_realtime.config import PROCESSED_DATA_ROOT, RAW_DATA_ROOT
-from pci_realtime.forecast_registry.evidence import (
+from pci_realtime.registry.evidence import (
     evidence_rows_from_policy_events,
     source_document_rows_from_raw_docs,
     source_health_row,
     source_links_from_policy_events,
 )
-from pci_realtime.forecast_registry.store import (
+from pci_realtime.registry.store import (
     SupabaseRestClient,
     build_seed_rows,
     scored_delta_to_row,

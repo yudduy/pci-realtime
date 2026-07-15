@@ -10,7 +10,7 @@ import pandas as pd
 
 from pci_realtime import service
 from pci_realtime.agent_intake import build_agent_evidence_rows
-from pci_realtime.forecast_registry.store import SupabaseRestClient
+from pci_realtime.registry.store import SupabaseRestClient
 from pci_realtime.scoring.scorer import ScoringResult
 
 

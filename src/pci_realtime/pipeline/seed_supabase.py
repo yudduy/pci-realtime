@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from pci_realtime.config import DATA_ROOT
-from pci_realtime.forecast_registry.store import (
+from pci_realtime.registry.store import (
     SupabaseRestClient,
     build_seed_rows,
     write_json,

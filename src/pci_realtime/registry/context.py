@@ -5,7 +5,7 @@ import time
 from datetime import date, timedelta
 from typing import Any
 
-from pci_realtime.forecast_registry.evidence import (
+from pci_realtime.registry.evidence import (
     evidence_rows_from_policy_events,
     source_document_rows_from_raw_docs,
     source_health_row,

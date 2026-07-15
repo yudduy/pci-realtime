@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from pci_realtime.agent_intake import canonicalize_url, normalize_provision
 from pci_realtime.config import PROVISION_DETAILS, TRACKED_PROVISIONS
-from pci_realtime.forecast_registry.evidence import stable_hash
+from pci_realtime.registry.evidence import stable_hash
 
 
 OFFICIAL_SOURCE_DOMAINS = (
