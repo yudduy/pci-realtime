@@ -56,7 +56,7 @@ scoring/          screener (LLM relevance filter) → scorer (dimension deltas i
                   → data/processed/scored/scored_<YYYY-WW>.parquet
 pci/builder       sticky weekly index: previous PCI + mean of dimension deltas, clipped to [1,5]
                   → data/processed/pci_weekly.parquet
-forecast_registry/ registry spine: store.py (SupabaseRestClient — plain httpx REST, not supabase-py;
+registry/          registry spine: store.py (SupabaseRestClient — plain httpx REST, not supabase-py;
                   UPSERT_CONFLICT_KEYS is the single source of table conflict keys),
                   evidence.py (evidence/source-link/source-health row builders),
                   context.py (macro context: EIA/FRED/CourtListener/reginfo/USAspending)
@@ -76,7 +76,7 @@ Supabase migrations are ordered SQL in `supabase/migrations/` (001–005). Migra
 
 ## Guardrails
 
-- Nothing private in public views: `forecast_registry/store.py` enforces `FORBIDDEN_PUBLIC_STRINGS`/`FORBIDDEN_PUBLIC_PATTERNS` (API keys, `raw_response`, private paths, firm data) on rows bound for Supabase. New write paths must stay behind this check.
+- Nothing private in public views: `registry/store.py` enforces `FORBIDDEN_PUBLIC_STRINGS`/`FORBIDDEN_PUBLIC_PATTERNS` (API keys, `raw_response`, private paths, firm data) on rows bound for Supabase. New write paths must stay behind this check.
 - LLM runs abort above `PCI_LLM_RUN_COST_CEILING_USD` unless `--confirm-cost` is passed.
 - PCI updates come only from scored official documents; general news scraping is intentionally out of scope for the index.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-side only. The browser gets only `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
