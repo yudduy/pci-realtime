@@ -43,7 +43,7 @@ uv run --extra dev python -m pci_realtime.mcp_server          # local MCP (stdio
 
 The `pci` typer CLI (`pci_realtime.cli:app`) wraps the same service layer: `pci status`, `pci policies`, ….
 
-No CI/CD workflows ship with the repo — run the checks above locally; registry commands run manually from a trusted environment.
+GitHub Actions (`.github/workflows/`): `ci.yml` runs the checks above on PRs; `pipeline-weekly.yml` (Monday cron + `workflow_dispatch` with date inputs, used for backfills) runs the weekly ledger loop; `discovery-daily.yml` runs the context refresh and the live-web-search research sweep. Actions failures also write `source_health(source="pipeline")` rows, which the UI staleness badge surfaces.
 
 ## Architecture
 
@@ -64,15 +64,17 @@ registry/          registry spine: store.py (SupabaseRestClient — plain httpx 
 
 The parquet paths are file-level contracts between stages; tests and offline runs depend on them. `data/raw|processed|cache|private|debug` are gitignored runtime state.
 
-Orchestrators in `pipeline/`: `weekly_live` owns the full ledger loop (ingest → screen → score → PCI → policy_events/evidence/source_health rows); `daily_refresh` refreshes public context + source health; `seed_supabase` writes the paper anchors. The nine ledger tables written: provisions, pci_weekly, policy_events, scored_deltas, source_documents, evidence_items, source_links, source_health, pipeline_runs.
+Orchestrators in `pipeline/`: `weekly_live` owns the full ledger loop (ingest → screen → score → PCI → policy_events/evidence/source_health rows); `daily_refresh` refreshes public context + source health; `seed_supabase` writes the paper anchors. The eleven ledger tables written: provisions, verticals, vertical_provisions, pci_weekly, policy_events, scored_deltas, source_documents, evidence_items, source_links, source_health, pipeline_runs. `VERTICALS` in `config.py` is the single source of truth for the vertical→provisions mapping; both MCP servers and the web verticals config mirror it.
 
-`service.py` is the shared agent-facing service layer with typed errors (`service_errors.py`); `cli.py`, `mcp_server.py` (FastMCP, read + write tools), and `scripts/` all consume it. The hosted read-only MCP at `/mcp` is a separate TypeScript implementation (`apps/web/app/mcp/route.ts` via `mcp-handler`) reading the same public views — changes to the tool surface may need mirroring in both.
+`service.py` is the shared agent-facing service layer with typed errors (`service_errors.py`); `cli.py`, `mcp_server.py` (FastMCP, read + write tools), and `scripts/` all consume it. The hosted read-only MCP at `/mcp` is a separate TypeScript implementation (`apps/web/app/mcp/route.ts` via `mcp-handler`) reading the same public views — changes to the tool surface must be mirrored in both; `tests/test_mcp_tools.py` (Python) and the tools/list assertion in `apps/web/tests/e2e/registry.spec.ts` (TS) pin the tool-name surface, and `tests/test_changes.py` + `apps/web/tests/e2e/feeds.spec.ts` pin the `list_changes` payload key set on each side.
+
+Delivery surfaces (`apps/web`): `/feed.xml` and `/verticals/<id>/feed.xml` (Atom), `/api/changes` (canonical JSON contract with a `contract_version` envelope field), and `list_changes(since?, vertical?, limit?)` on both MCP servers. All are assembled from `v_policy_events` + citation enrichment (`apps/web/lib/changes.ts` in TS, `service.list_changes` in Python) — keep the two implementations' payloads key-identical.
 
 Shared constants live in `config.py`: `TRACKED_PROVISIONS`, `BASELINE_PCI`, OBBBA deltas, provision keywords, and LLM routing (screening/scoring/audit tiers via `PCI_*` env vars). `env.py:load_local_env()` parses `.env` itself — python-dotenv is not a dependency.
 
 LLM responses are cached under `data/cache` (`scoring/cache.py`), keyed by prompt + schema version. Tests run fully offline against `data/fixtures/`.
 
-Supabase migrations are ordered SQL in `supabase/migrations/` (001–005). Migration 005 gates agent evidence intake (`agent_runs`, `evidence_submissions`); `service.status()` reports `agent_intake_configured` from it. Supabase Edge Functions only forward fail-closed webhook triggers to an external Python runner — they never run the pipeline themselves.
+Supabase migrations are ordered SQL in `supabase/migrations/` (001–008; never edit applied ones). Migration 005 gates agent evidence intake (`agent_runs`, `evidence_submissions`); `service.status()` reports `agent_intake_configured` from it. 007 retired the prediction-market schema into an `archive` schema; 008 added `verticals`/`vertical_provisions` and the `v_vertical_pci` rollup view. Supabase Edge Functions only forward fail-closed webhook triggers to an external Python runner — they never run the pipeline themselves.
 
 ## Guardrails
 

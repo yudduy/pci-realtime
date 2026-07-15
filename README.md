@@ -1,8 +1,8 @@
 # Policy Credibility Registry
 
-Supabase-backed registry for the Policy Credibility Index (PCI) from the IRA venture-capital research project. The system turns official federal policy documents into weekly PCI updates, matches those updates to clean public prediction markets, and records forecasts, gated trade proposals, and resolved outcomes.
+Supabase-backed registry for the Policy Credibility Index (PCI) from the IRA venture-capital research project. The system turns official federal policy documents into a cited policy-change ledger with weekly PCI scores, organized by climate-tech vertical and delivered by feeds, a JSON API, and MCP tools.
 
-The public web app is a research companion and read-only registry surface. It does not place orders, invent forecasts, or expose private execution payloads.
+The public web app is a research companion and read-only registry surface.
 
 ## Product Loop
 
@@ -11,12 +11,10 @@ official policy documents
   -> provision relevance filter
   -> PCI delta scoring
   -> weekly PCI series
-  -> outcome tracking
+  -> cited change ledger + push delivery
 ```
 
 `weekly_live` owns the full weekly path: ingest official sources, score PCI deltas, build PCI, and publish cited ledger rows. `daily_refresh` refreshes public context sources, source documents, evidence, and source-health rows.
-
-Trading stays backend-only. Live execution is disabled unless `PCI_ENABLE_LIVE_TRADING=true`, Kalshi credentials are present, and a proposal id appears in an approval file.
 
 ## Research Context
 
@@ -53,7 +51,7 @@ PCI[p, t] = clip(
 )
 ```
 
-PCI is not investor sentiment and not a news index. General news scraping is intentionally out of scope for index updates. Public market data is read only for market matching and outcome tracking; trading remains backend-gated.
+PCI is not investor sentiment and not a news index. General news scraping is intentionally out of scope for index updates.
 
 ## Repository Layout
 
@@ -172,7 +170,8 @@ write the registry rows.
 ### Hosted read-only MCP (no setup)
 
 The hosted endpoint exposes read-only tools (`status`, `list_policies`,
-`current_pci`, `policy_dossier`, `get_evidence_trace`). Add it in one line:
+`current_pci`, `policy_dossier`, `get_evidence_trace`, `list_verticals`,
+`vertical_status`, `list_changes`). Add it in one line:
 
 ```bash
 # Claude Code
@@ -314,10 +313,61 @@ The UI reads from Supabase public views:
 | `v_current_pci` | nested provision evidence rows and PCI scores |
 | `v_policy_events` | official policy event feed |
 | `v_evidence_items` | citations and source-backed snippets |
-| `v_source_links` | links from evidence to events, forecasts, and market rows |
+| `v_source_links` | links from evidence to policy events |
 | `v_source_health` | plain-language source freshness labels |
 
-Private order payloads, raw model responses, API keys, firm data, signatures, and private file paths must never appear in public views.
+Raw model responses, API keys, firm data, and private file paths must never appear in public views.
+
+## Change Feeds & Delivery
+
+The all-changes Atom feed is available at
+`https://pcindex.vercel.app/feed.xml`. Per-vertical feeds use
+`https://pcindex.vercel.app/verticals/<vertical-id>/feed.xml`. Feed readers can
+also discover the all-changes feed from the web app's Atom autodiscovery
+metadata.
+
+The canonical JSON contract is available at `/api/changes`:
+
+| Parameter | Meaning |
+|---|---|
+| `since` | Optional ISO 8601 date or timestamp; filters on `recorded_at` |
+| `vertical` | Optional scored vertical id |
+| `limit` | Optional integer result limit; defaults to 100 and is clamped to 1–500 |
+
+An abbreviated response envelope looks like:
+
+```json
+{
+  "contract_version": "1",
+  "generated_at": "2026-07-14T12:00:00.000Z",
+  "since": null,
+  "vertical": "clean-hydrogen",
+  "count": 1,
+  "changes": [{ "id": "2026-W21:federal_register:45v-guidance:45V" }]
+}
+```
+
+Change `id` values are stable. `contract_version` increments for breaking
+changes. The `since` parameter filters on `recorded_at`, which is when the
+ledger recorded the change, not the policy-time `week_start`.
+
+Both the hosted and local MCP servers expose
+`list_changes(since?, vertical?, limit?)`.
+MCP `limit` rejects values outside 1–500, while `/api/changes` clamps values to
+that range.
+
+During a registry outage the delivery endpoints return 503 with no-store rather
+than a cacheable empty ledger.
+
+For an email digest, wire an RSS-to-email service such as Buttondown to
+`/feed.xml` or a per-vertical feed. As of July 2026, Buttondown's free tier
+includes RSS-to-email with up to 100 subscribers and unlimited sends
+(<https://buttondown.com/pricing>) — re-verify at setup time.
+
+Each delivery surface logs one JSON line shaped like
+`{"metric":"delivery_hit","surface":"changes_api","vertical":"clean-hydrogen"}`.
+These are counts only, with no IP addresses or user agents; view them in Vercel
+logs.
 
 ## Data Contracts
 
@@ -397,6 +447,6 @@ GitHub CLI access currently needs re-authentication before pushing under `yudduy
 ## Release Rules
 
 - Code is MIT licensed.
-- Public outputs are PCI values, public market snapshots, forecasts, outcomes, proposal status summaries, and aggregate metrics.
+- Public outputs are PCI values, cited policy-change events, vertical status rollups, and aggregate metrics.
 - Licensed or private firm-level inputs never enter this repository.
 - Backfills that may exceed the configured model-cost ceiling require `--confirm-cost`.
