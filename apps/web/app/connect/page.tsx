@@ -68,6 +68,12 @@ const tools = [
     purpose: "Read one vertical with its underlying provision-level status.",
   },
   {
+    name: "list_changes",
+    signature: "list_changes(since?, vertical?, limit=50)",
+    mode: "read",
+    purpose: "List cited policy changes using the public delivery contract.",
+  },
+  {
     name: "list_policies",
     signature: "list_policies()",
     mode: "read",

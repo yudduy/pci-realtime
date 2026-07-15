@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import math
+import re
+from datetime import date, datetime, timezone
 from typing import Any, Mapping
+from urllib.parse import quote
 
 import httpx
 import pandas as pd
@@ -154,6 +158,58 @@ def vertical_status(vertical_id: str) -> dict[str, Any]:
             current_by_code.get(code, _baseline_row(code)) for code in provision_codes
         ],
         "source": "registry",
+    }
+
+
+def list_changes(
+    since: str | None = None,
+    vertical: str | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """List cited policy changes using the public delivery contract."""
+    normalized_since = _normalize_since(since)
+    normalized_vertical = _normalize_vertical(vertical) if vertical else None
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 200:
+        raise BadRequest("Limit must be an integer between 1 and 200.")
+
+    client = _require_read_client()
+    events = _select(
+        client,
+        "v_policy_events",
+        params={"order": "week_start.desc,created_at.desc"},
+    )
+    evidence = _select(
+        client,
+        "v_evidence_items",
+        params={"order": "created_at.desc"},
+    )
+    links = _select(
+        client,
+        "v_source_links",
+        params={"order": "created_at.desc"},
+    )
+
+    records = [
+        record
+        for event in events
+        if (record := _change_record(event, evidence=evidence, links=links)) is not None
+    ]
+    if normalized_since:
+        records = [record for record in records if record["date"] >= normalized_since]
+    if normalized_vertical:
+        records = [
+            record for record in records if normalized_vertical in record["verticals"]
+        ]
+    records.sort(key=lambda record: str(record["id"]))
+    records.sort(key=lambda record: str(record["date"]), reverse=True)
+    records = records[:limit]
+
+    return {
+        "as_of": datetime.now(timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z"),
+        "count": len(records),
+        "changes": records,
     }
 
 
@@ -525,6 +581,193 @@ def _normalize_vertical(vertical_id: str) -> str:
         tracked = ", ".join(VERTICALS)
         raise BadRequest(f"Unknown vertical {vertical_id!r}. Tracked: {tracked}.")
     return normalized
+
+
+def _normalize_since(value: str | None) -> str | None:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return None
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", normalized):
+        raise BadRequest("Since must be a valid date in YYYY-MM-DD format.")
+    try:
+        date.fromisoformat(normalized)
+    except ValueError as exc:
+        raise BadRequest("Since must be a valid date in YYYY-MM-DD format.") from exc
+    return normalized
+
+
+def _change_record(
+    event: Mapping[str, Any],
+    *,
+    evidence: list[dict[str, Any]],
+    links: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    event_date = _date_only(
+        event.get("week_start") or event.get("scored_at") or event.get("created_at")
+    )
+    if event_date is None:
+        return None
+
+    provisions = _event_provisions(event)
+    verticals = [
+        vertical_id
+        for vertical_id, config in VERTICALS.items()
+        if any(code in config["provisions"] for code in provisions)
+    ]
+    dimensions = _change_dimensions(event)
+    method = {
+        key: value
+        for key in ("schema_version", "method_version", "prompt_version")
+        if (value := _clean_text(event.get(key))) is not None
+    }
+
+    return {
+        "id": str(event.get("event_id") or ""),
+        "date": event_date,
+        "verticals": verticals,
+        "provisions": provisions,
+        "title": _clean_text(event.get("title")) or "Official policy update",
+        "summary": (
+            _clean_text(event.get("summary"))
+            or _clean_text(event.get("claim"))
+            or _clean_text(event.get("rationale"))
+            or ""
+        ),
+        "pci_delta": _finite_number(event.get("pci_delta")),
+        "dimensions": dimensions,
+        "citation": _event_citation(event, evidence=evidence, links=links),
+        "method": method or None,
+    }
+
+
+def _event_provisions(event: Mapping[str, Any]) -> list[str]:
+    raw = event.get("provisions")
+    values = raw if isinstance(raw, (list, tuple)) else [event.get("provision")]
+    provisions: list[str] = []
+    for value in values:
+        code = _clean_text(value)
+        if code and code not in provisions:
+            provisions.append(code)
+    return provisions
+
+
+def _change_dimensions(
+    event: Mapping[str, Any],
+) -> dict[str, float | int | None] | None:
+    source = (
+        event.get("dimensions")
+        or event.get("dimension_scores")
+        or event.get("dimension_deltas")
+    )
+    if not isinstance(source, Mapping):
+        return None
+    dimensions = {
+        name: _finite_number(source.get(name))
+        for name in ("specificity", "durability", "enforceability")
+    }
+    return (
+        dimensions if any(value is not None for value in dimensions.values()) else None
+    )
+
+
+def _event_citation(
+    event: Mapping[str, Any],
+    *,
+    evidence: list[dict[str, Any]],
+    links: list[dict[str, Any]],
+) -> dict[str, Any]:
+    event_id = str(event.get("event_id") or "")
+    evidence_ids = {
+        str(link.get("evidence_id"))
+        for link in links
+        if link.get("target_table") == "policy_events"
+        and str(link.get("target_id")) == event_id
+    }
+    linked = [item for item in evidence if str(item.get("evidence_id")) in evidence_ids]
+    selected = linked[0] if linked else None
+    url = None
+    for item in linked:
+        candidate = _citation_href(
+            item.get("canonical_url") or item.get("url") or event.get("url"),
+            item,
+        )
+        if candidate:
+            selected = item
+            url = candidate
+            break
+    url = url or _clean_text(event.get("url"))
+
+    return {
+        "url": url,
+        "quote": _clean_text(
+            (selected or {}).get("citation_quote") or (selected or {}).get("snippet")
+        ),
+        "source_name": _clean_text(
+            (selected or {}).get("source_name")
+            or (selected or {}).get("agency")
+            or (selected or {}).get("source")
+            or event.get("agency")
+            or event.get("doc_source")
+        ),
+        "published_at": _clean_text((selected or {}).get("published_at")),
+    }
+
+
+def _citation_href(base_url: Any, item: Mapping[str, Any]) -> str | None:
+    base = _clean_text(base_url)
+    if not base or not re.match(r"^https?://", base, flags=re.IGNORECASE):
+        return None
+
+    explicit_fragment = _clean_text(item.get("citation_url_fragment"))
+    if explicit_fragment:
+        return _append_fragment(base, explicit_fragment)
+
+    citation_quote = _clean_text(item.get("citation_quote"))
+    if not citation_quote:
+        return base
+    compact_quote = " ".join(citation_quote.split())[:280].strip()
+    fragment_name = "search" if re.search(r"\.pdf(?:[?#]|$)", base, re.I) else ":~:text"
+    return _append_fragment(base, f"{fragment_name}={quote(compact_quote, safe='')}")
+
+
+def _append_fragment(base_url: str, fragment: str) -> str:
+    if re.match(r"^https?://", fragment, flags=re.IGNORECASE):
+        return fragment
+    clean_fragment = fragment[1:] if fragment.startswith("#") else fragment
+    return f"{base_url.split('#', maxsplit=1)[0]}#{clean_fragment}"
+
+
+def _date_only(value: Any) -> str | None:
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    text = _clean_text(value)
+    if not text:
+        return None
+    direct = text[:10]
+    try:
+        return date.fromisoformat(direct).isoformat()
+    except ValueError:
+        try:
+            return (
+                datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
+            )
+        except ValueError:
+            return None
+
+
+def _finite_number(value: Any) -> float | int | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value if math.isfinite(value) else None
+
+
+def _clean_text(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 def _public_submission(row: Mapping[str, Any]) -> dict[str, Any]:

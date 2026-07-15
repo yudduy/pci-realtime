@@ -19,9 +19,14 @@ PCIndex tracks commitment credibility for five scored climate-tech verticals. St
 - [Terminal](${baseUrl}/): Vertical-first Policy Credibility Index with provision-level evidence detail.
 - [About](${baseUrl}/about): Methodology companion for PCI scoring.
 
+## Change Delivery
+- [All changes feed](${baseUrl}/feed.xml): Subscribe to every cited policy change as Atom.
+- [Vertical feed](${baseUrl}/verticals/clean-hydrogen/feed.xml): Replace the slug with any scored vertical id to subscribe to that vertical only.
+- [Changes JSON API](${baseUrl}/api/changes?since=2026-01-01&limit=50): Filter with since=YYYY-MM-DD, vertical=<slug>, and limit=1..200.
+
 ## Hosted MCP
 - [Hosted MCP](${baseUrl}/mcp): Read-only Streamable HTTP endpoint.
-- Read-only tools: status, list_policies, current_pci, policy_dossier, get_evidence_trace, list_verticals, vertical_status.
+- Read-only tools: status, list_policies, current_pci, policy_dossier, get_evidence_trace, list_verticals, vertical_status, list_changes.
 - [Connect](${baseUrl}/connect): Setup for hosted reads and trusted local evidence intake.
 - [Repository README](${repoUrl}/blob/main/README.md): Build, registry, web app, MCP setup, and operator guide.
 

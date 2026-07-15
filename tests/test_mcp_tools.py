@@ -15,6 +15,7 @@ CANONICAL_TOOL_NAMES = [
     "ingest_source_url",
     "list_verticals",
     "vertical_status",
+    "list_changes",
 ]
 
 

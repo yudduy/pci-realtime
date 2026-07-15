@@ -6,6 +6,7 @@ import type {
   RegistryData,
   VerticalPci,
 } from "@/lib/data"
+import { getChanges, logDeliveryHit, MAX_CHANGE_LIMIT } from "@/lib/changes"
 import { getRegistryData } from "@/lib/data"
 import { buildPolicyIntelligence } from "@/lib/intelligence"
 import { POLICIES } from "@/lib/policy-copy"
@@ -235,6 +236,28 @@ const handler = createMcpHandler(
           ),
           source: data.connected ? "registry" : "baseline",
         })
+      },
+    )
+
+    server.registerTool(
+      "list_changes",
+      {
+        title: "list_changes",
+        description: "List cited policy changes, optionally filtered by date or vertical.",
+        inputSchema: z.object({
+          since: z
+            .string()
+            .trim()
+            .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+            .optional(),
+          vertical: verticalIdInput.optional(),
+          limit: z.number().int().min(1).max(MAX_CHANGE_LIMIT).default(50),
+        }),
+        annotations: READ_ONLY,
+      },
+      async ({ since, vertical, limit }) => {
+        logDeliveryHit("mcp", "list_changes")
+        return asJson(await getChanges({ since, vertical, limit }))
       },
     )
   },

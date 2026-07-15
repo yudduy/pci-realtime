@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 from typing import Any, Literal
 
@@ -17,6 +19,7 @@ from pci_realtime.service_errors import ServiceError
 load_local_env()
 
 
+LOGGER = logging.getLogger(__name__)
 mcp = FastMCP("pcindex")
 _READ = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
 _WRITE = ToolAnnotations(readOnlyHint=False, openWorldHint=True)
@@ -130,6 +133,22 @@ def list_verticals() -> dict[str, Any]:
 def vertical_status(vertical_id: str) -> dict[str, Any]:
     """Read one climate-tech vertical and its provision-level status."""
     return _safe(lambda: service.vertical_status(vertical_id))
+
+
+@mcp.tool(annotations=_READ)
+def list_changes(
+    since: str | None = None,
+    vertical: str | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """List cited policy changes, optionally filtered by date or vertical."""
+    LOGGER.info(
+        json.dumps(
+            {"evt": "delivery_hit", "surface": "mcp", "key": "list_changes"},
+            separators=(",", ":"),
+        )
+    )
+    return _safe(lambda: service.list_changes(since, vertical, limit))
 
 
 def configured_transport() -> _Transport:

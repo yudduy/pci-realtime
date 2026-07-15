@@ -176,6 +176,7 @@ test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
     "get_evidence_trace",
     "list_verticals",
     "vertical_status",
+    "list_changes",
   ])
 
   const verticalsResponse = await request.post("/mcp", {
@@ -230,7 +231,7 @@ test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
     "50144",
   ])
 
-  const unknownResponse = await request.post("/mcp", {
+  const changesResponse = await request.post("/mcp", {
     headers: {
       accept: "application/json, text/event-stream",
       ...(sessionId ? { "mcp-session-id": sessionId } : {}),
@@ -238,6 +239,34 @@ test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
     data: {
       jsonrpc: "2.0",
       id: 5,
+      method: "tools/call",
+      params: {
+        name: "list_changes",
+        arguments: {
+          since: "2026-01-01",
+          vertical: "clean-hydrogen",
+          limit: 10,
+        },
+      },
+    },
+  })
+  const changesResult = parseMcpResponse(await changesResponse.text())
+  const changesPayload = JSON.parse(changesResult.result.content[0].text)
+  expect(changesPayload.count).toBe(1)
+  expect(changesPayload.changes[0]).toMatchObject({
+    id: "2026-W21:federal_register:45v-guidance:45V",
+    verticals: ["clean-hydrogen"],
+    provisions: ["45V"],
+  })
+
+  const unknownResponse = await request.post("/mcp", {
+    headers: {
+      accept: "application/json, text/event-stream",
+      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+    },
+    data: {
+      jsonrpc: "2.0",
+      id: 6,
       method: "tools/call",
       params: {
         name: "vertical_status",

@@ -32,6 +32,7 @@ export type VerticalPci = {
 export type PolicyEvent = {
   event_id: string
   provision: string
+  provisions?: string[]
   provision_name: string
   week: string
   week_start: string
@@ -42,9 +43,15 @@ export type PolicyEvent = {
   url: string | null
   pci_delta: number
   dimension_deltas: Record<string, number>
+  dimensions?: Record<string, number | null> | null
+  dimension_scores?: Record<string, number | null> | null
   rationale: string | null
+  claim?: string | null
+  summary?: string | null
   confidence: number | null
   prompt_version?: string | null
+  schema_version?: string | null
+  method_version?: string | null
   scored_at?: string | null
   created_at: string
 }

@@ -172,7 +172,8 @@ write the registry rows.
 ### Hosted read-only MCP (no setup)
 
 The hosted endpoint exposes read-only tools (`status`, `list_policies`,
-`current_pci`, `policy_dossier`, `get_evidence_trace`). Add it in one line:
+`current_pci`, `policy_dossier`, `get_evidence_trace`, `list_verticals`,
+`vertical_status`, and `list_changes`). Add it in one line:
 
 ```bash
 # Claude Code
@@ -305,6 +306,18 @@ The command sources `.env`, defaults to the previous complete Monday-Sunday week
 | `/about` | Companion page for the PNAS paper — abstract, anchors, and BibTeX; links the manuscript (`/paper.pdf`) and SI Appendix (`/si-appendix.pdf`) |
 | `/connect` | Hosted read-only MCP + local write connector setup |
 | `/dashboard` | Deprecated; 301-redirects to `/` |
+
+### Subscribing
+
+Subscribe to every cited change at `/feed.xml`, or to one scored vertical at
+`/verticals/<slug>/feed.xml`. The same records are available as JSON:
+
+```bash
+curl 'https://pcindex.vercel.app/api/changes?since=2026-01-01&vertical=clean-hydrogen&limit=50'
+```
+
+For an email digest, point any RSS-to-email service (for example, Buttondown)
+at `/feed.xml`. No subscriber storage or authentication is built in by design.
 
 The UI reads from Supabase public views:
 
