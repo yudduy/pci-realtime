@@ -9,7 +9,7 @@ import {
   formatDate,
   formatDelta,
   formatScore,
-} from "@/components/market/format"
+} from "@/lib/format"
 import type { PolicyHeadline } from "@/lib/headlines"
 import type { PolicySourceReference } from "@/lib/policy-copy"
 
@@ -31,7 +31,6 @@ export type TerminalPolicy = {
   evidenceAnchorCount: number
   attributionDrivers: string[]
   sourceReferences: PolicySourceReference[]
-  latestRefreshAt: string | null
   timeline: TerminalPolicyPoint[]
 }
 

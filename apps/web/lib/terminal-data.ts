@@ -1,7 +1,6 @@
 import type { PolicyTerminalData } from "@/components/policy/terminal"
 import { buildPolicyHeadlines } from "@/lib/headlines"
 import { buildPolicyIntelligence } from "@/lib/intelligence"
-import { latestCompletedRun } from "@/lib/market-model"
 import { getRegistryData, type PolicyEvent, type RegistryData } from "@/lib/data"
 import {
   citationHrefForPolicyEvent,
@@ -28,7 +27,6 @@ export async function getPolicyTerminalData(): Promise<PolicyTerminalData> {
     evidenceAnchorCount: policy.evidenceAnchorCount,
     attributionDrivers: policy.attributionDrivers,
     sourceReferences: policy.sourceReferences,
-    latestRefreshAt: policy.latestRefreshAt,
     timeline: policyTimeline(data, policy.code, policy.currentPci, policy.updatedAt),
   }))
   const run = latestCompletedRun(data)
@@ -117,4 +115,8 @@ function latestDate(values: Array<string | null | undefined>) {
     if (!latest) return value
     return new Date(value).getTime() > new Date(latest).getTime() ? value : latest
   }, null)
+}
+
+function latestCompletedRun(data: RegistryData) {
+  return data.pipelineRuns.find((run) => run.status === "success") ?? data.pipelineRuns[0] ?? null
 }

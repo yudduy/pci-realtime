@@ -58,7 +58,7 @@ test("renders the methodology companion with policy dimensions", async ({ page }
     "href",
     "/si-appendix.pdf",
   )
-  expect(await page.content()).not.toMatch(/gated trade proposals|supabase/i)
+  expect(await page.content()).not.toMatch(/supabase/i)
 })
 
 test("renders the agent connection setup without secrets", async ({ page }) => {
@@ -158,7 +158,7 @@ test("lists the connection page in the agent documentation index", async ({ page
   await expect(page.getByText("[Hosted MCP](https://pcindex.vercel.app/mcp)")).toBeVisible()
 })
 
-test("renders the policy credibility terminal without fake market fields", async ({ page }) => {
+test("renders the policy credibility terminal with policy evidence", async ({ page }) => {
   await page.goto("/")
 
   await expect(page.getByRole("heading", { name: "Climate policy intelligence" })).toBeVisible()
@@ -230,10 +230,6 @@ test("renders the policy credibility terminal without fake market fields", async
   expect(content).not.toMatch(new RegExp("absta" + "in", "i"))
   expect(content).not.toMatch(/PCIndex continuously parses official policy sources/i)
   expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|no source|pci signal|prediction mode/i)
-  await expect(page.getByRole("columnheader", { name: "Probability" })).toHaveCount(0)
-  await expect(page.getByRole("columnheader", { name: "Edge" })).toHaveCount(0)
-  await expect(page.getByRole("columnheader", { name: "Liquidity" })).toHaveCount(0)
-  await expect(page.getByText("KX-HYDROGEN-TAXCREDIT-2026")).toHaveCount(0)
 })
 
 test("policy detail URLs resolve back to the terminal accordion", async ({ page }) => {
@@ -251,5 +247,4 @@ test("policy detail URLs resolve back to the terminal accordion", async ({ page 
   expect(content).not.toMatch(new RegExp("autonom" + "ous", "i"))
   expect(content).not.toMatch(new RegExp("absta" + "in", "i"))
   expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no scored|no source|pci signal|prediction mode/i)
-  await expect(page.getByText("US Treasury send transactions on blockchain")).toHaveCount(0)
 })

@@ -11,53 +11,6 @@ const currentPci = [
   policyUnit("50144", "Energy Infrastructure Reinvestment", 3.33, 4, 3, 3),
 ]
 
-const openForecasts = []
-const tradeProposals = []
-const marketSnapshots = []
-const marketDiscoveryCandidates = [
-  {
-    candidate_id: "test-run:polymarket:tesla-robovan-orders",
-    run_id: "test-run",
-    generated_at: now,
-    venue: "polymarket",
-    ticker: "tesla-robovan-orders",
-    event_ticker: "tesla-robovan-2027",
-    title: "Will Tesla open orders for the Robovan before 2027?",
-    market_url: "https://polymarket.com/market/will-tesla-open-orders-for-the-robovan-before-2027",
-    status: "active",
-    query_name: "polymarket_gamma_events",
-    matched_keywords: ["electric vehicle"],
-    matched_provisions: ["30D"],
-    policy_relevant: false,
-    resolution_clear: true,
-    eligible_snapshot: false,
-    rejection_reasons: ["no_policy_context"],
-    liquidity_dollars: 18284,
-    volume: 37550,
-    volume_24h: 10,
-  },
-  {
-    candidate_id: "test-run:polymarket:treasury-blockchain",
-    run_id: "test-run",
-    generated_at: now,
-    venue: "polymarket",
-    ticker: "treasury-blockchain",
-    event_ticker: "treasury-blockchain-2026",
-    title: "Will the US Treasury send transactions on blockchain by June 30?",
-    market_url: "https://polymarket.com/market/us-treasury-transactions-on-blockchain-by-june-30",
-    status: "active",
-    query_name: "polymarket_gamma_events",
-    matched_keywords: ["treasury"],
-    matched_provisions: [],
-    policy_relevant: false,
-    resolution_clear: true,
-    eligible_snapshot: false,
-    rejection_reasons: ["no_tracked_provision_overlap"],
-    liquidity_dollars: 9400,
-    volume: 24000,
-    volume_24h: 8,
-  },
-]
 const policyEvents = [
   {
     event_id: "2026-W21:federal_register:45v-guidance:45V",
@@ -121,16 +74,6 @@ const provisionTimelines = currentPci.flatMap((policy) => {
     return timeline(policy, week, weekStart, pci, eventIds, delta)
   })
 })
-const forecastPerformance = [
-  {
-    forecast_count: 0,
-    resolved_count: 0,
-    model_brier_score: null,
-    market_brier_score: null,
-    pci_brier_score: null,
-  },
-]
-
 const pipelineRuns = [
   {
     run_id: "test-run",
@@ -297,15 +240,9 @@ const agentEvidenceSubmissions = [
 
 const views = {
   v_current_pci: currentPci,
-  v_open_forecasts: openForecasts,
-  v_resolved_forecasts: [],
-  v_trade_proposals: tradeProposals,
-  v_market_snapshots: marketSnapshots,
-  v_market_discovery_candidates: marketDiscoveryCandidates,
   v_policy_events: policyEvents,
   v_pipeline_status: pipelineRuns,
   v_provision_timelines: provisionTimelines,
-  v_forecast_performance: forecastPerformance,
   v_evidence_items: evidenceItems,
   v_source_documents: sourceDocuments,
   v_source_links: sourceLinks,
