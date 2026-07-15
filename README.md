@@ -132,6 +132,33 @@ Refresh public context and source-health rows in Supabase:
 python -m pci_realtime.pipeline.daily_refresh
 ```
 
+## Scheduling
+
+GitHub Actions runs `.github/workflows/pipeline-weekly.yml` every Monday at
+13:17 UTC for the prior complete Monday-Sunday window. It runs
+`.github/workflows/discovery-daily.yml` daily at 11:23 UTC to refresh public
+context and source health, then sweep official sources for new research
+evidence. The workflows share the `pipeline` concurrency group, so they never
+write concurrently.
+
+Configure these five repository Actions secrets: `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `CONGRESS_GOV_API_KEY`, and
+`REGULATIONS_GOV_API_KEY`. The two source API keys are optional; when absent,
+the pipeline records disabled source-health rows. `PCI_RESEARCH_MODEL` may be
+set as a repository variable to override the research model.
+
+Dispatch a weekly backfill with an explicit inclusive window:
+
+```bash
+gh workflow run pipeline-weekly.yml \
+  -f start_date=YYYY-MM-DD \
+  -f end_date=YYYY-MM-DD
+```
+
+GitHub disables scheduled workflows after 60 days without repository activity.
+Re-enable them from the Actions UI if needed; the public UI staleness badge is
+the catch-all warning when scheduled data stops arriving.
+
 ## Agent MCP Evidence Intake
 
 The public web app serves a human setup page at `/connect`, a hosted read-only
@@ -317,7 +344,7 @@ The product-facing contract is the registry tables: `provisions`, `pci_weekly`, 
 | Prediction-market layer | removed 2026-07 (never produced production forecasts) |
 | Normalized source documents, evidence items, trace links, and source health | implemented |
 | Public Supabase views | implemented |
-| Cloud scheduler | not configured; run registry commands manually or attach an external scheduler |
+| Cloud scheduler | configured with weekly and daily GitHub Actions workflows |
 | Secured webhook runner | Supabase Edge Functions proxy to an external Python runner when configured |
 
 ## Cloud Provisioning
@@ -353,7 +380,8 @@ vercel alias set <deployment-url> pcindex.vercel.app
 
 The Vercel app reads the public Supabase views from the browser, so the landing page and registry stay current after the backend registry commands write fresh data.
 
-This repository does not ship GitHub Actions CI/CD workflows. Run backend registry commands manually from a trusted local or server environment with the needed environment variables present.
+GitHub Actions runs backend scheduling and CI. Vercel deployment remains an
+operator-managed step with the needed environment variables present.
 
 Supabase Edge Function triggers are intentionally fail-closed. If they are used, set both the outbound webhook values and the inbound trigger secret:
 

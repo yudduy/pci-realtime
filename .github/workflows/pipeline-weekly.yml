@@ -1,0 +1,71 @@
+name: Weekly pipeline
+
+"on":
+  schedule:
+    - cron: "17 13 * * 1"
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Backfill start date (YYYY-MM-DD); defaults to the prior Monday"
+        required: false
+        type: string
+      end_date:
+        description: "Backfill end date (YYYY-MM-DD); defaults to the prior Sunday"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency: {group: pipeline, cancel-in-progress: false}
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CONGRESS_GOV_API_KEY: ${{ secrets.CONGRESS_GOV_API_KEY }}
+      REGULATIONS_GOV_API_KEY: ${{ secrets.REGULATIONS_GOV_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Compute prior complete week
+        id: window
+        env:
+          REQUESTED_START_DATE: ${{ github.event.inputs.start_date }}
+          REQUESTED_END_DATE: ${{ github.event.inputs.end_date }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from datetime import date, datetime, timedelta, timezone
+
+          today = datetime.now(timezone.utc).date()
+          this_monday = today - timedelta(days=today.weekday())
+          default_end = this_monday - timedelta(days=1)
+          default_start = default_end - timedelta(days=6)
+
+          def requested_date(name: str, default: date) -> date:
+              value = os.environ.get(name, "").strip()
+              return date.fromisoformat(value) if value else default
+
+          start = requested_date("REQUESTED_START_DATE", default_start)
+          end = requested_date("REQUESTED_END_DATE", default_end)
+          if start > end:
+              raise ValueError("start_date must be on or before end_date")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"start_date={start.isoformat()}\n")
+              output.write(f"end_date={end.isoformat()}\n")
+          PY
+      - name: Run weekly ledger pipeline
+        run: >-
+          uv run --extra dev python -m pci_realtime.pipeline.weekly_live
+          --start-date "${{ steps.window.outputs.start_date }}"
+          --end-date "${{ steps.window.outputs.end_date }}"
+          --confirm-cost
+      - name: Record weekly pipeline failure
+        if: failure()
+        run: uv run --extra dev python scripts/report_pipeline_failure.py --run-type weekly

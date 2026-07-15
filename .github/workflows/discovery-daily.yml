@@ -1,0 +1,59 @@
+name: Daily discovery
+
+"on":
+  schedule:
+    - cron: "23 11 * * *"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "Research cutoff date (YYYY-MM-DD); defaults to yesterday"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency: {group: pipeline, cancel-in-progress: false}
+
+jobs:
+  discovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CONGRESS_GOV_API_KEY: ${{ secrets.CONGRESS_GOV_API_KEY }}
+      REGULATIONS_GOV_API_KEY: ${{ secrets.REGULATIONS_GOV_API_KEY }}
+      PCI_RESEARCH_MODEL: ${{ vars.PCI_RESEARCH_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Compute research cutoff
+        id: research
+        env:
+          REQUESTED_SINCE: ${{ github.event.inputs.since }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from datetime import date, datetime, timedelta, timezone
+
+          requested = os.environ.get("REQUESTED_SINCE", "").strip()
+          since = (
+              date.fromisoformat(requested)
+              if requested
+              else datetime.now(timezone.utc).date() - timedelta(days=1)
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"since={since.isoformat()}\n")
+          PY
+      - name: Refresh public context and source health
+        run: uv run --extra dev python -m pci_realtime.pipeline.daily_refresh
+      - name: Run official-source research sweep
+        run: >-
+          uv run --extra dev python scripts/run_agent_research_intake.py
+          --since "${{ steps.research.outputs.since }}"
+          --write
+      - name: Record daily pipeline failure
+        if: failure()
+        run: uv run --extra dev python scripts/report_pipeline_failure.py --run-type daily
