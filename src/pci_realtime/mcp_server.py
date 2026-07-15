@@ -132,6 +132,18 @@ def vertical_status(vertical_id: str) -> dict[str, Any]:
     return _safe(lambda: service.vertical_status(vertical_id))
 
 
+@mcp.tool(annotations=_READ)
+def list_changes(
+    since: str | None = None,
+    vertical: str | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """List cited policy-change events since a timestamp, vertical-first."""
+    return _safe(
+        lambda: service.list_changes(since=since, vertical=vertical, limit=limit)
+    )
+
+
 def configured_transport() -> _Transport:
     """Return the requested MCP transport, defaulting to local stdio."""
     value = os.environ.get("PCINDEX_MCP_TRANSPORT", "stdio").strip().lower()

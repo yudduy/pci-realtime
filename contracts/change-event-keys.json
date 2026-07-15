@@ -1,0 +1,5 @@
+{
+  "change": ["agency", "confidence", "dimension_deltas", "headline", "id", "method_version", "pci_delta", "provision", "rationale", "recorded_at", "source", "title", "verticals", "week", "week_start"],
+  "provision": ["code", "name"],
+  "source": ["name", "quote", "title", "url"]
+}

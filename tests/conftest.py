@@ -46,3 +46,19 @@ class SelectingSupabaseClient:
     ) -> list[dict[str, Any]]:
         self.calls.append((table, columns, params))
         return self.rows
+
+
+class TableSelectingSupabaseClient:
+    def __init__(self, rows_by_table: dict[str, list[dict[str, Any]]]) -> None:
+        self.rows_by_table = rows_by_table
+        self.calls: list[tuple[str, str, dict[str, str] | None]] = []
+
+    def select_rows(
+        self,
+        table: str,
+        *,
+        columns: str = "*",
+        params: dict[str, str] | None = None,
+    ) -> list[dict[str, Any]]:
+        self.calls.append((table, columns, params))
+        return list(self.rows_by_table.get(table, []))
