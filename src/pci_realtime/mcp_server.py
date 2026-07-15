@@ -45,6 +45,18 @@ def list_policies() -> dict[str, Any]:
 
 
 @mcp.tool(annotations=_READ)
+def list_verticals() -> dict[str, Any]:
+    """List climate-tech verticals and their current weighted PCI."""
+    return _safe(service.list_verticals)
+
+
+@mcp.tool(annotations=_READ)
+def vertical_status(vertical_id: str) -> dict[str, Any]:
+    """Read one climate-tech vertical and its provision-level status."""
+    return _safe(lambda: service.vertical_status(vertical_id))
+
+
+@mcp.tool(annotations=_READ)
 def current_pci(code: str | None = None) -> dict[str, Any]:
     """Read current PCI for one tracked policy or all policies."""
     return _safe(lambda: service.current_pci(code))

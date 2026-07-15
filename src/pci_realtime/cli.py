@@ -57,6 +57,12 @@ def policies(json_out: bool = typer.Option(False, "--json")) -> None:
 
 
 @app.command()
+def verticals(json_out: bool = typer.Option(False, "--json")) -> None:
+    """List climate-tech verticals and their weighted PCI."""
+    _run(service.list_verticals, as_json=json_out, table=_verticals_table)
+
+
+@app.command()
 def current(
     code: str | None = typer.Argument(None),
     json_out: bool = typer.Option(False, "--json"),
@@ -113,6 +119,35 @@ def _policies_table(payload: dict[str, Any]) -> None:
     for row in payload.get("policies", []):
         table.add_row(*(str(row.get(column, "")) for column in columns))
     _out.print(table)
+
+
+def _verticals_table(payload: dict[str, Any]) -> None:
+    columns = (
+        "id",
+        "name",
+        "vertical_pci",
+        "weekly_delta",
+        "as_of_week_start",
+        "provisions",
+    )
+    table = Table(title="Climate-tech verticals")
+    for column in columns:
+        table.add_column(column)
+    for row in payload.get("verticals", []):
+        table.add_row(
+            *(
+                ", ".join(value)
+                if isinstance(value, list)
+                else ""
+                if value is None
+                else str(value)
+                for value in (row.get(column) for column in columns)
+            )
+        )
+    _out.print(table)
+    uncovered = payload.get("uncovered", [])
+    if uncovered:
+        _out.print(f"Uncovered (methodology pending): {', '.join(uncovered)}")
 
 
 def _current_table(payload: dict[str, Any]) -> None:

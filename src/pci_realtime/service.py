@@ -16,7 +16,13 @@ from pci_realtime.agent_intake import (
     idempotency_key_hash,
     normalize_provision,
 )
-from pci_realtime.config import BASELINE_PCI, PROVISION_DETAILS, TRACKED_PROVISIONS
+from pci_realtime.config import (
+    BASELINE_PCI,
+    PROVISION_DETAILS,
+    TRACKED_PROVISIONS,
+    UNCOVERED_VERTICALS,
+    VERTICALS,
+)
 from pci_realtime.registry.evidence import excerpt
 from pci_realtime.registry.store import SupabaseRestClient
 from pci_realtime.scoring.scorer import SCHEMA_B_COLUMNS
@@ -92,6 +98,63 @@ def list_policies() -> dict[str, Any]:
             }
         )
     return {"policies": items, "count": len(items)}
+
+
+def list_verticals() -> dict[str, Any]:
+    client = _read_client()
+    if client is None:
+        rows = [_baseline_vertical_row(vertical_id) for vertical_id in VERTICALS]
+        return {
+            "verticals": rows,
+            "uncovered": list(UNCOVERED_VERTICALS),
+            "source": "baseline",
+        }
+
+    rows = _select(
+        client,
+        "v_vertical_pci",
+        params={"order": "display_order.asc"},
+    )
+    return {
+        "verticals": sorted(rows, key=_vertical_display_order),
+        "uncovered": list(UNCOVERED_VERTICALS),
+        "source": "registry",
+    }
+
+
+def vertical_status(vertical_id: str) -> dict[str, Any]:
+    vertical_id = _normalize_vertical(vertical_id)
+    provision_codes = list(VERTICALS[vertical_id]["provisions"])
+    client = _read_client()
+    if client is None:
+        return {
+            "vertical": _baseline_vertical_row(vertical_id),
+            "provisions": [_baseline_row(code) for code in provision_codes],
+            "source": "baseline",
+        }
+
+    vertical_rows = _select(
+        client,
+        "v_vertical_pci",
+        params={"id": f"eq.{vertical_id}"},
+    )
+    vertical = next(
+        (row for row in vertical_rows if str(row.get("id")) == vertical_id),
+        _baseline_vertical_row(vertical_id),
+    )
+    current_rows = _select(
+        client,
+        "v_current_pci",
+        params={"code": f"in.({','.join(provision_codes)})"},
+    )
+    current_by_code = {str(row.get("code")): row for row in current_rows}
+    return {
+        "vertical": vertical,
+        "provisions": [
+            current_by_code.get(code, _baseline_row(code)) for code in provision_codes
+        ],
+        "source": "registry",
+    }
 
 
 def current_pci(code: str | None = None) -> dict[str, Any]:
@@ -421,6 +484,47 @@ def _baseline_row(code: str) -> dict[str, Any]:
         "baseline_pci": baseline["pci"],
         "source": "baseline",
     }
+
+
+def _baseline_vertical_row(vertical_id: str) -> dict[str, Any]:
+    vertical = VERTICALS[vertical_id]
+    provisions = vertical["provisions"]
+    total_weight = sum(float(weight) for weight in provisions.values())
+    baseline_pci = round(
+        sum(
+            float(BASELINE_PCI[code]["pci"]) * float(weight)
+            for code, weight in provisions.items()
+        )
+        / total_weight,
+        2,
+    )
+    return {
+        "id": vertical_id,
+        "name": vertical["name"],
+        "coverage_note": vertical["coverage_note"],
+        "display_order": vertical["display_order"],
+        "vertical_pci": baseline_pci,
+        "baseline_pci": baseline_pci,
+        "weekly_delta": 0.0,
+        "as_of_week_start": None,
+        "last_change_week_start": None,
+        "provisions": list(provisions),
+    }
+
+
+def _vertical_display_order(row: Mapping[str, Any]) -> int:
+    try:
+        return int(row.get("display_order", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _normalize_vertical(vertical_id: str) -> str:
+    normalized = str(vertical_id or "").strip().lower()
+    if normalized not in VERTICALS:
+        tracked = ", ".join(VERTICALS)
+        raise BadRequest(f"Unknown vertical {vertical_id!r}. Tracked: {tracked}.")
+    return normalized
 
 
 def _public_submission(row: Mapping[str, Any]) -> dict[str, Any]:
