@@ -14,6 +14,7 @@ export type PolicyIntelligence = {
   question: string
   policy: CurrentPci | null
   currentPci: number | null
+  scoreOrigin: "live" | "baseline_view" | "hardcoded_copy"
   weeklyDelta: number | null
   specificity: number | null
   durability: number | null
@@ -51,6 +52,13 @@ function buildPolicy(data: RegistryData, code: string): PolicyIntelligence {
   const evidence = evidenceForEvents(events, data)
   const latestEvidence = newestEvidence(evidence, events)
   const fallbackSource = copy.sourceReferences[0] ?? null
+  const currentPci = score?.pci ?? score?.baseline_pci ?? copy.baseline
+  const scoreOrigin =
+    score?.pci !== null && score?.pci !== undefined
+      ? "live"
+      : score?.baseline_pci !== null && score?.baseline_pci !== undefined
+        ? "baseline_view"
+        : "hardcoded_copy"
 
   return {
     code,
@@ -59,7 +67,8 @@ function buildPolicy(data: RegistryData, code: string): PolicyIntelligence {
     lane: copy.lane,
     question: copy.question,
     policy: score,
-    currentPci: score?.pci ?? score?.baseline_pci ?? copy.baseline,
+    currentPci,
+    scoreOrigin,
     weeklyDelta: score?.delta_this_week ?? 0,
     specificity: score?.specificity ?? copy.specificity,
     durability: score?.durability ?? copy.durability,

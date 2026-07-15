@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ChevronDown, ChevronLeft, ChevronRight, FileText, Info, Search, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { SiteHeader } from "@/components/layout/site-header"
+import { DataStatus } from "@/components/policy/data-status"
 import {
   deltaToneClass,
   formatDate,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/format"
 import type { PolicyHeadline } from "@/lib/headlines"
 import type { PolicySourceReference } from "@/lib/policy-copy"
+import type { TerminalDataStatus } from "@/lib/terminal-data"
 
 export type TerminalPolicy = {
   code: string
@@ -20,6 +22,7 @@ export type TerminalPolicy = {
   lane: string
   question: string
   currentPci: number | null
+  scoreOrigin: "live" | "baseline_view" | "hardcoded_copy"
   scoreDelta: number | null
   specificity: number | null
   durability: number | null
@@ -53,9 +56,7 @@ type TerminalPointAttribution = {
 
 export type PolicyTerminalData = {
   policies: TerminalPolicy[]
-  connected: boolean
-  viewErrors: string[]
-  lastSourceRefresh: string | null
+  dataStatus: TerminalDataStatus
   recentUpdates: PolicyHeadline[]
 }
 
@@ -136,6 +137,7 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
               </div>
             </div>
           </div>
+          <DataStatus status={data.dataStatus} />
         </section>
 
         <UpdateCarousel updates={data.recentUpdates} />
@@ -417,7 +419,10 @@ function PolicyCompareTable({
               <tr key={policy.code}>
                 <th scope="row" className="compare-policy">
                   <Link href={`/#policy-${policy.code}`}>
-                    <strong>{policy.code}</strong>
+                    <span className="policy-row-code">
+                      <strong>{policy.code}</strong>
+                      <BaselineMarker scoreOrigin={policy.scoreOrigin} />
+                    </span>
                     <span>{policy.name}</span>
                   </Link>
                 </th>
@@ -475,7 +480,10 @@ function PolicyAccordion({
               onClick={() => onToggle(policy.code)}
             >
               <span className="policy-accordion-title">
-                <strong>{policy.code}</strong>
+                <span className="policy-row-code">
+                  <strong>{policy.code}</strong>
+                  <BaselineMarker scoreOrigin={policy.scoreOrigin} />
+                </span>
                 <span className="policy-accordion-name">{policy.name}</span>
                 <span className="policy-accordion-context">
                   {policy.latestEvidenceSource ?? policy.lane}
@@ -520,26 +528,42 @@ function PolicyAccordion({
   )
 }
 
-function RowSpark({ timeline }: { timeline: TerminalPolicyPoint[] }) {
-  const points = useMemo(() => {
-    const sorted = timeline
-      .filter((point) => typeof point.value === "number" && Number.isFinite(point.value))
-      .sort((a, b) => dateValue(a.date) - dateValue(b.date))
-      .slice(-12)
-    const distinct = new Set(sorted.map((point) => point.value)).size
-    if (sorted.length < 2 || distinct < 2) return null
-    const width = 72
-    const height = 26
-    const pad = 4
-    const step = (width - pad * 2) / (sorted.length - 1)
-    return sorted.map((point, index) => ({
-      x: pad + index * step,
-      y: height - pad - ((Number(point.value) - 1) / 4) * (height - pad * 2),
-    }))
-  }, [timeline])
+function BaselineMarker({
+  scoreOrigin,
+}: {
+  scoreOrigin: TerminalPolicy["scoreOrigin"]
+}) {
+  if (scoreOrigin !== "hardcoded_copy") return null
+  return (
+    <small
+      className="policy-baseline-marker"
+      title="Paper baseline; registry score unavailable"
+    >
+      baseline
+    </small>
+  )
+}
 
-  // No movement yet — a flat spark would imply a measured trend that isn't there.
-  if (!points) return <span className="row-spark-empty" aria-hidden="true">—</span>
+function RowSpark({ timeline }: { timeline: TerminalPolicyPoint[] }) {
+  const history = useMemo(() => datedHistoryPoints(timeline).slice(-12), [timeline])
+  const distinctValues = new Set(history.map((point) => point.value)).size
+
+  if (history.length < 2 || distinctValues < 2) {
+    return (
+      <span className="row-spark-empty">
+        {historyLabel(history.length)}
+      </span>
+    )
+  }
+
+  const width = 72
+  const height = 26
+  const pad = 4
+  const step = (width - pad * 2) / (history.length - 1)
+  const points = history.map((point, index) => ({
+    x: pad + index * step,
+    y: height - pad - ((point.value - 1) / 4) * (height - pad * 2),
+  }))
 
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
@@ -561,14 +585,33 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
   )
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const active = points.find((point) => point.key === activeKey) ?? points.at(-1)
+  const lastChange = lastChangePoint(points)
 
-  // A line is only honest with >=3 points that actually move. Otherwise the index
-  // is holding at its baseline — label that state rather than draw a flat segment.
-  const hasTrend = points.length >= 3 && distinctValues > 1
+  const hasTrend = points.length >= 2 && distinctValues >= 2
+  const isGenuinelyFlat = points.length >= 2 && distinctValues === 1
 
   if (!hasTrend) {
     const baseline = points[0]
     const latest = points.at(-1) ?? baseline
+
+    if (!isGenuinelyFlat) {
+      return (
+        <section className="policy-score-trend" aria-label={`${policy.code} PCI score`}>
+          <div className="trend-history-placeholder">
+            <span>History</span>
+            <strong>{historyLabel(points.length)}</strong>
+            <p>At least two dated weeks with movement are needed to draw a trend.</p>
+            {lastChange && (
+              <span className="trend-last-change">
+                Last change {formatPolicyDate(lastChange.date)}
+              </span>
+            )}
+          </div>
+          {latest && <PointAttribution point={latest} policy={policy} />}
+        </section>
+      )
+    }
+
     return (
       <section className="policy-score-trend" aria-label={`${policy.code} PCI score`}>
         <div className="trend-baseline">
@@ -576,10 +619,18 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
             <span>Current PCI</span>
             <strong>{formatScore(policy.currentPci)}</strong>
           </div>
-          <p>
-            Holding at the {formatPolicyDate(baseline?.date)} baseline. The index moves only
-            when a new official document changes specificity, durability, or enforceability.
-          </p>
+          <div className="trend-baseline-copy">
+            <p>
+              Holding at the {formatPolicyDate(baseline?.date)} baseline. The index moves only
+              when a new official document changes specificity, durability, or enforceability.
+            </p>
+            <div className="trend-history-meta">
+              <span>{historyLabel(points.length)}</span>
+              {lastChange && (
+                <span>Last change {formatPolicyDate(lastChange.date)}</span>
+              )}
+            </div>
+          </div>
         </div>
         {latest && <PointAttribution point={latest} policy={policy} />}
       </section>
@@ -593,6 +644,12 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
 
   return (
     <section className="policy-score-trend" aria-label={`${policy.code} PCI score trend`}>
+      <div className="trend-history-meta">
+        <span>{historyLabel(points.length)}</span>
+        {lastChange && (
+          <span>Last change {formatPolicyDate(lastChange.date)}</span>
+        )}
+      </div>
       <svg viewBox="0 0 720 200" role="img" aria-label={`${policy.code} PCI score chart`}>
         <rect className="trend-band" x="24" y="24" width="672" height="144" rx="4" />
         <line x1="24" x2="696" y1="24" y2="24" />
@@ -639,18 +696,18 @@ function PolicyScoreTrend({ policy }: { policy: TerminalPolicy }) {
   )
 }
 
-type LargeTrendPoint = TerminalPolicyPoint & {
+type DatedTerminalPolicyPoint = TerminalPolicyPoint & {
+  date: string
+  value: number
+}
+
+type LargeTrendPoint = DatedTerminalPolicyPoint & {
   x: number
   y: number
-  value: number
-  date: string
 }
 
 function largeTrendPoints(points: TerminalPolicyPoint[]): LargeTrendPoint[] {
-  const sorted = points
-    .filter((point) => typeof point.value === "number" && Number.isFinite(point.value))
-    .sort((a, b) => dateValue(a.date) - dateValue(b.date))
-    .slice(-24)
+  const sorted = datedHistoryPoints(points).slice(-24)
 
   if (!sorted.length) return []
   const xStep = sorted.length === 1 ? 0 : 672 / (sorted.length - 1)
@@ -659,11 +716,40 @@ function largeTrendPoints(points: TerminalPolicyPoint[]): LargeTrendPoint[] {
   // policy. The plot band y∈[24,168] matches the gridlines drawn at value 5/3/1.
   return sorted.map((point, index) => ({
     ...point,
-    date: point.date ?? "2022-08-16",
-    value: Number(point.value),
     x: 24 + index * xStep,
-    y: 168 - ((Number(point.value) - 1) / 4) * 144,
+    y: 168 - ((point.value - 1) / 4) * 144,
   }))
+}
+
+function datedHistoryPoints(
+  points: TerminalPolicyPoint[],
+): DatedTerminalPolicyPoint[] {
+  return points
+    .filter((point): point is DatedTerminalPolicyPoint => {
+      if (
+        typeof point.value !== "number" ||
+        !Number.isFinite(point.value) ||
+        !point.date
+      ) {
+        return false
+      }
+      return Number.isFinite(new Date(point.date).getTime())
+    })
+    .sort((a, b) => dateValue(a.date) - dateValue(b.date))
+}
+
+function lastChangePoint(points: LargeTrendPoint[]) {
+  if (!points.length) return null
+  for (let index = points.length - 1; index > 0; index -= 1) {
+    if (points[index].value !== points[index - 1].value) {
+      return points[index]
+    }
+  }
+  return points[0]
+}
+
+function historyLabel(weeks: number) {
+  return `${weeks} ${weeks === 1 ? "week" : "weeks"} of history`
 }
 
 function PointAttribution({

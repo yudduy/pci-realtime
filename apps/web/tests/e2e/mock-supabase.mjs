@@ -1,6 +1,12 @@
 import { createServer } from "node:http"
 
-const now = "2026-06-15T08:00:00.000Z"
+const now = new Date().toISOString()
+const staleTimestamp = "2020-01-01T08:00:00.000Z"
+const fixtureModes = new Set([
+  "all-views-fail",
+  "empty-views",
+  "stale-timestamps",
+])
 
 const currentPci = [
   policyUnit("30D", "Clean Vehicle Credit", 4.0, 4, 4, 4),
@@ -57,8 +63,6 @@ const trendArcs = {
   ],
   "30D": [
     ["2022-W33", "2022-08-15", 4.33],
-    ["2024-W20", "2024-05-13", 3.67],
-    ["2025-W30", "2025-07-21", 3.67],
     ["2026-W21", "2026-05-18", 4.0],
   ],
 }
@@ -304,7 +308,13 @@ const server = createServer((request, response) => {
 
   const view = url.pathname.replace("/rest/v1/", "")
   if (Object.hasOwn(views, view)) {
-    respond(response, views[view])
+    const mode = fixtureMode(url)
+    if (mode === "all-views-fail") {
+      response.writeHead(500, { ...corsHeaders(), "content-type": "application/json" })
+      response.end(JSON.stringify({ error: `${view} fixture failure` }))
+      return
+    }
+    respond(response, fixturePayload(view, mode))
     return
   }
 
@@ -325,4 +335,30 @@ function corsHeaders() {
 function respond(response, payload) {
   response.writeHead(200, { ...corsHeaders(), "content-type": "application/json" })
   response.end(JSON.stringify(payload))
+}
+
+function fixtureMode(url) {
+  const mode = url.searchParams.get("__mock_mode") ?? process.env.MOCK_SUPABASE_MODE
+  return fixtureModes.has(mode) ? mode : null
+}
+
+function fixturePayload(view, mode) {
+  if (mode === "empty-views") return []
+  if (mode !== "stale-timestamps") return views[view]
+
+  if (view === "v_pipeline_status") {
+    return pipelineRuns.map((run) => ({
+      ...run,
+      started_at: staleTimestamp,
+      completed_at: staleTimestamp,
+    }))
+  }
+  if (view === "v_source_health") {
+    return sourceHealth.map((source) => ({
+      ...source,
+      last_attempt_at: staleTimestamp,
+      last_success_at: staleTimestamp,
+    }))
+  }
+  return views[view]
 }

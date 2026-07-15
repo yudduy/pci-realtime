@@ -1,14 +1,28 @@
-import type { PolicyTerminalData } from "@/components/policy/terminal"
 import { buildPolicyHeadlines } from "@/lib/headlines"
 import { buildPolicyIntelligence } from "@/lib/intelligence"
-import { getRegistryData, type PolicyEvent, type RegistryData } from "@/lib/data"
+import {
+  getRegistryData,
+  type PolicyEvent,
+  type RegistryData,
+  type RegistryFixtureMode,
+} from "@/lib/data"
 import {
   citationHrefForPolicyEvent,
   evidenceForPolicyEvent,
 } from "@/lib/source-links"
 
-export async function getPolicyTerminalData(): Promise<PolicyTerminalData> {
-  const data = await getRegistryData()
+const DAY_MS = 24 * 60 * 60 * 1000
+const STALE_AFTER_DAYS = 8
+
+export type TerminalDataStatus = {
+  mode: "live" | "stale" | "degraded" | "disconnected"
+  lastSourceRefresh: string | null
+  staleDays: number | null
+  viewErrors: string[]
+}
+
+export async function getPolicyTerminalData(fixtureMode?: RegistryFixtureMode) {
+  const data = await getRegistryData(fixtureMode)
   const policies = buildPolicyIntelligence(data).map((policy) => ({
     code: policy.code,
     name: policy.name,
@@ -16,6 +30,7 @@ export async function getPolicyTerminalData(): Promise<PolicyTerminalData> {
     lane: policy.lane,
     question: policy.question,
     currentPci: policy.currentPci,
+    scoreOrigin: policy.scoreOrigin,
     scoreDelta: policy.weeklyDelta,
     specificity: policy.specificity,
     durability: policy.durability,
@@ -27,7 +42,13 @@ export async function getPolicyTerminalData(): Promise<PolicyTerminalData> {
     evidenceAnchorCount: policy.evidenceAnchorCount,
     attributionDrivers: policy.attributionDrivers,
     sourceReferences: policy.sourceReferences,
-    timeline: policyTimeline(data, policy.code, policy.currentPci, policy.updatedAt),
+    timeline: policyTimeline(
+      data,
+      policy.code,
+      policy.currentPci,
+      policy.updatedAt,
+      policy.scoreOrigin,
+    ),
   }))
   const run = latestCompletedRun(data)
   const lastSourceRefresh =
@@ -38,9 +59,11 @@ export async function getPolicyTerminalData(): Promise<PolicyTerminalData> {
 
   return {
     policies,
-    connected: data.connected,
-    viewErrors: data.viewErrors,
-    lastSourceRefresh,
+    dataStatus: deriveDataStatus(
+      data.connected,
+      data.viewErrors,
+      lastSourceRefresh,
+    ),
     recentUpdates: buildPolicyHeadlines(data, policies, 8),
   }
 }
@@ -50,6 +73,7 @@ function policyTimeline(
   code: string,
   currentPci: number | null,
   updatedAt: string | null,
+  scoreOrigin: "live" | "baseline_view" | "hardcoded_copy",
 ) {
   const rows = data.provisionTimelines
     .filter((row) => row.provision === code)
@@ -66,6 +90,7 @@ function policyTimeline(
     })
 
   if (rows.length) return rows
+  if (scoreOrigin === "hardcoded_copy") return []
   return [
     {
       key: `${code}-current`,
@@ -75,6 +100,37 @@ function policyTimeline(
       attributions: [],
     },
   ]
+}
+
+function deriveDataStatus(
+  connected: boolean,
+  viewErrors: string[],
+  lastSourceRefresh: string | null,
+): TerminalDataStatus {
+  const refreshTime = lastSourceRefresh
+    ? new Date(lastSourceRefresh).getTime()
+    : Number.NaN
+  const ageMs = Date.now() - refreshTime
+  const staleDays = Number.isFinite(ageMs)
+    ? Math.max(0, Math.floor(ageMs / DAY_MS))
+    : null
+
+  // Missing refresh metadata alone is neither a failed view nor proof of
+  // staleness; rows still expose hardcoded fallbacks and history gaps.
+  const mode = !connected
+    ? "disconnected"
+    : viewErrors.length > 0
+      ? "degraded"
+      : Number.isFinite(ageMs) && ageMs > STALE_AFTER_DAYS * DAY_MS
+        ? "stale"
+        : "live"
+
+  return {
+    mode,
+    lastSourceRefresh,
+    staleDays,
+    viewErrors,
+  }
 }
 
 function eventsForTimelineRow(
