@@ -18,6 +18,7 @@ uv run --extra dev pytest tests/test_scorer.py -q   # one file
 uv run --extra dev pytest -k weekly_live -q         # by keyword
 uv run --extra dev ruff check src/pci_realtime tests
 uv run --extra dev ruff format --check src/pci_realtime tests
+git config core.hooksPath hooks   # one-time: pre-commit = the three backend checks above (~7s; web stays in CI)
 ```
 
 Web (`apps/web`, Next.js 16 / React 19 / Tailwind 4):
