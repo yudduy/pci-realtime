@@ -27,3 +27,6 @@ verify_jwt = false
 
 [functions.trigger-daily-refresh]
 verify_jwt = false
+
+[functions.mcp]
+verify_jwt = false
