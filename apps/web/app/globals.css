@@ -1249,129 +1249,11 @@ input {
   flex: 0 0 auto;
 }
 
-.density-toggle {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--muted-foreground);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 0 12px;
-  transition: color 140ms ease, border-color 140ms ease;
-}
-
-.density-toggle:hover {
-  color: var(--foreground);
-  border-color: var(--border-strong);
-}
-
-/* Compact density tier — a dense comparison table: every policy's dimensions are
-   column-scannable head-to-head. Sticky sortable header; hairline rows, no zebra. */
-.policy-compare-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--card);
-}
-
-.policy-compare-table {
-  width: 100%;
-  min-width: 640px;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums slashed-zero;
-}
-
-.policy-compare-table thead th {
-  position: sticky;
-  top: 52px;
-  z-index: 4;
-  background: var(--muted);
-  border-bottom: 1px solid var(--border);
-  color: var(--muted-foreground);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-align: left;
-  padding: 8px 12px;
-  white-space: nowrap;
-}
-
-.policy-compare-table th.num,
-.policy-compare-table td.num {
-  text-align: right;
-}
-
-.policy-compare-table th.spark-col,
-.policy-compare-table td.spark-col {
-  width: 84px;
-  text-align: center;
-}
-
-.compare-sort {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  padding: 0;
-}
-
-.compare-sort.active {
-  color: var(--blue);
-}
-
-.policy-compare-table tbody tr {
-  border-top: 1px solid var(--border);
-}
-
-.policy-compare-table tbody tr:hover {
-  background: #f4f8ff;
-}
-
-.policy-compare-table td,
-.policy-compare-table th.compare-policy {
-  padding: 10px 12px;
-  color: var(--foreground);
-  font-size: 14px;
-  vertical-align: middle;
-}
-
-.policy-compare-table td.num {
-  font-weight: 600;
-}
-
-.compare-policy {
-  text-align: left;
-  font-weight: 400;
-}
-
-.compare-policy a {
-  display: grid;
-  gap: 1px;
-  color: inherit;
-  text-decoration: none;
-}
-
 .policy-row-code {
   display: flex !important;
   align-items: center;
   gap: 6px;
   min-width: 0;
-}
-
-.compare-policy strong {
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .policy-baseline-marker {
@@ -1389,29 +1271,6 @@ input {
   line-height: 1;
   padding: 2px 5px;
   text-transform: uppercase;
-}
-
-.compare-policy span {
-  overflow: hidden;
-  color: var(--muted-foreground);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.compare-pci {
-  font-size: 16px;
-}
-
-.compare-empty {
-  color: var(--muted-foreground);
-  font-size: 14px;
-  padding: 22px 12px;
-  text-align: center;
-}
-
-.policy-compare-table .row-spark {
-  margin: 0 auto;
 }
 
 .policy-score-guide p {

@@ -80,7 +80,6 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
     [policies, query, verticals],
   )
   const [sort, setSort] = useState<TerminalSort>({ key: "code", dir: 1 })
-  const [density, setDensity] = useState<"comfortable" | "compact">("comfortable")
   const sorted = useMemo(() => sortPolicies(visible, sort), [visible, sort])
   const visibleVerticalCount = useMemo(() => {
     const visibleCodes = new Set(visible.map((policy) => policy.code))
@@ -202,44 +201,28 @@ export function PolicyTerminal({ data }: { data: PolicyTerminalData }) {
             <p>
               {visibleVerticalCount} verticals / {visible.length} of {policies.length} provisions
             </p>
-            <button
-              type="button"
-              className="density-toggle"
-              onClick={() =>
-                setDensity((current) => (current === "comfortable" ? "compact" : "comfortable"))
-              }
-              aria-pressed={density === "compact"}
-            >
-              {density === "compact" ? "Comfortable" : "Compact"}
-            </button>
           </div>
         </section>
 
         <section className="terminal-main">
           <div className="terminal-table-wrap policy-accordion-shell">
             <PolicyScoreGuide />
-            {density === "compact" ? (
-              <PolicyCompareTable policies={sorted} sort={sort} onSort={onSort} />
-            ) : (
-              <>
-                <RegisterHeader sort={sort} onSort={onSort} />
-                <VerticalPolicyGroups
-                  verticals={verticals}
-                  policies={sorted}
-                  expandedVerticalId={expandedVerticalId}
-                  expandedCode={expandedCode}
-                  forceOpen={Boolean(query.trim())}
-                  onToggleVertical={(verticalId) =>
-                    setExpandedVerticalId((current) =>
-                      current === verticalId ? null : verticalId,
-                    )
-                  }
-                  onTogglePolicy={(code) =>
-                    setExpandedCode((current) => (current === code ? null : code))
-                  }
-                />
-              </>
-            )}
+            <RegisterHeader sort={sort} onSort={onSort} />
+            <VerticalPolicyGroups
+              verticals={verticals}
+              policies={sorted}
+              expandedVerticalId={expandedVerticalId}
+              expandedCode={expandedCode}
+              forceOpen={Boolean(query.trim())}
+              onToggleVertical={(verticalId) =>
+                setExpandedVerticalId((current) =>
+                  current === verticalId ? null : verticalId,
+                )
+              }
+              onTogglePolicy={(code) =>
+                setExpandedCode((current) => (current === code ? null : code))
+              }
+            />
             <NotYetScored />
           </div>
         </section>
@@ -427,91 +410,6 @@ function RegisterHeader({
         {sortButton("Move", "move")}
       </div>
       <span aria-hidden="true" />
-    </div>
-  )
-}
-
-// Dense comparison table (Compact mode): every policy's dimensions are
-// column-scannable head-to-head without expanding. The accordion (Comfortable)
-// stays for single-policy depth.
-function PolicyCompareTable({
-  policies,
-  sort,
-  onSort,
-}: {
-  policies: TerminalPolicy[]
-  sort: TerminalSort
-  onSort: (key: TerminalSortKey) => void
-}) {
-  const indicator = (key: TerminalSortKey) =>
-    sort.key === key ? (sort.dir === 1 ? " ↑" : " ↓") : ""
-  const ariaSort = (key: TerminalSortKey): "ascending" | "descending" | "none" =>
-    sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"
-  const headButton = (label: string, key: TerminalSortKey) => (
-    <button
-      type="button"
-      className={`compare-sort${sort.key === key ? " active" : ""}`}
-      onClick={() => onSort(key)}
-      aria-label={`Sort by ${label.toLowerCase()}`}
-    >
-      {label}
-      {indicator(key)}
-    </button>
-  )
-  return (
-    <div className="policy-compare-wrap">
-      <table className="policy-compare-table">
-        <thead>
-          <tr>
-            <th scope="col" aria-sort={ariaSort("code")}>{headButton("Policy", "code")}</th>
-            <th scope="col" className="num">Spec</th>
-            <th scope="col" className="num">Dur</th>
-            <th scope="col" className="num">Enf</th>
-            <th scope="col" className="num" aria-sort={ariaSort("pci")}>
-              {headButton("PCI", "pci")}
-            </th>
-            <th scope="col" className="num" aria-sort={ariaSort("move")}>
-              {headButton("Move", "move")}
-            </th>
-            <th scope="col" className="spark-col">Trend</th>
-          </tr>
-        </thead>
-        <tbody>
-          {policies.map((policy) => {
-            const delta = policyDelta(policy)
-            return (
-              <tr key={policy.code}>
-                <th scope="row" className="compare-policy">
-                  <Link href={`/#policy-${policy.code}`}>
-                    <span className="policy-row-code">
-                      <strong>{policy.code}</strong>
-                      <BaselineMarker scoreOrigin={policy.scoreOrigin} />
-                    </span>
-                    <span>{policy.name}</span>
-                  </Link>
-                </th>
-                <td className="num">{formatScore(policy.specificity)}</td>
-                <td className="num">{formatScore(policy.durability)}</td>
-                <td className="num">{formatScore(policy.enforceability)}</td>
-                <td className="num compare-pci">{formatScore(policy.currentPci)}</td>
-                <td className="num">
-                  <span className={deltaToneClass(delta)}>{formatDelta(delta)}</span>
-                </td>
-                <td className="spark-col">
-                  <RowSpark timeline={policy.timeline} />
-                </td>
-              </tr>
-            )
-          })}
-          {!policies.length && (
-            <tr>
-              <td colSpan={7} className="compare-empty">
-                No matching policy. Clear search to restore the register.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
     </div>
   )
 }
