@@ -17,7 +17,7 @@ export default defineConfig({
     },
     {
       command:
-        "PCI_E2E_DATA_MODES=1 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:8787 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=test npm run dev -- --hostname 127.0.0.1 --port 8511",
+        "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:8787 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=test npm run dev -- --hostname 127.0.0.1 --port 8511",
       reuseExistingServer: false,
       timeout: 120_000,
       url: "http://127.0.0.1:8511",
@@ -27,6 +27,20 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       url: "http://127.0.0.1:8512",
+    },
+    {
+      command:
+        "MOCK_SUPABASE_PORT=8788 node tests/e2e/mock-supabase.mjs",
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: "http://127.0.0.1:8788/health",
+    },
+    {
+      command:
+        "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:8788 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=test node tests/e2e/start-fixture.mjs",
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: "http://127.0.0.1:8513",
     },
   ],
   projects: [

@@ -1,5 +1,6 @@
 import { createServer } from "node:http"
 
+const PORT = Number(process.env.MOCK_SUPABASE_PORT ?? 8787)
 const now = new Date().toISOString()
 const staleTimestamp = "2020-01-01T08:00:00.000Z"
 const fixtureModes = new Set([
@@ -7,6 +8,7 @@ const fixtureModes = new Set([
   "empty-views",
   "stale-timestamps",
 ])
+let controlMode = null
 
 const currentPci = [
   policyUnit("30D", "Clean Vehicle Credit", 4.0, 4, 4, 4),
@@ -371,11 +373,16 @@ function timeline(policy, week, weekStart, pci, sourceEventIds = [], deltaThisWe
 }
 
 const server = createServer((request, response) => {
-  const url = new URL(request.url ?? "/", "http://127.0.0.1:8787")
+  const url = new URL(request.url ?? "/", `http://127.0.0.1:${PORT}`)
 
   if (request.method === "OPTIONS") {
     response.writeHead(204, corsHeaders())
     response.end()
+    return
+  }
+
+  if (request.method === "POST" && url.pathname === "/__set_mode") {
+    setControlMode(request, response)
     return
   }
 
@@ -400,13 +407,13 @@ const server = createServer((request, response) => {
   response.end(JSON.stringify({ error: "not found" }))
 })
 
-server.listen(8787, "127.0.0.1")
+server.listen(PORT, "127.0.0.1")
 
 function corsHeaders() {
   return {
     "access-control-allow-origin": "*",
     "access-control-allow-headers": "apikey, authorization, content-type",
-    "access-control-allow-methods": "GET, OPTIONS",
+    "access-control-allow-methods": "GET, OPTIONS, POST",
   }
 }
 
@@ -416,8 +423,36 @@ function respond(response, payload) {
 }
 
 function fixtureMode(url) {
-  const mode = url.searchParams.get("__mock_mode") ?? process.env.MOCK_SUPABASE_MODE
+  const mode =
+    url.searchParams.get("__mock_mode") ??
+    controlMode ??
+    process.env.MOCK_SUPABASE_MODE ??
+    null
   return fixtureModes.has(mode) ? mode : null
+}
+
+async function setControlMode(request, response) {
+  try {
+    let body = ""
+    for await (const chunk of request) body += chunk
+    const mode = JSON.parse(body)?.mode
+
+    if (mode !== null && !fixtureModes.has(mode)) {
+      respondBadRequest(response, "unknown fixture mode")
+      return
+    }
+
+    controlMode = mode
+    response.writeHead(204, corsHeaders())
+    response.end()
+  } catch {
+    respondBadRequest(response, "invalid JSON body")
+  }
+}
+
+function respondBadRequest(response, error) {
+  response.writeHead(400, { ...corsHeaders(), "content-type": "application/json" })
+  response.end(JSON.stringify({ error }))
 }
 
 function fixturePayload(view, mode) {
