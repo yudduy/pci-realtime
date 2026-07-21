@@ -14,6 +14,8 @@ test("renders the policy terminal as the home page", async ({ page }) => {
     page.getByTestId("vertical-card").filter({ hasText: "Electric Vehicles" }),
   ).toBeVisible()
   await expect(page.getByRole("link", { name: "Open terminal" })).toHaveCount(0)
+  await expect(page.locator(".policy-compare-table")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Compact" })).toHaveCount(0)
   await expect(page.getByText("Source coverage")).toHaveCount(0)
   await expect(page.getByText("PCI headlines")).toHaveCount(0)
   await expect(
