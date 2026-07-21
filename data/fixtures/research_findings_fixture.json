@@ -1,0 +1,61 @@
+{
+  "advanced-manufacturing": [
+    {
+      "provision": "45X",
+      "title": "Advanced Manufacturing Production Credit Guidance",
+      "url": "https://www.federalregister.gov/documents/2026/07/15/2026-12345/advanced-manufacturing-production-credit-guidance",
+      "source_name": "Federal Register",
+      "published_at": "2026-07-15T00:00:00Z",
+      "citation_quote": "The final guidance clarifies eligible component production costs.",
+      "citation_section": "Summary",
+      "claim": "Final guidance clarifies how eligible 45X component costs are determined.",
+      "why_it_matters": "Manufacturers can apply the credit rules with greater certainty.",
+      "decision_relevance": "Clarifies implementation mechanics.",
+      "reported_source_class": "official",
+      "confidence": 0.92,
+      "evidence_type": "agency_guidance",
+      "provider": "fixture",
+      "model_name": "fixture-model"
+    },
+    {
+      "provision": "45X",
+      "title": "Duplicate Advanced Manufacturing Guidance",
+      "url": "https://www.federalregister.gov/documents/2026/07/15/2026-12345/advanced-manufacturing-production-credit-guidance?utm_source=test#summary",
+      "source_name": "Federal Register",
+      "published_at": "2026-07-15T00:00:00Z",
+      "citation_quote": "The final guidance clarifies eligible component production costs.",
+      "claim": "Final guidance clarifies how eligible 45X component costs are determined.",
+      "confidence": 0.8,
+      "evidence_type": "agency_guidance",
+      "provider": "fixture"
+    },
+    {
+      "provision": "45X",
+      "title": "IRS Advanced Manufacturing Credit Page",
+      "url": "https://www.irs.gov/credits-deductions/advanced-manufacturing-production-credit",
+      "source_name": "Internal Revenue Service",
+      "published_at": "2026-07-14T00:00:00Z",
+      "citation_quote": null,
+      "claim": "IRS refreshed its public overview of the advanced manufacturing credit.",
+      "confidence": 0.7,
+      "evidence_type": "agency_guidance",
+      "provider": "fixture"
+    }
+  ],
+  "clean-hydrogen": [
+    {
+      "provision": "45V",
+      "title": "Hydrogen developers assess updated credit guidance",
+      "url": "https://example.com/news/hydrogen-credit-guidance",
+      "source_name": "Example Climate News",
+      "published_at": "2026-07-16T00:00:00Z",
+      "citation_quote": null,
+      "claim": "Developers are evaluating how recent guidance affects project schedules.",
+      "why_it_matters": "The reaction provides context but cannot change PCI.",
+      "reported_source_class": "news",
+      "confidence": 0.6,
+      "evidence_type": "news_report",
+      "provider": "fixture"
+    }
+  ]
+}

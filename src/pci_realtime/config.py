@@ -137,6 +137,21 @@ SCORING_SCHEMA_VERSION = "schema-b-v1.0.0"
 SCORING_ESTIMATED_COST_PER_CALL_USD = 0.03
 SCORING_RUN_COST_CEILING_USD = 50.0
 
+RESEARCH_DEFAULT_PROVIDERS = os.getenv(
+    "PCI_RESEARCH_PROVIDERS", os.getenv("PCI_RESEARCH_PROVIDER", "openai")
+)
+RESEARCH_PARALLEL_PROCESSOR = os.getenv("PCI_PARALLEL_PROCESSOR", "base")
+RESEARCH_UNIT_COSTS_USD = {
+    "parallel:lite": 0.005,
+    "parallel:base": 0.01,
+    "parallel:core": 0.025,
+    "exa": 0.007,
+    "openai": 0.05,
+}
+RESEARCH_RUN_COST_CEILING_USD = 2.0
+RESEARCH_MAX_REQUESTS_PER_RUN = 25
+RESEARCH_MAX_PROMOTIONS_PER_LANE = 3
+
 
 BASELINE_PCI = {
     "45X": {"specificity": 5.0, "durability": 4.0, "enforceability": 5.0, "pci": 4.67},
