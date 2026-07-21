@@ -4,7 +4,6 @@ import {
   getRegistryData,
   type PolicyEvent,
   type RegistryData,
-  type RegistryFixtureMode,
 } from "@/lib/data"
 import {
   citationHrefForPolicyEvent,
@@ -22,8 +21,8 @@ export type TerminalDataStatus = {
   viewErrors: string[]
 }
 
-export async function getPolicyTerminalData(fixtureMode?: RegistryFixtureMode) {
-  const data = await getRegistryData(fixtureMode)
+export async function getPolicyTerminalData() {
+  const data = await getRegistryData()
   const policies = buildPolicyIntelligence(data).map((policy) => ({
     code: policy.code,
     name: policy.name,

@@ -192,11 +192,6 @@ export type DeliveryData = Pick<
   | "viewErrors"
 >
 
-export type RegistryFixtureMode =
-  | "all-views-fail"
-  | "empty-views"
-  | "stale-timestamps"
-
 function registryConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL
   const key =
@@ -216,7 +211,6 @@ function errorMessage(error: unknown) {
 async function fetchView<T>(
   view: string,
   query = "select=*",
-  fixtureMode?: RegistryFixtureMode,
 ): Promise<{ rows: T[]; error: string | null }> {
   const config = registryConfig()
   if (!config) return { rows: [], error: null }
@@ -228,11 +222,8 @@ async function fetchView<T>(
 
     while (true) {
       const end = start + pageSize - 1
-      const fixtureQuery = fixtureMode
-        ? `&__mock_mode=${encodeURIComponent(fixtureMode)}`
-        : ""
       const response = await fetch(
-        `${config.url}/rest/v1/${view}?${query}${fixtureQuery}`,
+        `${config.url}/rest/v1/${view}?${query}`,
         {
           headers: {
             apikey: config.key,
@@ -317,9 +308,7 @@ export async function getDeliveryData(): Promise<DeliveryData> {
   }
 }
 
-export async function getRegistryData(
-  fixtureMode?: RegistryFixtureMode,
-): Promise<RegistryData> {
+export async function getRegistryData(): Promise<RegistryData> {
   const config = registryConfig()
   if (!config) return emptyRegistryData(["Supabase registry config is not set."])
 
@@ -338,24 +327,21 @@ export async function getRegistryData(
     fetchView<VerticalPci>(
       "v_vertical_pci",
       "select=*&order=display_order.asc",
-      fixtureMode,
     ),
-    fetchView<CurrentPci>("v_current_pci", "select=*&order=code.asc", fixtureMode),
-    fetchView<PolicyEvent>("v_policy_events", "select=*&order=created_at.desc", fixtureMode),
-    fetchView<PipelineRun>("v_pipeline_status", "select=*&limit=5", fixtureMode),
+    fetchView<CurrentPci>("v_current_pci", "select=*&order=code.asc"),
+    fetchView<PolicyEvent>("v_policy_events", "select=*&order=created_at.desc"),
+    fetchView<PipelineRun>("v_pipeline_status", "select=*&limit=5"),
     fetchView<ProvisionTimeline>(
       "v_provision_timelines",
       "select=*&order=provision.asc,week_start.asc",
-      fixtureMode,
     ),
-    fetchView<EvidenceItem>("v_evidence_items", "select=*&order=created_at.desc", fixtureMode),
-    fetchView<SourceDocument>("v_source_documents", "select=*&order=fetched_at.desc", fixtureMode),
-    fetchView<SourceLink>("v_source_links", "select=*&order=created_at.desc", fixtureMode),
-    fetchView<SourceHealth>("v_source_health", "select=*", fixtureMode),
+    fetchView<EvidenceItem>("v_evidence_items", "select=*&order=created_at.desc"),
+    fetchView<SourceDocument>("v_source_documents", "select=*&order=fetched_at.desc"),
+    fetchView<SourceLink>("v_source_links", "select=*&order=created_at.desc"),
+    fetchView<SourceHealth>("v_source_health", "select=*"),
     fetchView<AgentEvidenceSubmission>(
       "v_agent_evidence_submissions",
       "select=*&order=submitted_at.desc",
-      fixtureMode,
     ),
   ])
   const viewErrors = [
