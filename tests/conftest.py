@@ -62,3 +62,25 @@ class TableSelectingSupabaseClient:
     ) -> list[dict[str, Any]]:
         self.calls.append((table, columns, params))
         return list(self.rows_by_table.get(table, []))
+
+
+class RecordingSelectingSupabaseClient(RecordingSupabaseClient):
+    def __init__(
+        self,
+        rows_by_table: dict[str, list[dict[str, Any]]] | None = None,
+        *,
+        fail_on_table: str | None = None,
+    ) -> None:
+        super().__init__(fail_on_table=fail_on_table)
+        self.rows_by_table = rows_by_table or {}
+        self.select_calls: list[tuple[str, str, dict[str, str] | None]] = []
+
+    def select_rows(
+        self,
+        table: str,
+        *,
+        columns: str = "*",
+        params: dict[str, str] | None = None,
+    ) -> list[dict[str, Any]]:
+        self.select_calls.append((table, columns, params))
+        return list(self.rows_by_table.get(table, []))

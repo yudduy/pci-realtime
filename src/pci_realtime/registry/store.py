@@ -33,6 +33,7 @@ UPSERT_CONFLICT_KEYS = {
     "evidence_items": "evidence_id",
     "source_links": "link_id",
     "source_health": "source",
+    "policy_source_candidates": "provision,canonical_url,idempotency_key",
 }
 FORBIDDEN_PUBLIC_STRINGS = (
     "OPENAI_API_KEY",
