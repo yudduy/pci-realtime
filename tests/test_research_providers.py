@@ -76,6 +76,7 @@ def test_openai_provider_forwards_lane_and_maps_candidates(
     assert result.findings[0].provider == "openai"
     assert result.findings[0].model_name == "test-model"
     assert result.notes == ["quiet second provision"]
+    assert result.summary is None
 
 
 class FakeProvider:
@@ -113,27 +114,27 @@ def _result(provider: str, *, notes: list[str] | None = None) -> ResearchLaneRes
     )
 
 
-def test_fallback_chain_falls_through_only_on_errors_and_sums_costs() -> None:
+def test_fallback_chain_runs_openai_after_parallel_error_and_sums_costs() -> None:
     failed = FakeProvider(
-        "first",
+        "parallel",
         cost=0.2,
         error=ResearchProviderError("unavailable"),
     )
-    succeeded = FakeProvider("second", cost=0.3, result=_result("second"))
+    succeeded = FakeProvider("openai", cost=0.3, result=_result("openai"))
     chain = FallbackChain([failed, succeeded])
 
     result = chain.run_research(_brief(), budget=RequestBudget(max_requests=5))
 
-    assert chain.name == "first>second"
+    assert chain.name == "parallel>openai"
     assert chain.estimated_cost_per_lane_usd() == pytest.approx(0.5)
     assert failed.calls == succeeded.calls == 1
-    assert result.provider == "second"
-    assert result.notes[0].startswith("first failed:")
+    assert result.provider == "openai"
+    assert result.notes[0].startswith("parallel failed:")
 
 
-def test_fallback_chain_does_not_fall_through_on_empty_findings() -> None:
-    quiet = FakeProvider("quiet", cost=0.1, result=_result("quiet"))
-    unused = FakeProvider("unused", cost=0.2, result=_result("unused"))
+def test_fallback_chain_does_not_fall_through_on_empty_parallel_findings() -> None:
+    quiet = FakeProvider("parallel", cost=0.1, result=_result("parallel"))
+    unused = FakeProvider("openai", cost=0.2, result=_result("openai"))
 
     result = FallbackChain([quiet, unused]).run_research(
         _brief(),
@@ -167,19 +168,41 @@ def test_request_budget_raises_before_overrunning_cap() -> None:
     assert budget.used == 2
 
 
-def test_build_provider_chain_parses_env_and_requires_keys(
+def test_build_provider_chain_skips_parallel_when_key_is_missing(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setenv("PCI_RESEARCH_PROVIDERS", " openai ")
+    monkeypatch.delenv("PARALLEL_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
-    chain = build_provider_chain()
+    chain = build_provider_chain("parallel,openai")
 
     assert chain.name == "openai"
+    assert "PARALLEL_API_KEY is not configured" in caplog.text
 
-    monkeypatch.delenv("OPENAI_API_KEY")
-    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
-        build_provider_chain()
+
+def test_build_provider_chain_raises_when_parallel_and_openai_keys_are_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("PARALLEL_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        build_provider_chain("parallel,openai")
+
+    assert "PARALLEL_API_KEY" in str(exc_info.value)
+    assert "OPENAI_API_KEY" in str(exc_info.value)
+
+
+def test_build_provider_chain_builds_parallel_then_openai_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PARALLEL_API_KEY", "parallel-test-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-test-key")
+
+    chain = build_provider_chain("parallel,openai")
+
+    assert chain.name == "parallel>openai"
 
 
 def test_build_provider_chain_rejects_unknown_provider(
@@ -187,5 +210,5 @@ def test_build_provider_chain_rejects_unknown_provider(
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
-    with pytest.raises(RuntimeError, match="Valid providers: openai"):
-        build_provider_chain("exa")
+    with pytest.raises(RuntimeError, match="Valid providers: exa, openai, parallel"):
+        build_provider_chain("unknown")

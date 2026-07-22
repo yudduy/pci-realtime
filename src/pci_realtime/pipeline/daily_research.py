@@ -266,6 +266,7 @@ def run_daily_research(
         successful_lanes += 1
         lane_findings = result.findings[: brief.max_findings]
         lane_metrics[vertical_id]["findings"] = len(lane_findings)
+        lane_metrics[vertical_id]["summary"] = result.summary
         findings_with_lanes.extend((vertical_id, finding) for finding in lane_findings)
 
     if successful_lanes == 0:
@@ -556,13 +557,14 @@ def _ordered_vertical_ids() -> tuple[str, ...]:
     )
 
 
-def _empty_lane_metrics() -> dict[str, int]:
+def _empty_lane_metrics() -> dict[str, Any]:
     return {
         "findings": 0,
         "new_candidates": 0,
         "duplicates": 0,
         "promoted": 0,
         "errors": 0,
+        "summary": None,
     }
 
 
@@ -599,7 +601,7 @@ def _lane_health_row(
     vertical_id: str,
     *,
     provider: str,
-    metrics: dict[str, int],
+    metrics: dict[str, Any],
     error: dict[str, str] | None,
     completed_at: str,
 ) -> dict[str, Any]:
@@ -619,6 +621,7 @@ def _lane_health_row(
             "new_candidates": metrics["new_candidates"],
             "promoted": metrics["promoted"],
             "duplicates": metrics["duplicates"],
+            "summary": metrics["summary"],
         },
     )
     row["source_name"] = f"Research — {vertical['name']}"

@@ -1,0 +1,37 @@
+{
+  "requestId": "exa-fixture-001",
+  "results": [
+    {
+      "id": "https://www.energy.gov/lpo/articles/eir-guidance",
+      "title": "DOE Loan Programs Office issues Energy Infrastructure Reinvestment guidance",
+      "url": "https://www.energy.gov/lpo/articles/eir-guidance",
+      "publishedDate": "2026-07-02T10:00:00Z",
+      "author": "Department of Energy",
+      "text": "DOE issued updated financing guidance.",
+      "highlights": [
+        "The Energy Infrastructure Reinvestment program will use revised application milestones.",
+        "Applicants should consult the new schedule."
+      ]
+    },
+    {
+      "id": "https://news.example.com/clean-finance-update",
+      "title": "Federal clean-finance programs draw new developer interest",
+      "url": "https://news.example.com/clean-finance-update",
+      "publishedDate": "2026-07-01T16:00:00Z",
+      "author": "Example News",
+      "text": "Developers are reviewing federal financing options.",
+      "highlights": [
+        "Project developers reported renewed interest in federal clean-energy financing."
+      ]
+    },
+    {
+      "id": "https://analysis.example.org/lpo-funding",
+      "title": "Loan Programs Office funding outlook changes",
+      "url": "https://analysis.example.org/lpo-funding",
+      "publishedDate": null,
+      "author": "Example Analysis",
+      "text": "The analysis reviews remaining appropriations.",
+      "highlights": []
+    }
+  ]
+}

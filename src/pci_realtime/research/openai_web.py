@@ -67,6 +67,7 @@ class OpenAIWebSearchProvider:
             notes=list(result.notes),
             requests_used=1,
             estimated_cost_usd=self.estimated_cost_per_lane_usd(),
+            summary=None,
         )
 
 

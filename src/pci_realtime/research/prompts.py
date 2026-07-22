@@ -15,6 +15,7 @@ def build_lane_research_prompt(brief: LaneBrief) -> str:
         "Separate official (.gov) sources from news and analysis sources.",
         "For every official source, include a short verbatim quote that supports the claim.",
         "Never invent URLs, dates, or quotes.",
+        "Include a 2-3 sentence lane_summary of the day's developments.",
         f"Return at most {brief.max_findings} findings.",
         "",
         "Tracked provisions:",
