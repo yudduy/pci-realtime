@@ -1,6 +1,6 @@
 import type { ChangeEvent } from "@/lib/changes"
+import { SITE_URL } from "@/lib/site"
 
-export const SITE_URL = "https://pcindex.vercel.app"
 // RFC 4151 tag URI — the year is the minting date, frozen forever; changing it re-delivers every entry as new.
 export const TAG_URI_PREFIX = "tag:pcindex.vercel.app,2026"
 const SUBTITLE =

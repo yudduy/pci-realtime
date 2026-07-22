@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { SiteHeader } from "@/components/layout/site-header"
 import { POLICIES } from "@/lib/policy-copy"
+import { REPO_URL } from "@/lib/site"
 
 const authors = [
   { name: "Yikai Cao", institution: "Stanford University" },
@@ -65,7 +66,7 @@ export default function AboutPage() {
           <Link className="academic-pill-link" href="/">
             Terminal
           </Link>
-          <a className="academic-pill-link" href="https://github.com/yudduy/pci-realtime">
+          <a className="academic-pill-link" href={REPO_URL}>
             Code
           </a>
         </div>

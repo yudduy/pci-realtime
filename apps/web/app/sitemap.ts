@@ -1,7 +1,10 @@
 import type { MetadataRoute } from "next"
 import { POLICIES } from "@/lib/policy-copy"
+import { SITE_URL } from "@/lib/site"
 
-const baseUrl = "https://pcindex.vercel.app"
+const baseUrl = SITE_URL
+
+export const dynamic = "force-static"
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [

@@ -53,7 +53,7 @@ test("serves vertical Atom feeds and rejects unknown verticals", async ({
 })
 
 test("serves the canonical changes API contract", async ({ request }) => {
-  const response = await request.get("/api/changes")
+  const response = await request.get("/api/changes.json")
   const payload = await response.json()
 
   expect(response.status()).toBe(200)
@@ -76,45 +76,14 @@ test("serves the canonical changes API contract", async ({ request }) => {
   expect(payload.changes[0].source.url).toContain("#:~:text=")
 })
 
-test("filters and validates changes API queries", async ({ request }) => {
-  const manufacturing = await request.get(
-    "/api/changes?vertical=advanced-manufacturing",
-  )
-  expect((await manufacturing.json()).count).toBe(0)
+test("serves per-vertical snapshots and retires the query API", async ({ request }) => {
+  const hydrogen = await request.get("/api/changes/clean-hydrogen.json")
+  expect(hydrogen.status()).toBe(200)
+  expect((await hydrogen.json()).vertical).toBe("clean-hydrogen")
 
-  const badVertical = await request.get("/api/changes?vertical=bogus")
-  expect(badVertical.status()).toBe(400)
-  expect((await badVertical.json()).error).toContain(
-    "advanced-manufacturing, clean-hydrogen, carbon-capture, electric-vehicles, clean-energy-finance",
-  )
+  const bogus = await request.get("/api/changes/bogus.json")
+  expect(bogus.status()).toBe(404)
 
-  const badSince = await request.get("/api/changes?since=bogus")
-  expect(badSince.status()).toBe(400)
-
-  const badSinceGrammar = await request.get("/api/changes?since=07/01/2026")
-  expect(badSinceGrammar.status()).toBe(400)
-
-  const future = await request.get("/api/changes?since=2030-01-01")
-  expect((await future.json()).count).toBe(0)
-
-  const past = await request.get("/api/changes?since=2020-01-01")
-  expect((await past.json()).count).toBe(1)
-
-  const encodedPlus = await request.get(
-    "/api/changes?since=2020-01-01T00:00:00%2B00:00",
-  )
-  expect(encodedPlus.status()).toBe(200)
-  expect((await encodedPlus.json()).count).toBe(1)
-
-  const literalPlus = await request.get(
-    "/api/changes?since=2030-01-01T00:00:00+00:00",
-  )
-  expect(literalPlus.status()).toBe(200)
-  expect((await literalPlus.json()).count).toBe(0)
-
-  const badLimit = await request.get("/api/changes?limit=abc")
-  expect(badLimit.status()).toBe(400)
-
-  const exponentLimit = await request.get("/api/changes?limit=1e2")
-  expect(exponentLimit.status()).toBe(400)
+  const legacy = await request.get("/api/changes")
+  expect(legacy.status()).toBe(404)
 })

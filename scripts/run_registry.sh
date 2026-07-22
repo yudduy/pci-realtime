@@ -81,8 +81,10 @@ fi
 
 SUPABASE_URL="$API_URL" \
 SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" \
+PCI_REQUIRE_LIVE_SNAPSHOT=1 \
   npm --prefix apps/web run build
 
-SUPABASE_URL="$API_URL" \
-SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" \
-  npm --prefix apps/web run start -- --hostname "$HOST" --port "$PORT"
+node apps/web/scripts/serve-export.mjs \
+  --root apps/web/out \
+  --port "$PORT" \
+  --host "$HOST"

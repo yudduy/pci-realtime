@@ -1,9 +1,10 @@
 import Link from "next/link"
+import { REPO_URL } from "@/lib/site"
 
 const navItems = [
   { label: "About", href: "/about" },
   { label: "Connect", href: "/connect" },
-  { label: "Code", href: "https://github.com/yudduy/pci-realtime" },
+  { label: "Code", href: REPO_URL },
 ]
 
 export function SiteHeader() {
