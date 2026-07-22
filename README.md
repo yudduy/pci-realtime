@@ -135,15 +135,21 @@ python -m pci_realtime.pipeline.daily_refresh
 GitHub Actions runs `.github/workflows/pipeline-weekly.yml` every Monday at
 13:17 UTC for the prior complete Monday-Sunday window. It runs
 `.github/workflows/discovery-daily.yml` daily at 11:23 UTC to refresh public
-context and source health, then sweep official sources for new research
-evidence. The workflows share the `pipeline` concurrency group, so they never
-write concurrently.
+context and source health, then run one deep-research lane per climate-tech
+vertical (`pci_realtime.pipeline.daily_research`): findings land in
+`policy_source_candidates` with source attribution, and official-domain,
+quote-anchored candidates are auto-promoted through the governed scoring path.
+The workflows share the `pipeline` concurrency group, so they never write
+concurrently.
 
-Configure these five repository Actions secrets: `SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `CONGRESS_GOV_API_KEY`, and
-`REGULATIONS_GOV_API_KEY`. The two source API keys are optional; when absent,
-the pipeline records disabled source-health rows. `PCI_RESEARCH_MODEL` may be
-set as a repository variable to override the research model.
+Configure these repository Actions secrets: `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `CONGRESS_GOV_API_KEY`,
+`REGULATIONS_GOV_API_KEY`, and `PARALLEL_API_KEY` (primary research provider;
+`EXA_API_KEY` optional). The source API keys are optional; when absent, the
+pipeline records disabled source-health rows. Until `PARALLEL_API_KEY` exists
+the research chain falls back to the OpenAI official-domains sweep
+automatically. `PCI_RESEARCH_MODEL` and `PCI_RESEARCH_PROVIDERS` may be set as
+repository variables to override the fallback model and provider chain.
 
 Dispatch a weekly backfill with an explicit inclusive window:
 
@@ -273,18 +279,30 @@ Use `ingest_source_url` only when the agent cannot reliably extract a citation
 anchor itself. Prefer `submit_policy_evidence` because it forces the agent to
 name the exact quote that supports the claim.
 
-Run the daily research scout in dry-run mode:
+Run the daily per-vertical research pipeline in dry-run mode:
+
+```bash
+uv run --extra dev python -m pci_realtime.pipeline.daily_research \
+  --since 2026-06-01 \
+  --dry-run --output-path data/debug/daily_research.json
+```
+
+Each vertical gets one research lane (Parallel Task API primary, Exa optional,
+OpenAI official-domains web search as the fallback tier). All findings are
+recorded in `policy_source_candidates` with citations; only official-domain
+candidates with verbatim quotes are promoted through `submit_policy_evidence`
+(the real scorer — the only path that can move PCI). Cost guard: the run
+aborts above `PCI_RESEARCH_RUN_COST_CEILING_USD` unless `--confirm-cost`.
+Writes require `--write` and `status.write_configured`; if
+`status.agent_intake_configured` is false, apply migration `005` first.
+
+The older single-purpose scout remains as a manual fallback:
 
 ```bash
 uv run --extra dev python scripts/run_agent_research_intake.py \
   --since 2026-06-01 \
   --output-path data/debug/agent_research_intake.json
 ```
-
-The scout uses OpenAI web search over official-source domains, returns
-structured source candidates, and writes only when `--write` is passed and
-`status.write_configured` is true. If `status.agent_intake_configured` is false,
-apply migration `005` before expecting governed agent-submission rows.
 
 Start the Supabase-backed registry and web app from one command:
 
