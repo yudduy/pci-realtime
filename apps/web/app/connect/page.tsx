@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { CopyBlock } from "@/components/connect/copy-block"
 import { SiteHeader } from "@/components/layout/site-header"
+import { HOSTED_MCP_URL, REPO_URL } from "@/lib/site"
 
 export const metadata: Metadata = {
   title: "Connect PCIndex MCP",
@@ -11,10 +12,10 @@ export const metadata: Metadata = {
 const localServerCommand =
   "uv run --extra dev python -m pci_realtime.mcp_server"
 
-const hostedUrl = "https://pcindex.vercel.app/mcp"
+const hostedUrl = HOSTED_MCP_URL
 
 const setupCommand =
-  "git clone https://github.com/yudduy/pci-realtime && cd pci-realtime && uv sync --extra dev"
+  `git clone ${REPO_URL} && cd pcindex.github.io && uv sync --extra dev`
 
 const claudeHostedCommand =
   `claude mcp add -s user -t http pcindex ${hostedUrl}`

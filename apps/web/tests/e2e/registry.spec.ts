@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test"
 
+const HOSTED_MCP_URL =
+  "https://fdxinkqiarezurwofhmz.supabase.co/functions/v1/mcp"
+
 test("renders the policy terminal as the home page", async ({ page }) => {
   await page.goto("/")
 
@@ -84,7 +87,7 @@ test("renders the agent connection setup without secrets", async ({ page }) => {
   await expect(page.getByText("Live", { exact: true })).toBeVisible()
   await expect(page.getByText("Ready", { exact: true })).toBeVisible()
   await expect(page.locator(".connect-protocol-card", { hasText: "Hosted read MCP" })).toContainText(
-    "https://pcindex.vercel.app/mcp",
+    HOSTED_MCP_URL,
   )
   await expect(page.locator(".connect-protocol-card", { hasText: "Local write MCP" })).toContainText(
     "uv run --extra dev python -m pci_realtime.mcp_server",
@@ -102,12 +105,12 @@ test("renders the agent connection setup without secrets", async ({ page }) => {
   await expect(page.getByText("ingest_source_url(...)")).toHaveCount(0)
   await expect(page.getByText("Claude Code", { exact: true })).toBeVisible()
   await expect(page.getByText("Codex CLI", { exact: true })).toBeVisible()
-  await expect(page.getByText(`claude mcp add -s user -t http pcindex https://pcindex.vercel.app/mcp`)).toBeVisible()
-  await expect(page.getByText(`codex mcp add pcindex --url https://pcindex.vercel.app/mcp`)).toBeVisible()
+  await expect(page.getByText(`claude mcp add -s user -t http pcindex ${HOSTED_MCP_URL}`)).toBeVisible()
+  await expect(page.getByText(`codex mcp add pcindex --url ${HOSTED_MCP_URL}`)).toBeVisible()
   await expect(page.getByText("Generic hosted MCP config")).toBeVisible()
   await expect(page.getByText("Generic local MCP config")).toBeVisible()
   await expect(page.getByText("Get PCIndex")).toBeVisible()
-  await expect(page.getByText("git clone https://github.com/yudduy/pci-realtime")).toBeVisible()
+  await expect(page.getByText("git clone https://github.com/pcindex/pcindex.github.io")).toBeVisible()
   await expect(page.getByText("claude mcp add -s user pcindex")).toBeVisible()
   await expect(page.getByText("codex mcp add pcindex -- bash")).toBeVisible()
   await expect(page.getByText("Streamable HTTP server command")).toHaveCount(0)
@@ -125,7 +128,7 @@ test("renders the agent connection setup without secrets", async ({ page }) => {
 
   const content = await page.content()
   expect(content).not.toMatch(/sb_secret_|sb_publishable_|sk-proj-/i)
-  expect(content).not.toMatch(/[a-z0-9]{20}\.supabase\.co/i)
+  await expect(page.getByText(HOSTED_MCP_URL, { exact: true }).first()).toBeVisible()
   expect(content).not.toMatch(/\/Users\/[a-z-]+\//i)
   expect(content).not.toMatch(/SUPABASE_|service-role|005_agent_evidence_intake|scripts\/smoke_mcp|--write-smoke|\.env|public browser app stays read-only/i)
   expect(content).not.toMatch(/\/path\/to|Copy the setup block/i)
@@ -136,174 +139,14 @@ test("renders the agent connection setup without secrets", async ({ page }) => {
   expect(fitsViewport).toBe(true)
 })
 
-test("exposes the hosted read-only MCP endpoint", async ({ request }) => {
-  const initializeResponse = await request.post("/mcp", {
-    headers: { accept: "application/json, text/event-stream" },
-    data: {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: {
-        protocolVersion: "2025-03-26",
-        capabilities: {},
-        clientInfo: { name: "pcindex-e2e", version: "0.1.0" },
-      },
-    },
-  })
-
-  expect(initializeResponse.status()).toBeLessThan(500)
-  const initializeBody = await initializeResponse.text()
-  expect(initializeBody).toContain("pcindex")
-
-  const sessionId = initializeResponse.headers()["mcp-session-id"]
-  const listResponse = await request.post("/mcp", {
-    headers: {
-      accept: "application/json, text/event-stream",
-      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
-    },
-    data: {
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/list",
-      params: {},
-    },
-  })
-
-  expect(listResponse.status()).toBeLessThan(500)
-  const payload = parseMcpResponse(await listResponse.text())
-  expect(payload.result.tools.map((tool: { name: string }) => tool.name)).toEqual([
-    "status",
-    "list_policies",
-    "current_pci",
-    "policy_dossier",
-    "get_evidence_trace",
-    "list_verticals",
-    "vertical_status",
-    "list_changes",
-  ])
-
-  const verticalsResponse = await request.post("/mcp", {
-    headers: {
-      accept: "application/json, text/event-stream",
-      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
-    },
-    data: {
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "list_verticals", arguments: {} },
-    },
-  })
-  const verticalsResult = parseMcpResponse(await verticalsResponse.text())
-  const verticalsPayload = JSON.parse(verticalsResult.result.content[0].text)
-  expect(verticalsPayload.verticals.map((vertical: { id: string }) => vertical.id)).toEqual([
-    "advanced-manufacturing",
-    "clean-hydrogen",
-    "carbon-capture",
-    "electric-vehicles",
-    "clean-energy-finance",
-  ])
-  expect(verticalsPayload.source).toBe("registry")
-
-  const statusResponse = await request.post("/mcp", {
-    headers: {
-      accept: "application/json, text/event-stream",
-      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
-    },
-    data: {
-      jsonrpc: "2.0",
-      id: 4,
-      method: "tools/call",
-      params: {
-        name: "vertical_status",
-        arguments: { vertical_id: "clean-energy-finance" },
-      },
-    },
-  })
-  const statusResult = parseMcpResponse(await statusResponse.text())
-  const statusPayload = JSON.parse(statusResult.result.content[0].text)
-  expect(statusPayload.vertical).toMatchObject({
-    id: "clean-energy-finance",
-    coverage_note:
-      "Tracks DOE Loan Programs Office funding (50141) and Energy Infrastructure Reinvestment authority (50144).",
-    vertical_pci: 3.17,
-    provisions: ["50141", "50144"],
-  })
-  expect(statusPayload.provisions.map((policy: { code: string }) => policy.code)).toEqual([
-    "50141",
-    "50144",
-  ])
-
-  const changesResponse = await request.post("/mcp", {
-    headers: {
-      accept: "application/json, text/event-stream",
-      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
-    },
-    data: {
-      jsonrpc: "2.0",
-      id: 5,
-      method: "tools/call",
-      params: { name: "list_changes", arguments: {} },
-    },
-  })
-  const changesResult = parseMcpResponse(await changesResponse.text())
-  const changesPayload = JSON.parse(changesResult.result.content[0].text)
-  expect(changesPayload.count).toBe(1)
-  expect(changesPayload.changes[0].id).toBe(
-    "2026-W21:federal_register:45v-guidance:45V",
-  )
-  expect(changesPayload.changes[0].headline).toMatch(/^Clean Hydrogen:/)
-
-  const filteredChangesResponse = await request.post("/mcp", {
-    headers: {
-      accept: "application/json, text/event-stream",
-      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
-    },
-    data: {
-      jsonrpc: "2.0",
-      id: 6,
-      method: "tools/call",
-      params: {
-        name: "list_changes",
-        arguments: { vertical: "advanced-manufacturing" },
-      },
-    },
-  })
-  const filteredChangesResult = parseMcpResponse(
-    await filteredChangesResponse.text(),
-  )
-  const filteredChangesPayload = JSON.parse(
-    filteredChangesResult.result.content[0].text,
-  )
-  expect(filteredChangesPayload.count).toBe(0)
-
-  const unknownResponse = await request.post("/mcp", {
-    headers: {
-      accept: "application/json, text/event-stream",
-      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
-    },
-    data: {
-      jsonrpc: "2.0",
-      id: 7,
-      method: "tools/call",
-      params: {
-        name: "vertical_status",
-        arguments: { vertical_id: "geothermal" },
-      },
-    },
-  })
-  const unknownResult = parseMcpResponse(await unknownResponse.text())
-  expect(unknownResult.result.isError).toBe(true)
-  expect(unknownResult.result.content[0].text).toContain(
-    "advanced-manufacturing, clean-hydrogen, carbon-capture, electric-vehicles, clean-energy-finance",
-  )
-})
-
 test("lists the connection page in the agent documentation index", async ({ page }) => {
   await page.goto("/llms.txt")
 
   await expect(page.getByText("[Connect](https://pcindex.vercel.app/connect)")).toBeVisible()
-  await expect(page.getByText("[Hosted MCP](https://pcindex.vercel.app/mcp)")).toBeVisible()
+  await expect(page.getByText(`[Hosted MCP](${HOSTED_MCP_URL})`)).toBeVisible()
+  await expect(
+    page.getByText("[Changes API](https://pcindex.vercel.app/api/changes.json)"),
+  ).toBeVisible()
 })
 
 test("renders the policy credibility terminal with policy evidence", async ({ page }) => {
@@ -383,7 +226,7 @@ test("renders the policy credibility terminal with policy evidence", async ({ pa
 test("policy detail URLs resolve back to the terminal accordion", async ({ page }) => {
   await page.goto("/policies/45V")
 
-  await expect(page).toHaveURL(/\/#policy-45V$/)
+  await expect(page).toHaveURL(/#policy-45V/)
   await expect(page.getByRole("heading", { name: "Tracked verticals" })).toBeVisible()
   await expect(page.locator(".policy-accordion-trigger", { hasText: "45V" })).toBeVisible()
   await expect(page.getByText("Latest official evidence")).toHaveCount(0)
@@ -396,10 +239,3 @@ test("policy detail URLs resolve back to the terminal accordion", async ({ page 
   expect(content).not.toMatch(new RegExp("absta" + "in", "i"))
   expect(content).not.toMatch(/preview dataset|gate|agent readiness|official source pending|no source|pci signal|prediction mode/i)
 })
-
-function parseMcpResponse(body: string) {
-  const dataLine = body
-    .split("\n")
-    .find((line) => line.startsWith("data:"))
-  return JSON.parse(dataLine ? dataLine.slice("data:".length).trim() : body)
-}

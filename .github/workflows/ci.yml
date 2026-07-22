@@ -34,6 +34,37 @@ jobs:
         working-directory: apps/web
       - run: npm --prefix apps/web run test:e2e
 
+  export-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm --prefix apps/web ci
+      - name: Build and verify the static export
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:8787
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: test
+          NEXT_PUBLIC_SITE_URL: https://pcindex.github.io
+          PCI_REQUIRE_LIVE_SNAPSHOT: 1
+        run: |
+          node apps/web/tests/e2e/mock-supabase.mjs &
+          mock_pid=$!
+          trap 'kill "$mock_pid"' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8787/health >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8787/health >/dev/null
+          npm --prefix apps/web run build
+          node apps/web/tests/export/verify-export.mjs
+
   edge-functions:
     runs-on: ubuntu-latest
     steps:

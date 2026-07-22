@@ -1,7 +1,7 @@
 import { PolicyTerminal } from "@/components/policy/terminal"
 import { getPolicyTerminalData } from "@/lib/terminal-data"
 
-export const dynamic = "force-dynamic"
+export const dynamic = "force-static"
 
 export default async function Home() {
   return <PolicyTerminal data={await getPolicyTerminalData()} />

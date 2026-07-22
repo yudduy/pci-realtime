@@ -1,5 +1,6 @@
 import { buildPolicyHeadlines } from "@/lib/headlines"
 import { buildPolicyIntelligence } from "@/lib/intelligence"
+import { assertSnapshotUsable } from "@/lib/build-gate"
 import {
   getRegistryData,
   type PolicyEvent,
@@ -23,6 +24,7 @@ export type TerminalDataStatus = {
 
 export async function getPolicyTerminalData() {
   const data = await getRegistryData()
+  assertSnapshotUsable("policy terminal", data.connected, data.viewErrors)
   const policies = buildPolicyIntelligence(data).map((policy) => ({
     code: policy.code,
     name: policy.name,
