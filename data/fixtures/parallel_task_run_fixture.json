@@ -1,0 +1,109 @@
+{
+  "create_response": {
+    "run_id": "trun_fixture_001",
+    "status": "queued",
+    "is_active": true,
+    "processor": "base",
+    "created_at": "2026-07-02T08:00:00Z"
+  },
+  "result_response": {
+    "run": {
+      "run_id": "trun_fixture_001",
+      "status": "completed",
+      "is_active": false,
+      "processor": "base",
+      "created_at": "2026-07-02T08:00:00Z"
+    },
+    "output": {
+      "type": "json",
+      "content": {
+        "findings": [
+          {
+            "provision": "50141",
+            "title": "DOE updates Loan Programs Office funding guidance",
+            "url": "https://www.energy.gov/lpo/articles/funding-guidance",
+            "source_name": "Department of Energy",
+            "published_at": "2026-07-01T15:00:00Z",
+            "citation_quote": "The office will continue accepting applications under the updated guidance.",
+            "citation_section": "Program update",
+            "claim": "DOE updated application guidance for Loan Programs Office funding.",
+            "why_it_matters": "The update clarifies access to federal financing.",
+            "decision_relevance": "Developers should review the revised application instructions.",
+            "reported_source_class": "official",
+            "confidence": 0.91
+          },
+          {
+            "provision": "50144",
+            "title": "Energy infrastructure reinvestment pipeline expands",
+            "url": "https://www.utilitydive.com/news/eir-project-pipeline/730001/",
+            "source_name": "Utility Dive",
+            "published_at": "2026-07-01T18:30:00Z",
+            "citation_quote": "Developers described a larger pipeline of proposed reinvestment projects.",
+            "citation_section": null,
+            "claim": "Developers reported a larger pipeline of projects seeking section 50144 financing.",
+            "why_it_matters": "A larger pipeline could increase demand for the program's remaining authority.",
+            "decision_relevance": "Project sponsors may face greater competition for financing.",
+            "reported_source_class": "news",
+            "confidence": 0.73
+          },
+          {
+            "provision": "50141",
+            "title": "Treasury financing analysis reviews LPO appropriations",
+            "url": "https://policy.example.org/analysis/lpo-appropriations",
+            "source_name": "Policy Example",
+            "published_at": "2026-07-02T06:00:00Z",
+            "citation_quote": null,
+            "citation_section": null,
+            "claim": "An analysis reviewed the outlook for remaining Loan Programs Office appropriations.",
+            "why_it_matters": "The analysis provides context on future financing capacity.",
+            "decision_relevance": null,
+            "reported_source_class": "analysis",
+            "confidence": 0.64
+          }
+        ],
+        "lane_summary": "DOE clarified Loan Programs Office application guidance while developers reported a growing project pipeline. The day's developments point to continued demand for both 50141 funding and 50144 reinvestment authority.",
+        "notes": [
+          "No additional official 50144 notice was published in the search window."
+        ]
+      },
+      "basis": [
+        {
+          "field": "findings[0].claim",
+          "reasoning": "The official DOE page directly supports the guidance update.",
+          "citations": [
+            {
+              "url": "https://www.energy.gov/lpo/articles/funding-guidance?utm_source=parallel#program-update",
+              "title": "DOE updates Loan Programs Office funding guidance",
+              "excerpts": [
+                "The office will continue accepting applications under the updated guidance."
+              ]
+            },
+            {
+              "url": "https://www.energy.gov/lpo/articles/unrelated-announcement",
+              "title": "Unrelated LPO announcement",
+              "excerpts": [
+                "This excerpt belongs to a different source URL."
+              ]
+            }
+          ],
+          "confidence": "high"
+        },
+        {
+          "field": "findings[1].claim",
+          "reasoning": "The news report discusses the project pipeline.",
+          "citations": [
+            {
+              "url": "https://www.utilitydive.com/news/eir-project-pipeline/730001/",
+              "title": "Energy infrastructure reinvestment pipeline expands",
+              "excerpts": [
+                "Developers described a larger pipeline of proposed reinvestment projects."
+              ]
+            }
+          ],
+          "confidence": "medium"
+        }
+      ],
+      "output_schema": null
+    }
+  }
+}

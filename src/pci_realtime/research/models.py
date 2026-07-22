@@ -66,6 +66,7 @@ class ResearchLaneResult(BaseModel):
     notes: list[str] = Field(default_factory=list)
     requests_used: int = 0
     estimated_cost_usd: float = 0.0
+    summary: str | None = None
 
 
 def is_official_domain(

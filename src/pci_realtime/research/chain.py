@@ -12,13 +12,23 @@ from pci_realtime.research.base import (
     ResearchProvider,
     ResearchProviderError,
 )
+from pci_realtime.research.exa import ExaProvider
 from pci_realtime.research.models import LaneBrief, ResearchLaneResult
 from pci_realtime.research.openai_web import OpenAIWebSearchProvider
+from pci_realtime.research.parallel import ParallelProvider
 
 
 LOGGER = logging.getLogger(__name__)
-_PROVIDER_FACTORIES = {"openai": OpenAIWebSearchProvider}
-_PROVIDER_API_KEYS = {"openai": "OPENAI_API_KEY"}
+_PROVIDER_FACTORIES = {
+    "openai": OpenAIWebSearchProvider,
+    "parallel": ParallelProvider,
+    "exa": ExaProvider,
+}
+_PROVIDER_API_KEYS = {
+    "parallel": "PARALLEL_API_KEY",
+    "exa": "EXA_API_KEY",
+    "openai": "OPENAI_API_KEY",
+}
 
 
 class FallbackChain:

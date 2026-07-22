@@ -60,10 +60,12 @@ class FakeChain:
         findings_by_vertical: dict[str, list[ResearchFinding]],
         *,
         errors: dict[str, Exception] | None = None,
+        summaries: dict[str, str | None] | None = None,
         cost: float = 0.05,
     ) -> None:
         self.findings_by_vertical = findings_by_vertical
         self.errors = errors or {}
+        self.summaries = summaries or {}
         self.cost = cost
         self.calls: list[str] = []
 
@@ -79,6 +81,7 @@ class FakeChain:
             vertical_id=brief.vertical_id,
             provider=self.name,
             findings=self.findings_by_vertical.get(brief.vertical_id, []),
+            summary=self.summaries.get(brief.vertical_id),
         )
 
 
@@ -330,7 +333,11 @@ def test_shared_request_budget_exhaustion_propagates(
 def test_dry_run_invokes_research_without_client_calls_and_writes_payload(
     tmp_path: Path,
 ) -> None:
-    chain = FakeChain(_fixture_findings())
+    lane_summary = "Manufacturing guidance changed; hydrogen coverage was quiet."
+    chain = FakeChain(
+        _fixture_findings(),
+        summaries={"advanced-manufacturing": lane_summary},
+    )
     client = RecordingSelectingSupabaseClient()
     output_path = tmp_path / "daily-research.json"
 
@@ -360,6 +367,41 @@ def test_dry_run_invokes_research_without_client_calls_and_writes_payload(
         "policy_source_candidates",
         "source_health",
     }
+    assert result["lanes"] == {
+        "advanced-manufacturing": {
+            "findings": 3,
+            "new_candidates": 2,
+            "duplicates": 1,
+            "promoted": 0,
+            "errors": 0,
+            "summary": lane_summary,
+        },
+        "clean-hydrogen": {
+            "findings": 1,
+            "new_candidates": 1,
+            "duplicates": 0,
+            "promoted": 0,
+            "errors": 0,
+            "summary": None,
+        },
+    }
+    health_rows = {row["source"]: row for row in output["rows"]["source_health"]}
+    assert health_rows["research:advanced-manufacturing"]["details"] == {
+        "vertical": "advanced-manufacturing",
+        "provider": "fixture",
+        "new_candidates": 2,
+        "promoted": 0,
+        "duplicates": 1,
+        "summary": lane_summary,
+    }
+    assert health_rows["research:clean-hydrogen"]["details"] == {
+        "vertical": "clean-hydrogen",
+        "provider": "fixture",
+        "new_candidates": 1,
+        "promoted": 0,
+        "duplicates": 0,
+        "summary": None,
+    }
 
 
 def test_one_failed_lane_records_failed_health_and_other_lanes_continue(
@@ -388,9 +430,29 @@ def test_one_failed_lane_records_failed_health_and_other_lanes_continue(
     failed = next(
         row for row in health_rows if row["source"] == "research:advanced-manufacturing"
     )
+    succeeded = next(
+        row for row in health_rows if row["source"] == "research:clean-hydrogen"
+    )
     assert failed["status"] == "failed"
     assert failed["last_error_class"] == "RuntimeError"
     assert failed["source_name"] == "Research — Advanced Manufacturing"
+    assert result["lanes"]["advanced-manufacturing"] == {
+        "findings": 0,
+        "new_candidates": 0,
+        "duplicates": 0,
+        "promoted": 0,
+        "errors": 1,
+        "summary": None,
+    }
+    assert failed["details"] == {
+        "vertical": "advanced-manufacturing",
+        "provider": "fixture",
+        "new_candidates": 0,
+        "promoted": 0,
+        "duplicates": 0,
+        "summary": None,
+    }
+    assert succeeded["details"]["summary"] is None
 
 
 def test_all_failed_lanes_abort_the_run() -> None:
