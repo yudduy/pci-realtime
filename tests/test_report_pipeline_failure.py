@@ -44,6 +44,19 @@ def test_report_failure_writes_pipeline_run_and_source_health(monkeypatch) -> No
     assert health["details"] == {"notes": run_url}
 
 
+def test_report_failure_maps_research_run_type_to_policy_discovery(monkeypatch) -> None:
+    client = RecordingSupabaseClient()
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "example/pci-realtime")
+    monkeypatch.setenv("GITHUB_RUN_ID", "67890")
+
+    REPORT_FAILURE("research", client=client)  # type: ignore[arg-type]
+
+    pipeline_run = client.calls[0][2][0]
+    assert pipeline_run["run_type"] == "policy_discovery"
+    assert pipeline_run["status"] == "failed"
+
+
 def test_report_failure_attempts_health_upsert_after_run_insert_failure(capsys) -> None:
     client = RecordingSupabaseClient(fail_on_table="pipeline_runs")
 

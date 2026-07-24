@@ -25,7 +25,10 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       CONGRESS_GOV_API_KEY: ${{ secrets.CONGRESS_GOV_API_KEY }}
       REGULATIONS_GOV_API_KEY: ${{ secrets.REGULATIONS_GOV_API_KEY }}
+      PARALLEL_API_KEY: ${{ secrets.PARALLEL_API_KEY }}
+      EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
       PCI_RESEARCH_MODEL: ${{ vars.PCI_RESEARCH_MODEL }}
+      PCI_RESEARCH_PROVIDERS: ${{ vars.PCI_RESEARCH_PROVIDERS }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -49,11 +52,15 @@ jobs:
           PY
       - name: Refresh public context and source health
         run: uv run --extra dev python -m pci_realtime.pipeline.daily_refresh
-      - name: Run official-source research sweep
+      - name: Run daily vertical research
+        id: research_run
         run: >-
-          uv run --extra dev python scripts/run_agent_research_intake.py
+          uv run --extra dev python -m pci_realtime.pipeline.daily_research
           --since "${{ steps.research.outputs.since }}"
           --write
+      - name: Record research failure
+        if: failure() && steps.research_run.outcome == 'failure'
+        run: uv run --extra dev python scripts/report_pipeline_failure.py --run-type research
       - name: Record daily pipeline failure
-        if: failure()
+        if: failure() && steps.research_run.outcome != 'failure'
         run: uv run --extra dev python scripts/report_pipeline_failure.py --run-type daily

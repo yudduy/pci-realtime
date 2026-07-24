@@ -44,7 +44,7 @@ uv run --extra dev python -m pci_realtime.mcp_server          # local MCP (stdio
 
 The `pci` typer CLI (`pci_realtime.cli:app`) wraps the same service layer: `pci status`, `pci policies`, ….
 
-GitHub Actions (`.github/workflows/`): `ci.yml` runs the checks above on PRs; `pipeline-weekly.yml` (Monday cron + `workflow_dispatch` with date inputs, used for backfills) runs the weekly ledger loop; `discovery-daily.yml` runs the context refresh and the live-web-search research sweep. Actions failures also write `source_health(source="pipeline")` rows, which the UI staleness badge surfaces.
+GitHub Actions (`.github/workflows/`): `ci.yml` runs the checks above on PRs; `pipeline-weekly.yml` (Monday cron + `workflow_dispatch` with date inputs, used for backfills) runs the weekly ledger loop; `discovery-daily.yml` runs the context refresh and the per-vertical daily research pipeline (`pipeline/daily_research.py`: provider chain in `research/` — Parallel primary, OpenAI web-search fallback — writes `policy_source_candidates`, auto-promotes official quote-anchored candidates through `submit_policy_evidence`; research-step failures record `run_type=policy_discovery`). Actions failures also write `source_health(source="pipeline")` rows, which the UI staleness badge surfaces.
 
 ## Architecture
 

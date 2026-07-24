@@ -7,7 +7,7 @@ from pci_realtime.registry.evidence import source_health_row, utc_now_iso
 from pci_realtime.registry.store import SupabaseRestClient
 
 
-RUN_TYPES = {"weekly": "weekly", "daily": "daily_refresh"}
+RUN_TYPES = {"weekly": "weekly", "daily": "daily_refresh", "research": "policy_discovery"}
 
 
 def report_failure(run_type: str, *, client: SupabaseRestClient | None = None) -> None:
